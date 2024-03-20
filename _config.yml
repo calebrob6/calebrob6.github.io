@@ -12,7 +12,7 @@ title                    : "Caleb Robinson"
 title_separator          : "-"
 name                     : &name "Caleb Robinson"
 description              : &description "Principal Research Scientist"
-url                      : https://calebrob6.github.io # the base hostname & protocol for your site e.g. "https://mmistakes.github.io"
+url                      : https://calebrob.com # the base hostname & protocol for your site e.g. "https://mmistakes.github.io"
 baseurl                  : "" # the subpath of your site, e.g. "/blog"
 repository               : "calebrob6/calebrob6.github.io"
 
