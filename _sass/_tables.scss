@@ -3,7 +3,6 @@
    ========================================================================== */
 
 table {
-  margin-bottom: 1em;
   width: 100%;
   font-family: $global-font-family;
   font-size: $type-size-6;
@@ -29,8 +28,6 @@ th {
 
 td {
   padding: 0.5em;
-  border-bottom: 1px solid $light-gray;
-  border-right: 1px solid $light-gray;
 }
 
 tr, td, th {
