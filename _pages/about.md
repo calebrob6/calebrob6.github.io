@@ -1,6 +1,6 @@
 ---
 permalink: /
-title: "Research"
+title: "Bio"
 author_profile: true
 redirect_from: 
   - /about/
@@ -22,3 +22,5 @@ March 15th, 2024 -- We have two papers accepted at [IGARSS 2024](https://www.202
 March 3rd, 2024 -- We have two papers accepted at the [Machine Learning for Remote Sensing Workshop](https://ml-for-rs.github.io/iclr2024/) at ICLR 2024!
 - "A Change Detection Reality Check" ([Paper](https://arxiv.org/abs/2402.06994) / [Code](https://github.com/isaaccorley/a-change-detection-reality-check))
 - "Bootstrapping Rare Object Detection in High-Resolution Satellite Imagery" ([Paper](https://arxiv.org/abs/2403.02736))
+
+March, 2024 -- New website!
