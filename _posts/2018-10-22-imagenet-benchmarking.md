@@ -6,6 +6,7 @@ tags:
   - ml
   - imagenet
   - ilsvrc2012
+excerpt: ""
 ---
 
 In this article I show how to reproduce the Top-1 and Top-5 accuracy results reported for [pre-trained models provided in the popular Keras python library](https://keras.io/applications/). The accompanying code can be found [on GitHub](https://github.com/calebrob6/imagenet_validation).

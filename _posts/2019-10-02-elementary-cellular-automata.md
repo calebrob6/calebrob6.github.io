@@ -4,6 +4,7 @@ date: 2019-10-02 00:00:00 -0800
 permalink: /fun/2019/10/02/elementary-cellular-automata.html
 tags:
   - fun
+excerpt: ""
 ---
 
 Cellular automata (CA) are discrete models defined by a _board_ and _transition function_.

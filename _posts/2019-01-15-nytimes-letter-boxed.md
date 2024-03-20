@@ -4,6 +4,7 @@ date: 2019-01-15 00:00:00 -0800
 permalink: /algorithms/2019/01/15/nytimes-letter-boxed.html
 tags:
   - algorithms
+excerpt: ""
 ---
 
 ## The Game

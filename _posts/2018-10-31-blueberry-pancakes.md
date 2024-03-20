@@ -4,6 +4,7 @@ date: 2018-10-31 00:00:00 -0800
 permalink: /puzzle/2018/10/31/blueberry-pancakes.html
 tags:
   - puzzle
+excerpt: ""
 ---
 
 **Problem**: You have a stack of 100 pancakes where the first pancake has one blueberry in it, the second has two blueberries in it, etc. If you randomize the order of the stack, then continuously flip the first _x_ pancakes, where _x_ is the number of blueberries in the top-most pancake (i.e. pick up the first _x_ pancakes, reverse their order, and set them back down), can you prove that eventually the pancake with one blueberry will come to the top of the stack?

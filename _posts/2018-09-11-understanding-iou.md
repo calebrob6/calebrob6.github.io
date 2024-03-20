@@ -4,6 +4,7 @@ date: 2018-09-11 00:00:00 -0800
 permalink: /ml/2018/09/11/understanding-iou.html
 tags:
   - ml
+excerpt: ""
 ---
 
 Intersection-over-union (IoU), also known as the Jaccard index, is a commonly used measure for determining how accurate a proposed image segmentation is, compared to a known/ground-truth segmentation. In segmentation tasks the IoU is prefered over accuracy as it is not as affected by the class imblances that are inherent in foreground/background segmentation tasks. As an example, if a ground truth image is made up of 90% background pixels, a proposed segmentation that classifies all pixels as "background" will have an accuracy of 90% whereas it would have an IoU of 0%. The definition of IoU between a known segmentation of $$n$$ pixels, $$Y$$, and a similar set of predicted segmentation, $$\hat{Y}$$ (in the binary case, i.e. where $$Y_i, \hat{Y}_i \in \{0,1\}, \forall i \in [1,n]$$) is as follows:

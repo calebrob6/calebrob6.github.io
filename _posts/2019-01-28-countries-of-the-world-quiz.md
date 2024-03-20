@@ -4,6 +4,7 @@ date: 2019-01-28 00:00:00 -0800
 permalink: /games/2019/01/28/countries-of-the-world-quiz.html
 tags:
   - games
+excerpt: ""
 ---
 
 I reimplemented Sporcle's [Countries of the World Map Quiz](https://www.sporcle.com/games/g/world) using [Leaflet](https://leafletjs.com/) and some world country datasets. Check it out [here](http://calebrob.com/countries-of-the-world-quiz/)! The code is up on [github](https://github.com/calebrob6/countries-of-the-world-quiz); feel free to send a pull request or email if you would like me to add a country name alias!

@@ -5,6 +5,7 @@ permalink: /javascript/archived/2013/10/07/accrete-simulator.html
 tags:
   - javascript
   - archived
+excerpt: ""
 ---
 
 *Note*: this post was imported from the first version of my blog.
