@@ -14,7 +14,7 @@ excerpt: ''
 Cite as: 
 ```bibtex
 @article{li2022outcome,
-    author = {Li, Zhuohong and Lu, Fangxiao and Zhang, Hongyan and Tu, Lilin and Li, Jiayi and Huang, Xin and Robinson, Caleb and Malkin, Nikolay and Jojic, Nebojsa and Ghamisi, Pedram and H{\"a}nsch, Ronny and Yokoya, Naoto},
+    author = {Li, Zhuohong and Lu, Fangxiao and Zhang, Hongyan and Tu, Lilin and Li, Jiayi and Huang, Xin and Robinson, Caleb and Malkin, Nikolay and Jojic, Nebojsa and Ghamisi, Pedram and Hänsch, Ronny and Yokoya, Naoto},
     title = "The Outcome of the 2021 IEEE GRSS Data Fusion Contest—Track MSD: Multitemporal Semantic Change Detection",
     journal = "IEEE Journal of Selected Topics in Applied Earth Observations and Remote Sensing (J-STARS)",
     volume = "15",

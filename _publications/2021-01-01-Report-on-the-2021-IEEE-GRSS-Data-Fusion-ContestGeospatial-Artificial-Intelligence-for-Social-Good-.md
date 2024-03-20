@@ -14,7 +14,7 @@ excerpt: ''
 Cite as: 
 ```bibtex
 @article{yokoya2021report,
-    author = {Yokoya, Naoto and Ghamisi, Pedram and H{\"a}nsch, Ronny and Prieur, Colin and Malha, Hana and Chanussot, Jocelyn and Robinson, Caleb and Malkin, Kolya and Jojic, Nebojsa},
+    author = {Yokoya, Naoto and Ghamisi, Pedram and Hänsch, Ronny and Prieur, Colin and Malha, Hana and Chanussot, Jocelyn and Robinson, Caleb and Malkin, Kolya and Jojic, Nebojsa},
     title = "Report on the 2021 IEEE GRSS Data Fusion Contest—Geospatial Artificial Intelligence for Social Good [Technical Committees]",
     journal = "IEEE Geoscience and Remote Sensing Magazine",
     volume = "9",

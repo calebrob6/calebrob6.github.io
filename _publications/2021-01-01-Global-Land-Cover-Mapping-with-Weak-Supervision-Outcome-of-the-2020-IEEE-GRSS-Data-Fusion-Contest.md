@@ -14,7 +14,7 @@ excerpt: ''
 Cite as: 
 ```bibtex
 @article{robinson2021global,
-    author = {Robinson, Caleb and Malkin, Kolya and Jojic, Nebojsa and Chen, Huijun and Qin, Rongjun and Xiao, Changlin and Schmitt, Michael and Ghamisi, Pedram and H{\"a}nsch, Ronny and Yokoya, Naoto},
+    author = {Robinson, Caleb and Malkin, Kolya and Jojic, Nebojsa and Chen, Huijun and Qin, Rongjun and Xiao, Changlin and Schmitt, Michael and Ghamisi, Pedram and Hänsch, Ronny and Yokoya, Naoto},
     title = "Global Land-Cover Mapping with Weak Supervision: Outcome of the 2020 IEEE GRSS Data Fusion Contest",
     journal = "IEEE Journal of Selected Topics in Applied Earth Observations and Remote Sensing (J-STARS)",
     volume = "14",
