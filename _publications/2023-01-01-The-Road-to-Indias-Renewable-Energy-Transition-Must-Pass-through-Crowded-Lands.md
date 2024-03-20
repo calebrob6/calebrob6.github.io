@@ -5,7 +5,7 @@ permalink: /publication/2023-01-01-The-Road-to-Indias-Renewable-Energy-Transitio
 date: 2023-01-01
 venue: 'Land'
 paperurl: 'https://www.mdpi.com/2073-445X/12/11/2049'
-citation: 'Joseph Kiesecker, Shivaprakash Nagaraju, James Oakleaf, Anthony Ortiz, Juan Ferres, Caleb Robinson, Srinivas Krishnaswamy, Raman Mehta, Rahul Dodhia, Jeffrey Evans, Michael Heiner, Pratiti Priyadarshini, Pooja Chandran, Kei Sochi. &quot;The Road to India&amp;apos;s Renewable Energy Transition Must Pass through Crowded Lands.&quot; Land, 2023.'
+citation: "Joseph Kiesecker, Shivaprakash Nagaraju, James Oakleaf, Anthony Ortiz, Juan Ferres, Caleb Robinson, Srinivas Krishnaswamy, Raman Mehta, Rahul Dodhia, Jeffrey Evans, Michael Heiner, Pratiti Priyadarshini, Pooja Chandran, Kei Sochi. &quot;The Road to India&apos;s Renewable Energy Transition Must Pass through Crowded Lands.&quot; Land, 2023."
 excerpt: ''
 ---
 [Paper](https://www.mdpi.com/2073-445X/12/11/2049){:target="_blank"}

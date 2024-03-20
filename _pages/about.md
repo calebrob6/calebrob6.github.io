@@ -14,13 +14,17 @@ I graduated from the Georgia Institute of Technology with a PhD in 2020 under th
 
 ## News
 
+March 20th, 2024 -- New website!
+
+
 March 15th, 2024 -- We have two papers accepted at [IGARSS 2024](https://www.2024.ieeeigarss.org/index.php)!
-- ["Seeing the Roads Through the Trees: A Benchmark for Modeling Spatial Dependencies with Aerial Imagery"](publication/2024-01-01-Seeing-the-Roads-Through-the-Trees-A-Benchmark-for-Modeling-Spatial-Dependencies-with-Aerial-Imagery) ([Paper](https://arxiv.org/abs/2401.06762) / [Code](https://github.com/isaaccorley/ChesapeakeRSC))
-- "Weak Labeling for Cropland Mapping in Africa" ([Paper](https://arxiv.org/abs/2401.07014))
+- **Seeing the Roads Through the Trees: A Benchmark for Modeling Spatial Dependencies with Aerial Imagery** <br/> [Project page](publication/2024-01-01-Seeing-the-Roads-Through-the-Trees-A-Benchmark-for-Modeling-Spatial-Dependencies-with-Aerial-Imagery) / [Paper](https://arxiv.org/abs/2401.06762) / [Code](https://github.com/isaaccorley/ChesapeakeRSC)
+- **Weak Labeling for Cropland Mapping in Africa** <br/> [Project page](publication/2024-01-01-Weak-Labeling-for-Cropland-Mapping-in-Africa) / [Paper](https://arxiv.org/abs/2401.07014)
 
 
 March 3rd, 2024 -- We have two papers accepted at the [Machine Learning for Remote Sensing Workshop](https://ml-for-rs.github.io/iclr2024/) at ICLR 2024!
-- "A Change Detection Reality Check" ([Paper](https://arxiv.org/abs/2402.06994) / [Code](https://github.com/isaaccorley/a-change-detection-reality-check))
-- "Bootstrapping Rare Object Detection in High-Resolution Satellite Imagery" ([Paper](https://arxiv.org/abs/2403.02736))
+- **A Change Detection Reality Check** <br/> [Project page](publication/2024-01-01-A-Change-Detection-Reality-Check) / [Paper](https://arxiv.org/abs/2402.06994) / [Code](https://github.com/isaaccorley/a-change-detection-reality-check)
+- **Bootstrapping Rare Object Detection in High-Resolution Satellite Imagery** <br/> [Project page](publication/2024-01-01-Bootstrapping-Rare-Object-Detection-in-High-Resolution-Satellite-Imagery) / [Paper](https://arxiv.org/abs/2403.02736)
 
-March, 2024 -- New website!
+
+February 2nd, 2024 -- New preprint released, **Mission Critical--Satellite Data is a Distinct Modality in Machine Learning** <br/> [Project page](publication/2024-01-01-Mission-Critical-Satellite-Data-is-a-Distinct-Modality-in-Machine-Learning) / [Paper](https://arxiv.org/abs/2402.01444) 

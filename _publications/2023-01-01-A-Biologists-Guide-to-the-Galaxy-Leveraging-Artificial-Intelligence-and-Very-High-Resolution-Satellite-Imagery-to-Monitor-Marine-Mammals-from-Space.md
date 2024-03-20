@@ -5,7 +5,7 @@ permalink: /publication/2023-01-01-A-Biologists-Guide-to-the-Galaxy-Leveraging-A
 date: 2023-01-01
 venue: 'Journal of Marine Science and Engineering'
 paperurl: 'https://www.mdpi.com/2077-1312/11/3/595'
-citation: 'Christin Khan, Kimberly Goetz, Hannah Cubaynes, Caleb Robinson, Erin Murnane, Tyler Aldrich, Meredith Sackett, Penny Clarke, Michelle LaRue, Timothy White, Kathleen Leonard, Anthony Ortiz, Juan Ferres. &quot;A Biologist&amp;apos;s Guide to the Galaxy: Leveraging Artificial Intelligence and Very High-Resolution Satellite Imagery to Monitor Marine Mammals from Space.&quot; Journal of Marine Science and Engineering, 2023.'
+citation: 'Christin Khan, Kimberly Goetz, Hannah Cubaynes, Caleb Robinson, Erin Murnane, Tyler Aldrich, Meredith Sackett, Penny Clarke, Michelle LaRue, Timothy White, Kathleen Leonard, Anthony Ortiz, Juan Ferres. &quot;A Biologist&apos;s Guide to the Galaxy: Leveraging Artificial Intelligence and Very High-Resolution Satellite Imagery to Monitor Marine Mammals from Space.&quot; Journal of Marine Science and Engineering, 2023.'
 excerpt: ''
 ---
 [Paper](https://www.mdpi.com/2077-1312/11/3/595){:target="_blank"}
