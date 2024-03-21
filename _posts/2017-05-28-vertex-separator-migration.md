@@ -80,16 +80,18 @@ For our implementation of the Vertex Separator problem we need to have some defi
 Our definition of the problem is as follows:
 
 $$
-\max_{A,B} \sum_{i=1}^{n} A_i + \sum_{i=1}^{n} B_i \\
-\text{s.t.} \\
-\\
-A_i + B_i \leq 1 \;\;\;\;\;\; \forall i \in \{1, \cdots, n\} \;\;\;\text{(Constraint 1)}\\
-A_i + B_j \leq 1 \;\;\;\;\;\; \forall i,j \in \{1, \cdots, n\} \text{ where } T_{ij}>0 \;\;\;\text{(Constraint 2)}\\
-A_j + B_i \leq 1 \;\;\;\;\;\; \forall i,j \in \{1, \cdots, n\} \text{ where } T_{ij}>0 \;\;\;\text{(Constraint 3)}\\
-\sum_{i=1}^{n} A_i \geq \alpha n \;\;\;\text{(Constraint 4)}\\
-\sum_{i=1}^{n} B_i \geq \alpha n \;\;\;\text{(Constraint 5)}\\
-A_i \in \{0,1\} \;\;\;\;\;\; \forall i \in \{1, \cdots, n\} \;\;\;\text{(Constraint 6)}\\
+\displaylines{
+\max_{A,B} \sum_{i=1}^{n} A_i + \sum_{i=1}^{n} B_i \\\
+\text{s.t.} \\\
+\\\
+A_i + B_i \leq 1 \;\;\;\;\;\; \forall i \in \{1, \cdots, n\} \;\;\;\text{(Constraint 1)}\\\
+A_i + B_j \leq 1 \;\;\;\;\;\; \forall i,j \in \{1, \cdots, n\} \text{ where } T_{ij}>0 \;\;\;\text{(Constraint 2)}\\\
+A_j + B_i \leq 1 \;\;\;\;\;\; \forall i,j \in \{1, \cdots, n\} \text{ where } T_{ij}>0 \;\;\;\text{(Constraint 3)}\\\
+\sum_{i=1}^{n} A_i \geq \alpha n \;\;\;\text{(Constraint 4)}\\\
+\sum_{i=1}^{n} B_i \geq \alpha n \;\;\;\text{(Constraint 5)}\\\
+A_i \in \{0,1\} \;\;\;\;\;\; \forall i \in \{1, \cdots, n\} \;\;\;\text{(Constraint 6)}\\\
 B_i \in \{0,1\} \;\;\;\;\;\; \forall i \in \{1, \cdots, n\} \;\;\;\text{(Constraint 7)}
+}
 $$
 
 Here $$A$$ and $$B$$ are lists of size $$n$$ of binary decisions variables. An entry $$A_i = 1$$ means that county $$i$$ belongs to set $$A$$, similarly an entry $$B_i = 1$$ means that it belongs to set $$B$$. We define $$C$$, the cut set, as all counties $$i$$, for which $$A_i = 0$$ and $$B_i=0$$. Constraint 1 will ensure that a county can not belong to both sets $$A$$ and $$B$$. Constraints 2 and 3 ensure that atleast one county, from each pair of counties that has migrants travelling between them, will belong to set $$C$$. Constraints 4 and 5 will ensure the balance defintion that we describe above. Finally, constraints 6 and 7 are the binary constraints on $$A$$ and $$B$$.
