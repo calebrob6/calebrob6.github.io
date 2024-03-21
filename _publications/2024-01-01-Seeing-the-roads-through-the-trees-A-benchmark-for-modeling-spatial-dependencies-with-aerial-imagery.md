@@ -12,8 +12,15 @@ excerpt: "We introduce a novel remote sensing dataset for evaluating a model's a
 "
 image: '/assets/images/paper_thumbnails/chesapeake-rsc.jpg'
 ---
-[Paper](https://arxiv.org/abs/2401.06762){:target="_blank"}
+[Paper](https://arxiv.org/abs/2401.06762){:target="_blank"} / [Code](https://github.com/isaaccorley/ChesapeakeRSC){:target="_blank"}
 
+
+We introduce a novel remote sensing dataset for evaluating a model's ability to learn long-range spatial dependencies in aerial imagery by performing road extraction while containing large gaps occluded by tree canopy.
+
+<p align="center">
+<img src="/assets/images/paper_thumbnails/chesapeake-rsc.jpg" style="width:100%;"/><br/>
+<b>Figure 1.</b>Example images and labels from the dataset. Labels are shown over the corresponding NAIP aerial imagery with the "Road" class colored in blue and the "Tree Canopy over Road" class in red.
+</p>
 
 Cite as: 
 ```bibtex
