@@ -18,7 +18,7 @@ We train and validate semantic segmentation models on historical aerial imagery 
 
 <p align="center">
 <img src="/assets/images/paper_thumbnails/namibia_historical_aerial_imagery_overview.png" style="width:100%;"/><br/>
-<b>Figure 1.</b>Overview of the proposed approach. Our study focuses on identifying objects of interest from decades-long aerial photos (1943-1972) to study long-term environmental changes in: (A) the Oshikango region (~5000 km<sup>2</sup>) in the North-Central Namibia; (B) a 45km<sup>2</sup> area in Oshikango region was sparsely annotated and used as train and test region in our framework; (C) representative examples were annotated for the classes: <i>Big Tree</i>, <i>Omuti</i> and <i>Waterhole</i>; (D) a deep learning framework that aims to apply a semantic segmentation on the aerial photos and trained with different strategies; (E) insights are extracted to understand the change between 1943 and 1972.
+<b>Figure 1.</b> Overview of the proposed approach. Our study focuses on identifying objects of interest from decades-long aerial photos (1943-1972) to study long-term environmental changes in: (A) the Oshikango region (~5000 km<sup>2</sup>) in the North-Central Namibia; (B) a 45km<sup>2</sup> area in Oshikango region was sparsely annotated and used as train and test region in our framework; (C) representative examples were annotated for the classes: <i>Big Tree</i>, <i>Omuti</i> and <i>Waterhole</i>; (D) a deep learning framework that aims to apply a semantic segmentation on the aerial photos and trained with different strategies; (E) insights are extracted to understand the change between 1943 and 1972.
 </p>
 
 Cite as: 
