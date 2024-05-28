@@ -6,8 +6,7 @@ date: 2024-04-12
 venue: 'arXiv preprint arXiv:2404.08544'
 paperurl: 'https://arxiv.org/abs/2404.08544'
 citation: 'Girmaw Tadesse, Caleb Robinson, Gilles Quantin Hacheme, Akram Zaytar, Rahul Dodhia, Tsering Wangyal Shawa, Juan M Lavista Ferres, Emmanuel H Kreike. &quot;Analyzing Decades-Long Environmental Changes in Namibia Using Archival Aerial Photography and Deep Learning.&quot; arXiv preprint arXiv:2404.08544, 2024.'
-excerpt: 'We propose a simple method for extracting stronger labels from weak cropland labels and an unsupervised segmentation of satellite imagery. We show, in a scenario in Kenya where we only have 33 human-annotated labels, that adding strong labels mined by our method increases the F1 score for the cropland category from
-0.53 (without mining) to 0.84.
+excerpt: 'We train and validate semantic segmentation models on historical aerial imagery from 1943 and 1972 for identifing trees, omuti (homesteads), and waterholes. These features are important for understanding how northern Namibia has changed over time. We observe average F1 scores of 0.661 and 0.755 for the 1943 and 1972 imagery respectively. Finally, we run our 1972 model over 5,000 square kilometers to get a first look at the historical population distribution in this area.
 <br/><br/>
 [Paper](https://arxiv.org/abs/2404.08544)
 '
@@ -15,8 +14,7 @@ image: '/assets/images/paper_thumbnails/namibia_historical_aerial_imagery_overvi
 ---
 [Paper](https://arxiv.org/abs/2404.08544){:target="_blank"}
 
-We propose a simple method for extracting stronger labels from weak cropland labels and an unsupervised segmentation of satellite imagery. We show, in a scenario in Kenya where we only have 33 human-annotated labels, that adding strong labels mined by our method increases the F1 score for the cropland category from
-0.53 (without mining) to 0.84.
+We train and validate semantic segmentation models on historical aerial imagery from 1943 and 1972 for identifing trees, omuti (homesteads), and waterholes. These features are important for understanding how northern Namibia has changed over time. We observe average F1 scores of 0.661 and 0.755 for the 1943 and 1972 imagery respectively. Finally, we run our 1972 model over 5,000 square kilometers to get a first look at the historical population distribution in this area.
 
 <p align="center">
 <img src="/assets/images/paper_thumbnails/namibia_historical_aerial_imagery_overview.png" style="width:100%;"/><br/>
