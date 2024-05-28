@@ -19,7 +19,7 @@ I graduated from the Georgia Institute of Technology with a PhD in 2020 under th
 - *Mission Critical--Satellite Data is a Distinct Modality in Machine Learning* <br/> [Project page](publication/2024-01-01-Mission-Critical-Satellite-Data-is-a-Distinct-Modality-in-Machine-Learning) / [Paper](https://arxiv.org/abs/2402.01444) 
 
 
-**April 12th, 2024** -- New preprint released *Analyzing Decades-Long Environmental Changes in Namibia Using Archival Aerial Photography and Deep Learning* <br/> [Project page](publication/2024-04-12-Analyzing-Historical-Aerial-Imagery) / [Paper](https://arxiv.org/abs/2404.08544) 
+**April 12th, 2024** -- New preprint released, *Analyzing Decades-Long Environmental Changes in Namibia Using Archival Aerial Photography and Deep Learning* <br/> [Project page](publication/2024-04-12-Analyzing-Historical-Aerial-Imagery) / [Paper](https://arxiv.org/abs/2404.08544) 
 
 
 **April 8th, 2024** -- Paper accepted at CVPR [Perception Beyond the Visibile Spectrum 2024 Workshop](https://pbvs-workshop.github.io/)<br/> [Project page](publication/2023-01-01-Revisiting-Pre-trained-Remote-Sensing-Model-Benchmarks-Resizing-and-Normalization-Matters) / [Paper](https://arxiv.org/abs/2305.13456) 
