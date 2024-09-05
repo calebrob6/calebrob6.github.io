@@ -14,6 +14,8 @@ I graduated from the Georgia Institute of Technology with a PhD in 2020 under th
 
 ## News
 
+**August 5th, 2024** -- Our paper, *Analyzing Decades-Long Environmental Changes in Namibia Using Archival Aerial Photography and Deep Learning* won Best Paper Award 🏆 at the [Sustainable Transition with AI](https://stai.jeju.ai/) workshop at IJCAI <br/> [Project page](publication/2024-04-12-Analyzing-Historical-Aerial-Imagery) / [Paper](https://arxiv.org/abs/2404.08544) 
+
 
 **May 1st, 2024** -- Position paper accepted at [ICML 2024](https://icml.cc/), *Mission Critical--Satellite Data is a Distinct Modality in Machine Learning* <br/> [Project page](publication/2024-01-01-Mission-Critical-Satellite-Data-is-a-Distinct-Modality-in-Machine-Learning) / [Paper](https://arxiv.org/abs/2402.01444) 
 
