@@ -14,6 +14,8 @@ I graduated from the Georgia Institute of Technology with a PhD in 2020 under th
 
 ## News
 
+**September 24th, 2024** -- New preprint describing the largest-to-date ML dataset of field boundary labels and satellite imagery! *Fields of The World: A Machine Learning Benchmark Dataset For Global Agricultural Field Boundary Segmentation* <br/> [Webpage](https://fieldsofthe.world/) / [Paper](https://arxiv.org/abs/2409.16252) / [Code](https://github.com/fieldsoftheworld/ftw-baselines) 
+
 **August 5th, 2024** -- Our paper, *Analyzing Decades-Long Environmental Changes in Namibia Using Archival Aerial Photography and Deep Learning* won Best Paper Award 🏆 at the [Sustainable Transition with AI](https://stai.jeju.ai/) workshop at IJCAI <br/> [Project page](publication/2024-04-12-Analyzing-Historical-Aerial-Imagery) / [Paper](https://arxiv.org/abs/2404.08544) 
 
 
