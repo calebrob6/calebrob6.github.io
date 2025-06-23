@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Runner's Pace Calculator</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #eaf6ff;
+      padding: 2rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    h1 {
+      color: #1c1c1c;
+      text-align: center;
+    }
+    p {
+      text-align: center;
+      margin-bottom: 2rem;
+      color: #333;
+    }
+    .converter {
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      padding: 2rem;
+      max-width: 400px;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .converter h2 {
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      font-size: 1.2rem;
+    }
+    label {
+      font-weight: bold;
+      margin-top: 1.5rem;
+      display: block;
+    }
+    input {
+      display: block;
+      margin-top: 0.5rem;
+      width: 100%;
+      padding: 0.75rem;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      font-size: 1rem;
+      box-sizing: border-box;
+    }
+    .output-box {
+      background: #e6f0f9;
+      text-align: center;
+      border-radius: 12px;
+      padding: 1rem;
+      margin-top: 2.5rem;
+    }
+    .output-box span {
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: #d35400;
+    }
+  </style>
+</head>
+<body>
+  <h1>Runner's Pace Calculator</h1>
+  <p>Enter any one value to convert between speed and pace metrics</p>
+
+  <div class="converter">
+    <label for="mph">Speed (mph)</label>
+    <input type="number" id="mph" step="0.01" onchange="updateFrom('mph')" />
+
+    <label for="minPerMile">Pace (minutes per mile)</label>
+    <input type="text" id="minPerMile" onchange="updateFrom('minPerMile')" placeholder="mm:ss" />
+
+    <label for="kmh">Speed (km/h)</label>
+    <input type="number" id="kmh" step="0.01" onchange="updateFrom('kmh')" />
+
+    <label for="minPerKm">Pace (minutes per km)</label>
+    <input type="text" id="minPerKm" onchange="updateFrom('minPerKm')" placeholder="mm:ss" />
+
+    <div class="output-box">
+      5K Completion Time<br />
+      <span id="fiveKmTime">--:--</span>
+    </div>
+  </div>
+
+  <script>
+    function parseTimeInput(input) {
+      const parts = input.split(':').map(Number);
+      return parts.length === 2 ? parts[0] + parts[1] / 60 : parseFloat(input);
+    }
+
+    function formatTime(minutes) {
+      const mins = Math.floor(minutes);
+      const secs = Math.round((minutes - mins) * 60);
+      return `${mins}:${secs.toString().padStart(2, '0')}`;
+    }
+
+    function updateFrom(source) {
+      let mph, kmh, minPerMile, minPerKm;
+
+      if (source === 'mph') {
+        mph = parseFloat(document.getElementById('mph').value);
+        if (!mph || mph <= 0) return;
+        kmh = mph * 1.60934;
+        minPerMile = 60 / mph;
+        minPerKm = 60 / kmh;
+      } else if (source === 'kmh') {
+        kmh = parseFloat(document.getElementById('kmh').value);
+        if (!kmh || kmh <= 0) return;
+        mph = kmh / 1.60934;
+        minPerMile = 60 / mph;
+        minPerKm = 60 / kmh;
+      } else if (source === 'minPerMile') {
+        minPerMile = parseTimeInput(document.getElementById('minPerMile').value);
+        if (!minPerMile || minPerMile <= 0) return;
+        mph = 60 / minPerMile;
+        kmh = mph * 1.60934;
+        minPerKm = 60 / kmh;
+      } else if (source === 'minPerKm') {
+        minPerKm = parseTimeInput(document.getElementById('minPerKm').value);
+        if (!minPerKm || minPerKm <= 0) return;
+        kmh = 60 / minPerKm;
+        mph = kmh / 1.60934;
+        minPerMile = 60 / mph;
+      }
+
+      document.getElementById('mph').value = mph.toFixed(2);
+      document.getElementById('kmh').value = kmh.toFixed(2);
+      document.getElementById('minPerMile').value = formatTime(minPerMile);
+      document.getElementById('minPerKm').value = formatTime(minPerKm);
+      document.getElementById('fiveKmTime').textContent = formatTime(minPerKm * 5);
+    }
+  </script>
+</body>
+</html>
