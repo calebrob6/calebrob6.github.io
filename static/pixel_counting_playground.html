@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pixel Counting vs. Area Estimation — Interactive Visualizer</title>
+  <style>
+    :root{
+      --bg:#f8fafc;         /* page background */
+      --text:#0f172a;       /* primary text */
+      --muted:#475569;      /* muted text */
+      --border:#e5e7eb;     /* borders */
+      --card:#ffffff;       /* cards */
+      --shadow:0 6px 20px rgba(15,23,42,0.06);
+      --blue:#3b82f6;       /* GT poly fill */
+      --blue-stroke:#2563eb;
+      --violet:#a855f7;     /* predicted cells */
+      --violet-stroke:#7c3aed;
+      --amber:#f59e0b;      /* samples/aux */
+      --amber-stroke:#b45309;
+      --grid:#94a3b31a;     /* subtle grid */
+      --poscell:#a855f719;  /* predicted cell fill */
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Apple Color Emoji","Segoe UI Emoji";background:var(--bg);color:var(--text)}
+    .wrap{max-width:1400px;margin:24px auto;padding:0 16px}
+
+    header{display:flex;flex-direction:column;gap:10px;margin-bottom:16px}
+    h1{font-size:24px;letter-spacing:.2px;margin:0}
+    .desc{color:var(--muted);line-height:1.45}
+
+    .grid{display:grid;grid-template-columns:1fr minmax(360px, 480px);gap:16px}
+    @media (max-width: 1024px){.grid{grid-template-columns:1fr}}
+
+    .card{background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow);overflow:hidden}
+    .head{padding:12px 14px;border-bottom:1px solid var(--border)}
+    .head h2{margin:0;font-size:16px}
+    .body{padding:14px}
+
+    .stage-wrap{display:flex;justify-content:center}
+    svg.stage{border:1px solid var(--border);border-radius:12px;background:#fff;touch-action:none}
+
+    .metrics{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .metric{border:1px solid var(--border);border-radius:12px;background:#fff;padding:10px}
+    .metric small{display:block;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;font-size:11px}
+    .metric .val{font-weight:700;font-size:18px;word-break:break-word;overflow-wrap:anywhere}
+    .metric.accent{background:#fff7ed;border-color:#fed7aa}
+    .metric.accent .val{color:#b45309}
+
+    /* status colors for % error boxes */
+    .metric.status-good{background:#ecfdf5;border-color:#a7f3d0}
+    .metric.status-good .val{color:#047857}
+    .metric.status-warn{background:#fffbeb;border-color:#fde68a}
+    .metric.status-warn .val{color:#92400e}
+    .metric.status-bad{background:#fef2f2;border-color:#fecaca}
+    .metric.status-bad .val{color:#991b1b}
+
+    /* better control sizing */
+    .row label{flex:0 0 120px}
+    .row select,.row input[type="number"],.row span{flex:0 0 auto}
+
+    .ctrl{display:flex;align-items:center;gap:8px;margin-top:8px}
+    .ctrl label{font-size:13px;color:var(--muted)}
+    .row{display:flex;gap:8px;align-items:center;margin:10px 0;min-width:0;flex-wrap:wrap}
+    .row input[type="range"]{flex:1 1 auto;width:100%}
+    .row select, .row input[type="number"]{border:1px solid var(--border);border-radius:10px;padding:6px 8px;background:#fff}
+
+    .legend{display:flex;gap:12px;align-items:center;color:var(--muted);font-size:13px}
+    .chip{display:inline-flex;gap:6px;align-items:center}
+    .sw{width:14px;height:14px;border-radius:3px;border:1px solid var(--border)}
+
+    .hint{color:var(--muted);font-size:13px;margin-top:10px}
+    .btn{border:1px solid var(--border);background:#fff;border-radius:10px;padding:8px 10px;cursor:pointer}
+    .btn:active{transform:translateY(1px)}
+
+    /* math panel */
+    .calc-details summary{cursor:pointer; user-select:none; font-weight:600}
+    .mathbox{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      background:#f8fafc; border:1px solid var(--border);
+      border-radius:10px; padding:10px; margin-top:8px; overflow:auto
+    }
+    .mathbox .row{display:block; margin:4px 0}
+    .mathbox code{background:transparent; padding:0}
+    .mathbox .muted{color:var(--muted)}
+    .mathbox .hr{height:1px;background:var(--border);margin:8px 0}
+
+    .span-all { grid-column: 1 / -1; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>Pixel Counting Can Be Biased — Interactive Demo</h1>
+      <div class="desc">
+        <p style="margin:0 0 8px 0">
+          <b>Overview.</b> Estimating area by simply <em>counting positive pixels</em> can be biased when the grid is coarse, boundaries are oblique/complex, or the map has classification error. 
+          A design-based, post-stratified estimator—using a probability sample of reference points within map strata (map=1 vs map=0)—yields <em>unbiased</em> area estimates and valid confidence intervals. 
+          This demo contrasts naïve pixel counting with the recommended stratified estimator following best practices described by <span style="white-space:nowrap">Olofsson et&nbsp;al. (2014)</span>.
+        </p>
+
+        <ul style="margin:8px 0 0 18px;color:var(--muted)">
+          <li><b>Pixel-count area</b>: #positive cells × cell area. This can be biased with coarse grids and oblique/complex boundaries (especially with any-touched).</li>
+          <li><b>Corrected area (post-stratified)</b>: Unbiased estimator using point samples. Split the map by the raster prediction (map class 1 vs 0); sample n points per stratum; label each by the polygon (1 inside, 0 outside). With stratum means p̂₁, p̂₀ and area weights W₁, W₀, the estimated proportion is P̂ = W₁·p̂₁ + W₀·p̂₀ and the corrected area is Â = P̂ × (total area). CI uses Var(P̂) = W₁²·p̂₁(1−p̂₁)/n₁ + W₀²·p̂₀(1−p̂₀)/n₀.</li>
+        </ul>
+
+        <!-- Reference -->
+        <div style="color:var(--muted);margin-top:8px">
+          <small>
+            Reference: Olofsson, P., Foody, G. M., Herold, M., Stehman, S. V., Woodcock, C. E., &amp; Wulder, M. A. (2014). 
+            Good practices for estimating area and assessing accuracy of land change. 
+            <em>Remote Sensing of Environment</em>, 148, 42–57.
+          </small>
+        </div>
+      </div>
+    </header>
+
+    <div class="grid">
+      <div class="card"><div class="body">
+          <div class="stage-wrap">
+            <svg id="stage" class="stage" width="900" height="540"></svg>
+          </div>
+          <div class="legend" style="margin-top:10px">
+            <span class="chip"><span class="sw" style="background:#3b82f612;border-color:#2563eb"></span>GT polygon</span>
+            <span class="chip"><span class="sw" style="background:var(--poscell);border-color:#7c3aed"></span>Predicted positive cells</span>
+            <span class="chip"><span class="sw" style="background:#f59e0b33;border-color:#b45309"></span>Sample points</span>
+            <button id="resetBtn" class="btn" title="Reset shapes">Reset</button>
+          </div>
+          <div class="hint">Drag inside the polygon to move it; drag circular handles to edit vertices. Adjust cell size and rule to see bias appear.</div>
+        </div></div>
+
+      <div class="card">
+        <div class="body">
+          <div class="row"><label style="min-width:120px">Cell size</label>
+            <input id="cellSlider" type="range" min="10" max="200" step="2" value="80">
+            <span id="cellVal" style="width:44px;text-align:right">80</span>
+          </div>
+          <div class="row"><label style="min-width:120px">Inclusion rule</label>
+            <select id="ruleSel">
+              <option value="any">Any-touched</option>
+              <option value="center">Center-in</option>
+            </select>
+          </div>
+          
+          <div class="row"><label style="min-width:120px">Show samples</label>
+            <select id="showSamplesSel">
+              <option value="none">None</option>
+              <option value="map1">Map class 1</option>
+              <option value="map0">Map class 0</option>
+              <option value="both" selected>Both strata</option>
+            </select>
+          </div>
+          <div class="row"><label style="min-width:120px">n per stratum</label>
+            <input id="nInput" type="number" min="10" max="1000" step="10" value="100" style="width:90px"/>
+            <button id="resampleBtn" class="btn">Resample</button>
+          </div>
+
+          <div class="metrics" style="margin-top:8px">
+            <div class="metric"><small>True area</small><div id="trueArea" class="val">—</div></div>
+            <div class="metric accent"><small>Pixel-count area</small><div id="pcArea" class="val">—</div></div>
+            <div class="metric"><small>Pixel-count error</small><div id="pcErr" class="val">—</div></div>
+            <div class="metric"><small>Corrected area (stratified)</small><div id="corrArea" class="val">—</div></div>
+            <div class="metric"><small>95% CI</small><div id="corrCI" class="val">—</div></div>
+            <div class="metric"><small>Corrected error</small><div id="corrErr" class="val">—</div></div>
+          </div>
+
+          <div class="legend" style="margin-top:10px">
+            <span class="chip">
+              <span class="sw" style="background:#ecfdf5;border-color:#a7f3d0"></span>≤ 2% error
+            </span>
+            <span class="chip">
+              <span class="sw" style="background:#fffbeb;border-color:#fde68a"></span>≤ 10% error
+            </span>
+            <span class="chip">
+              <span class="sw" style="background:#fef2f2;border-color:#fecaca"></span>&gt; 10% error
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Full-width computation details row -->
+      <div class="card span-all">
+        <div class="head"><h2>Computation Details — Corrected Area</h2></div>
+        <div class="body">
+          <details class="calc-details" open>
+            <summary>Step-by-step: Corrected area (post-stratified)</summary>
+            <div id="calcBox" class="mathbox"><!-- populated by JS --></div>
+          </details>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- Config ---
+    const W = 900, H = 540;
+    const HANDLE_R = 7;
+
+    // --- SVG helpers ---
+    const stage = document.getElementById('stage');
+    function ns(tag){ return document.createElementNS('http://www.w3.org/2000/svg', tag) }
+
+    const gridG = ns('g');
+    const cellsG = ns('g');
+    const polyG = ns('g');
+    const handleG = ns('g');
+    const sampleG = ns('g'); sampleG.setAttribute('opacity','0.9');
+    stage.appendChild(gridG);
+    stage.appendChild(cellsG);
+    stage.appendChild(polyG);
+    stage.appendChild(handleG);
+    stage.appendChild(sampleG);
+
+    // draw background grid for visual scale
+    ;(function(){
+      const step=40; for(let x=step;x<W;x+=step) addLine(x,0,x,H); for(let y=step;y<H;y+=step) addLine(0,y,W,y);
+      function addLine(x1,y1,x2,y2){ const l=ns('line'); l.setAttribute('x1',x1); l.setAttribute('y1',y1); l.setAttribute('x2',x2); l.setAttribute('y2',y2); l.setAttribute('stroke','#00000010'); l.setAttribute('stroke-width','1'); gridG.appendChild(l); }
+    })();
+
+    // --- Geometry utils ---
+    const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
+    const areaSigned = (pts)=>{ let a=0; for(let i=0,j=pts.length-1;i<pts.length;j=i++) a+=pts[j].x*pts[i].y-pts[i].x*pts[j].y; return a/2 };
+    const polyArea = (pts)=>Math.abs(areaSigned(pts));
+    function pointInPoly(p,poly){ // ray-casting
+      let inside=false; for(let i=0,j=poly.length-1;i<poly.length;j=i++){
+        const xi=poly[i].x, yi=poly[i].y, xj=poly[j].x, yj=poly[j].y;
+        const inter = (yi>p.y)!=(yj>p.y) && p.x < (xj-xi)*(p.y-yi)/(yj-yi)+xi; if(inter) inside=!inside;
+      } return inside;
+    }
+    function segInter(a,b,c,d){ // segment intersection boolean
+      const cross=(x1,y1,x2,y2)=>x1*y2 - y1*x2;
+      const sub=(u,v)=>({x:u.x-v.x,y:u.y-v.y});
+      const ab=sub(b,a), ca=sub(c,a), da=sub(d,a), cd=sub(d,c), ac=sub(a,c), bc=sub(b,c);
+      const d1=cross(ab.x,ab.y,ca.x,ca.y), d2=cross(ab.x,ab.y,da.x,da.y);
+      const d3=cross(cd.x,cd.y,ac.x,ac.y), d4=cross(cd.x,cd.y,bc.x,bc.y);
+      if(((d1>0&&d2<0)||(d1<0&&d2>0)) && ((d3>0&&d4<0)||(d3<0&&d4>0))) return true;
+      // collinear checks (bounding boxes)
+      const onSeg=(p,q,r)=> Math.min(p.x,r.x)-1e-9<=q.x && q.x<=Math.max(p.x,r.x)+1e-9 && Math.min(p.y,r.y)-1e-9<=q.y && q.y<=Math.max(p.y,r.y)+1e-9;
+      if(Math.abs(d1)<1e-9 && onSeg(a,c,b)) return true; if(Math.abs(d2)<1e-9 && onSeg(a,d,b)) return true;
+      if(Math.abs(d3)<1e-9 && onSeg(c,a,d)) return true; if(Math.abs(d4)<1e-9 && onSeg(c,b,d)) return true;
+      return false;
+    }
+    function rectCorners(x,y,w,h){ return [ {x:x,y:y},{x:x+w,y:y},{x:x+w,y:y+h},{x:x,y:y+h} ]; }
+    function rectIntersectsPoly(x,y,w,h,poly){
+      const corners=rectCorners(x,y,w,h);
+      // case 1: any poly vertex inside rect
+      for(const v of poly){ if(v.x>=x && v.x<=x+w && v.y>=y && v.y<=y+h) return true; }
+      // case 2: any rect corner inside poly
+      for(const c of corners){ if(pointInPoly(c,poly)) return true; }
+      // case 3: edges intersect
+      const edgesRect=[[corners[0],corners[1]],[corners[1],corners[2]],[corners[2],corners[3]],[corners[3],corners[0]]];
+      for(let i=0;i<poly.length;i++){
+        const a=poly[i], b=poly[(i+1)%poly.length];
+        for(const [r1,r2] of edgesRect) if(segInter(a,b,r1,r2)) return true;
+      }
+      return false;
+    }
+
+    // --- Ground truth polygon (single, editable) ---
+    let GT = [
+      {x:200,y:120},{x:360,y:110},{x:420,y:180},{x:430,y:300},{x:320,y:360},{x:220,y:300}
+    ];
+    let dragging=null; // {mode:'vertex'|'translate', idx?, prev:{x,y}}
+
+    const gtPath = ns('path'); gtPath.setAttribute('fill','#3b82f615'); gtPath.setAttribute('stroke','#2563eb'); gtPath.setAttribute('stroke-width','2');
+    polyG.appendChild(gtPath);
+
+    function drawGT(){
+      // path
+      let d=''; for(let i=0;i<GT.length;i++){ const p=GT[i]; d+=(i?` L ${p.x} ${p.y}`:`M ${p.x} ${p.y}`)} d+=' Z'; gtPath.setAttribute('d',d);
+      // handles
+      while(handleG.firstChild) handleG.removeChild(handleG.firstChild);
+      for(let i=0;i<GT.length;i++){ const c=ns('circle'); c.setAttribute('cx',GT[i].x); c.setAttribute('cy',GT[i].y); c.setAttribute('r',HANDLE_R); c.setAttribute('fill','#2563eb'); c.setAttribute('stroke','#fff'); c.setAttribute('stroke-width','2'); c.dataset.idx=i; handleG.appendChild(c); }
+    }
+
+    function centroid(poly){ let a=areaSigned(poly)*6, cx=0, cy=0; for(let i=0,j=poly.length-1;i<poly.length;j=i++){ const f=(poly[j].x*poly[i].y - poly[i].x*poly[j].y); cx+=(poly[j].x+poly[i].x)*f; cy+=(poly[j].y+poly[i].y)*f; } return {x:cx/a, y:cy/a}; }
+
+    function getPointer(evt){ const r=stage.getBoundingClientRect(); return { x:clamp(evt.clientX-r.left,0,W), y:clamp(evt.clientY-r.top,0,H) }; }
+    function insideGT(p){ return pointInPoly(p,GT) }
+
+    stage.addEventListener('pointerdown', (e)=>{
+      const p=getPointer(e);
+      // vertex?
+      for(let i=0;i<GT.length;i++){
+        const v=GT[i]; const dx=p.x-v.x, dy=p.y-v.y; if(dx*dx+dy*dy <= (HANDLE_R+3)**2){ dragging={mode:'vertex', idx:i}; stage.setPointerCapture(e.pointerId); return; }
+      }
+      // translate if inside
+      if(insideGT(p)){ dragging={mode:'translate', prev:p}; stage.setPointerCapture(e.pointerId); return; }
+    });
+    stage.addEventListener('pointermove', (e)=>{
+      if(!dragging) return; const p=getPointer(e);
+      if(dragging.mode==='vertex'){
+        const i=dragging.idx; GT[i]={x:p.x,y:p.y}; drawGT(); scheduleUpdate();
+      } else if(dragging.mode==='translate'){
+        const dx=p.x-dragging.prev.x, dy=p.y-dragging.prev.y; for(const v of GT){ v.x=clamp(v.x+dx,0,W); v.y=clamp(v.y+dy,0,H); } dragging.prev=p; drawGT(); scheduleUpdate();
+      }
+    });
+    stage.addEventListener('pointerup', (e)=>{ dragging=null; try{stage.releasePointerCapture(e.pointerId)}catch{} });
+    stage.addEventListener('pointerleave', ()=>{ dragging=null });
+
+    document.getElementById('resetBtn').addEventListener('click', ()=>{
+      GT = [ {x:200,y:120},{x:360,y:110},{x:420,y:180},{x:430,y:300},{x:320,y:360},{x:220,y:300} ];
+      drawGT(); scheduleUpdate();
+    });
+
+    // --- Controls ---
+    const cellSlider = document.getElementById('cellSlider');
+    const cellVal = document.getElementById('cellVal');
+    const ruleSel = document.getElementById('ruleSel');const showSamplesSel = document.getElementById('showSamplesSel');
+    const nInput = document.getElementById('nInput');
+    const resampleBtn = document.getElementById('resampleBtn');
+
+    cellSlider.addEventListener('input', ()=>{ cellVal.textContent = cellSlider.value; scheduleUpdate(true); });
+    ruleSel.addEventListener('change', ()=>{ scheduleUpdate(true); });
+    showSamplesSel.addEventListener('change', ()=>{ drawSamples(); });
+    nInput.addEventListener('change', ()=>{ scheduleUpdate(true); });
+    resampleBtn.addEventListener('click', ()=>{ scheduleUpdate(true); });
+
+    // --- Metrics elements ---
+    const trueAreaEl=document.getElementById('trueArea');
+    const pcAreaEl=document.getElementById('pcArea');
+    const pcErrEl=document.getElementById('pcErr');
+    const corrAreaEl=document.getElementById('corrArea');
+    const corrCIEl=document.getElementById('corrCI');
+    const corrErrEl=document.getElementById('corrErr');
+
+    function setMetricStatus(box, pct){
+      box.classList.remove('status-good','status-warn','status-bad');
+      if(!isFinite(pct)) return;
+      const ap = Math.abs(pct);
+      if(ap <= 2) box.classList.add('status-good');
+      else if(ap <= 10) box.classList.add('status-warn');
+      else box.classList.add('status-bad');
+    }
+
+    // --- Rasterization / prediction ---
+    let cells=[]; // array of {x,y,w,h, yIdx,xIdx, cls}
+    let samplePts=[]; // {x,y, stratum:0|1, trueClass:0|1}
+
+    function recompute(doResample=false){
+      const cs = parseInt(cellSlider.value,10);
+      const rule = ruleSel.value;
+
+      // 1) compute predicted cells
+      cells.length=0; const nx=Math.floor(W/cs), ny=Math.floor(H/cs); let posCount=0;
+      for(let j=0;j<ny;j++){
+        for(let i=0;i<nx;i++){
+          const x=i*cs, y=j*cs;
+          let cls=0;
+          if(rule==='center'){
+            cls = pointInPoly({x:x+cs/2, y:y+cs/2}, GT) ? 1:0;
+          } else if(rule==='any'){
+            cls = rectIntersectsPoly(x,y,cs,cs,GT) ? 1:0;
+          }
+          if(cls===1) posCount++;
+          cells.push({x,y,w:cs,h:cs,yIdx:j,xIdx:i,cls});
+        }
+      }
+
+      // 2) overlay drawing: only positive cells
+      while(cellsG.firstChild) cellsG.removeChild(cellsG.firstChild);
+      const frag=document.createDocumentFragment();
+      for(const c of cells){ if(!c.cls) continue; const r=ns('rect'); r.setAttribute('x',c.x); r.setAttribute('y',c.y); r.setAttribute('width',c.w); r.setAttribute('height',c.h); r.setAttribute('fill','var(--poscell)'); r.setAttribute('stroke','var(--violet-stroke)'); r.setAttribute('stroke-width','0.5'); frag.appendChild(r);} 
+      cellsG.appendChild(frag);
+
+      // 3) metrics: areas (robust if polygon collapses)
+      const Atrue = polyArea(GT);
+      const cellArea = cs*cs;
+      const Apred = posCount*cellArea;
+      trueAreaEl.textContent = Atrue.toFixed(1);
+      pcAreaEl.textContent = Apred.toFixed(1);
+
+      let errPct = NaN;
+      if (Atrue > 0) {
+        errPct = (Apred - Atrue) / Atrue * 100;
+        pcErrEl.textContent = (errPct >= 0 ? '+' : '') + errPct.toFixed(1) + '%';
+        setMetricStatus(pcErrEl.parentElement, errPct);
+      } else {
+        // Clear status & show em dash if area is zero/degenerate
+        pcErrEl.textContent = '—';
+        pcErrEl.parentElement.classList.remove('status-good','status-warn','status-bad');
+      }
+
+      // 4) sampling: stratified by map class (0/1)
+      if(doResample || samplePts.length===0){
+        samplePts = sampleStratified(cells, Atrue);
+      } else {
+        // Update labels and strata for existing points under current GT and grid
+        const nxCur = Math.floor(W/cs);
+        const nyCur = Math.floor(H/cs);
+        for (const s of samplePts){
+          const i = Math.max(0, Math.min(nxCur-1, Math.floor(s.x / cs)));
+          const j = Math.max(0, Math.min(nyCur-1, Math.floor(s.y / cs)));
+          const idx = j*nxCur + i;
+          s.stratum = (cells[idx] && cells[idx].cls===1) ? 1 : 0;
+          s.trueClass = insideGT({x:s.x,y:s.y}) ? 1 : 0;
+        }
+      }
+      // 5) compute corrected estimate + CI
+      const nxTot = Math.floor(W/cs), nyTot=Math.floor(H/cs); const nCells = nxTot*nyTot; const W0 = (nCells - posCount)/nCells; const W1 = posCount/nCells;
+      let n0=0, n1=0, y0=0, y1=0; for(const s of samplePts){ if(s.stratum===0){ n0++; if(s.trueClass===1) y0++; } else { n1++; if(s.trueClass===1) y1++; } }
+      const p0 = n0>0 ? y0/n0 : 0; const p1 = n1>0 ? y1/n1 : 0; // Pr(true=1 | map=h)
+      const P = W0*p0 + W1*p1; // proportion of true class 1 over study area
+      const Ahat = P * (W*H);
+      const varP = (W0*W0)*(p0*(1-p0)/Math.max(1,n0)) + (W1*W1)*(p1*(1-p1)/Math.max(1,n1));
+      const seA = Math.sqrt(varP) * (W*H);
+      const lo = Ahat - 1.96*seA, hi = Ahat + 1.96*seA;
+      corrAreaEl.textContent = `${Ahat.toFixed(1)}`;
+      const corrErrAbs = Ahat - Atrue;
+      const corrErrPct = (Atrue!==0) ? (corrErrAbs/Atrue*100) : 0;
+      corrErrEl.textContent = `${corrErrPct>=0?'+':''}${corrErrPct.toFixed(1)}% (${corrErrAbs>=0?'+':''}${corrErrAbs.toFixed(1)})`;
+      setMetricStatus(corrErrEl.parentElement, corrErrPct);
+      corrCIEl.textContent = `[${lo.toFixed(1)}, ${hi.toFixed(1)}]`;
+
+      updateCalcDetails({
+        cs,
+        nx: nxTot,
+        ny: nyTot,
+        nCells,
+        cellArea,
+        totalArea: W*H,
+        posCount,
+        W1, W0,
+        n1, y1, p1,
+        n0, y0, p0,
+        P, Ahat,
+        varP,
+        seA,
+        lo, hi
+      });
+
+      drawSamples();
+    }
+
+    function sampleStratified(allCells){
+      const cs = parseInt(cellSlider.value,10), nPer = parseInt(nInput.value,10);
+      const pos = allCells.filter(c=>c.cls===1); const neg = allCells.filter(c=>c.cls===0);
+      const pts=[];
+      function sampleInCell(c){ // uniform in cell
+        return { x: c.x + Math.random()*cs, y: c.y + Math.random()*cs };
+      }
+      // map class 1
+      for(let i=0;i<nPer && pos.length;i++){
+        const c = pos[Math.floor(Math.random()*pos.length)];
+        const p = sampleInCell(c); pts.push({x:p.x,y:p.y,stratum:1,trueClass: insideGT(p)?1:0});
+      }
+      // map class 0
+      for(let i=0;i<nPer && neg.length;i++){
+        const c = neg[Math.floor(Math.random()*neg.length)];
+        const p = sampleInCell(c); pts.push({x:p.x,y:p.y,stratum:0,trueClass: insideGT(p)?1:0});
+      }
+      return pts;
+    }
+
+    function drawSamples(){
+      while(sampleG.firstChild) sampleG.removeChild(sampleG.firstChild);
+      const mode = showSamplesSel.value; if(mode==='none') return;
+      for(const s of samplePts){ if(mode==='map1' && s.stratum!==1) continue; if(mode==='map0' && s.stratum!==0) continue; const g=ns('g'); const c=ns('circle'); c.setAttribute('cx',s.x); c.setAttribute('cy',s.y); c.setAttribute('r',3.5); c.setAttribute('fill', s.trueClass? '#b45309' : '#000000'); c.setAttribute('stroke', s.stratum? '#7c3aed' : '#64748b'); c.setAttribute('stroke-width','1.5'); g.appendChild(c); sampleG.appendChild(g); }
+    }
+
+    function updateCalcDetails(d){
+      const box = document.getElementById('calcBox');
+      if(!box) return;
+      const f = (x, k=3) => (Number.isFinite(x) ? x.toFixed(k) : '—');
+      const p = (x, k=1) => (Number.isFinite(x) ? (x*100).toFixed(k)+'%' : '—');
+      const safeN = (n)=> (n>0 ? n : 0);
+
+      box.innerHTML = `
+        <div class="row"><span class="muted">Grid & areas</span></div>
+        <div class="row"><code>cell size = ${f(d.cs,0)} px → cell area = ${f(d.cellArea,0)} px²</code></div>
+        <div class="row"><code>nx × ny = ${d.nx} × ${d.ny} → n<sub>cells</sub> = ${d.nCells}</code></div>
+        <div class="row"><code>total area = ${f(d.totalArea,0)} px²</code></div>
+        <div class="hr"></div>
+
+        <div class="row"><span class="muted">Map strata (by raster prediction)</span></div>
+        <div class="row"><code>#map=1 cells = ${d.posCount} → W₁ = ${f(d.W1,4)}</code></div>
+        <div class="row"><code>#map=0 cells = ${d.nCells - d.posCount} → W₀ = ${f(d.W0,4)}</code></div>
+        <div class="hr"></div>
+
+        <div class="row"><span class="muted">Sample stats</span></div>
+        <div class="row"><code>map=1: n₁ = ${safeN(d.n1)}, y₁ = ${safeN(d.y1)} → p̂₁ = ${f(d.p1,4)} (${p(d.p1)})</code></div>
+        <div class="row"><code>map=0: n₀ = ${safeN(d.n0)}, y₀ = ${safeN(d.y0)} → p̂₀ = ${f(d.p0,4)} (${p(d.p0)})</code></div>
+        <div class="hr"></div>
+
+        <div class="row"><span class="muted">Stratified proportion & area</span></div>
+        <div class="row"><code>P̂ = W₁·p̂₁ + W₀·p̂₀ = ${f(d.W1,4)}·${f(d.p1,4)} + ${f(d.W0,4)}·${f(d.p0,4)} = <b>${f(d.P,5)}</b></code></div>
+        <div class="row"><code>Â = P̂ × total area = ${f(d.P,5)} × ${f(d.totalArea,0)} = <b>${f(d.Ahat,1)} px²</b></code></div>
+        <div class="hr"></div>
+
+        <div class="row"><span class="muted">Uncertainty (approx. binomial within strata)</span></div>
+        <div class="row"><code>Var(P̂) = W₁²·p̂₁(1−p̂₁)/n₁ + W₀²·p̂₀(1−p̂₀)/n₀</code></div>
+        <div class="row"><code>      = ${f(d.W1,4)}²·${f(d.p1,4)}(1−${f(d.p1,4)})/${Math.max(1,d.n1)} + ${f(d.W0,4)}²·${f(d.p0,4)}(1−${f(d.p0,4)})/${Math.max(1,d.n0)} = <b>${f(d.varP,6)}</b></code></div>
+        <div class="row"><code>SE(Â) = √Var(P̂) × total area = √${f(d.varP,6)} × ${f(d.totalArea,0)} = <b>${f(d.seA,1)} px²</b></code></div>
+        <div class="row"><code>95% CI(Â) = [${f(d.lo,1)}, ${f(d.hi,1)}]</code></div>
+      `;
+    }
+
+
+    // throttled recompute
+    let raf=0; function scheduleUpdate(resample=false){ cancelAnimationFrame(raf); raf=requestAnimationFrame(()=>recompute(resample)); }
+
+    // init
+    drawGT(); recompute(true);
+  </script>
+</body>
+</html>
