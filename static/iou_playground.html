@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Interactive IoU Playground</title>
+  <style>
+    :root{
+      --bg:#f8fafc;         /* page background */
+      --text:#0f172a;       /* primary text */
+      --muted:#475569;      /* muted text */
+      --border:#e5e7eb;     /* borders */
+      --card:#ffffff;       /* cards */
+      --shadow:0 6px 20px rgba(15,23,42,0.06);
+      --blue:#3b82f6;       /* fixed poly fill */
+      --blue-stroke:#2563eb;
+      --violet:#a855f7;     /* draggable poly fill */
+      --violet-stroke:#7c3aed;
+      --amber:#f59e0b;      /* intersection fill */
+      --amber-stroke:#b45309;
+      --grid:#94a3b31a;     /* subtle grid */
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Apple Color Emoji","Segoe UI Emoji";background:var(--bg);color:var(--text)}
+    .wrap{max-width:1200px;margin:24px auto;padding:0 16px}
+
+    header{display:flex;flex-direction:column;gap:10px;margin-bottom:16px}
+    h1{font-size:24px;letter-spacing:.2px;margin:0}
+    .desc{color:var(--muted);line-height:1.45}
+
+    .grid{display:grid;grid-template-columns:1fr 300px;gap:16px}
+    @media (max-width: 1024px){.grid{grid-template-columns:1fr}}
+
+    .card{background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow);overflow:hidden}
+    .head{padding:12px 14px;border-bottom:1px solid var(--border)}
+    .head h2{margin:0;font-size:16px}
+    .body{padding:14px}
+
+    .stage-wrap{display:flex;justify-content:center}
+    svg.stage{border:1px solid var(--border);border-radius:12px;background:#fff;touch-action:none}
+
+    .metrics{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .metric{border:1px solid var(--border);border-radius:12px;background:#fff;padding:10px}
+    .metric small{display:block;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;font-size:11px}
+    .metric .val{font-weight:700;font-size:18px}
+    .metric.accent{background:#fff7ed;border-color:#fed7aa}
+    .metric.accent .val{color:#b45309}
+
+    .ctrl{display:flex;align-items:center;gap:8px;margin-top:8px}
+    .switch{position:relative;width:44px;height:24px;border-radius:999px;background:#e2e8f0;border:1px solid var(--border);cursor:pointer}
+    .knob{position:absolute;top:1px;left:1px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2);transition:transform .18s ease}
+    .switch.on{background:#dbeafe;border-color:#bfdbfe}
+    .switch.on .knob{transform:translateX(20px)}
+
+    .hint{color:var(--muted);font-size:13px;margin-top:10px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>Interactive IoU Playground</h1>
+      <div class="desc">
+        <strong>Intersection over Union (IoU)</strong> measures how much two shapes overlap, defined as the area of their
+        intersection divided by the area of their union:
+        IoU = |A ∩ B| / |A ∪ B| = |A ∩ B| / (|A| + |B| − |A ∩ B|). Drag the <b style="color:var(--violet-stroke)">purple</b> polygon; the
+        <b style="color:var(--blue-stroke)">blue</b> rectangle is fixed but rotatable with its handle.
+      </div>
+    </header>
+
+    <div class="grid">
+      <div class="card"><div class="body">
+          <div class="stage-wrap">
+            <svg id="stage" class="stage" width="900" height="540"></svg>
+          </div>
+          <div class="hint">Move inside purple to translate; drag purple vertices to reshape. Drag the small blue circle above the rectangle to rotate it. Toggle the intersection shading if needed.</div>
+        </div>
+      </div>
+
+      <div class="card"><div class="body">
+          <div class="metrics">
+            <div class="metric accent"><small>IoU</small><div id="iouVal" class="val">0.0%</div></div>
+            <div class="metric"><small>Intersection area</small><div id="interVal" class="val">0.0</div></div>
+            <div class="metric"><small>Union area</small><div id="uVal" class="val">0.0</div></div>
+          </div>
+          <div class="ctrl">
+            <div id="showInterSwitch" class="switch on" role="switch" aria-checked="true"><div class="knob"></div></div>
+            <label for="showInterSwitch">Show intersection region</label>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- Config ---
+    const W = 900, H = 540;
+    const HANDLE_R = 7;       // draggable vertex radius
+    const ROT_HANDLE_R = 8;   // rotation handle radius
+
+    // --- Utilities ---
+    const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+    const dist2 = (a, b) => (a.x - b.x) ** 2 + (a.y - b.y) ** 2;
+
+    const ringAreaSigned = (pts) => { // signed area (screen coords)
+      let area = 0; for (let i=0,j=pts.length-1; i<pts.length; j=i++) area += pts[j].x*pts[i].y - pts[i].x*pts[j].y; return area/2;
+    };
+    const areaOfSimplePoly = (pts) => Math.abs(ringAreaSigned(pts));
+
+    // Sutherland–Hodgman convex clipper (clip is convex)
+    const cross = (ax,ay,bx,by) => ax*by - ay*bx;
+    function lineIntersection(p,p2,a,b){
+      const A1=p2.y-p.y, B1=p.x-p2.x, C1=A1*p.x+B1*p.y;
+      const A2=b.y-a.y, B2=a.x-b.x, C2=A2*a.x+B2*a.y;
+      const d=A1*B2-A2*B1; if (Math.abs(d)<1e-9) return {x:p2.x,y:p2.y};
+      return { x:(B2*C1-B1*C2)/d, y:(A1*C2-A2*C1)/d };
+    }
+    function clipSubjectByConvex(subject, clip){
+      if (!subject.length || !clip.length) return [];
+      const orient = Math.sign(ringAreaSigned(clip));
+      const isInside = (p,a,b)=>{ const abx=b.x-a.x, aby=b.y-a.y, apx=p.x-a.x, apy=p.y-a.y; const c=cross(abx,aby,apx,apy); return orient>=0? c>=0 : c<=0; };
+      let output = subject.slice();
+      for (let i=0;i<clip.length;i++){
+        const A=clip[i], B=clip[(i+1)%clip.length];
+        const input=output; output=[]; if(!input.length) break;
+        for (let j=0;j<input.length;j++){
+          const S=input[j], E=input[(j+1)%input.length];
+          const Ein=isInside(E,A,B), Sin=isInside(S,A,B);
+          if (Ein){ if(!Sin) output.push(lineIntersection(S,E,A,B)); output.push(E); }
+          else if (Sin){ output.push(lineIntersection(S,E,A,B)); }
+        }
+      }
+      // cleanup dupes
+      const cleaned=[]; for(const p of output){ const last=cleaned[cleaned.length-1]; if(!last||Math.hypot(p.x-last.x,p.y-last.y)>1e-6) cleaned.push(p);} 
+      return cleaned.length>=3? cleaned:[];
+    }
+
+    // --- SVG setup ---
+    const stage = document.getElementById('stage');
+    const gridGroup = ns('g');
+    const interGroup = ns('g'); interGroup.setAttribute('opacity','0.6');
+    const polyA = ns('polygon');
+    const polyB = ns('polygon');
+    const bHandles = ns('g');
+    const aHandles = ns('g');
+
+    polyA.setAttribute('fill','#3b82f60f');
+    polyA.setAttribute('stroke','#2563eb');
+    polyA.setAttribute('stroke-width','2');
+
+    polyB.setAttribute('fill','#a855f70f');
+    polyB.setAttribute('stroke','#7c3aed');
+    polyB.setAttribute('stroke-width','2');
+
+    stage.appendChild(gridGroup);
+    stage.appendChild(interGroup);
+    stage.appendChild(polyA);
+    stage.appendChild(polyB);
+    stage.appendChild(bHandles);
+    stage.appendChild(aHandles);
+
+    // grid
+    (function drawGrid(){
+      const step=40; for(let x=step;x<W;x+=step) addLine(x,0,x,H); for(let y=step;y<H;y+=step) addLine(0,y,W,y);
+      function addLine(x1,y1,x2,y2){ const l=ns('line'); l.setAttribute('x1',x1); l.setAttribute('y1',y1); l.setAttribute('x2',x2); l.setAttribute('y2',y2); l.setAttribute('stroke','#00000010'); l.setAttribute('stroke-width','1'); gridGroup.appendChild(l); }
+    })();
+
+    function ns(tag){ return document.createElementNS('http://www.w3.org/2000/svg', tag); }
+
+    // --- Shapes ---
+    function rectRot(cx,cy,w,h,ang){ const c=Math.cos(ang), s=Math.sin(ang), hw=w/2, hh=h/2, pts=[[-hw,-hh],[hw,-hh],[hw,hh],[-hw,hh]]; return pts.map(([dx,dy])=>({x:cx+dx*c-dy*s, y:cy+dx*s+dy*c})); }
+
+    let Acenter={x:W*0.35,y:H*0.4}, Awidth=320, Aheight=240, Aangle=0;
+    let A = rectRot(Acenter.x,Acenter.y,Awidth,Aheight,Aangle);
+
+    function rotHandlePos(){ // a point above the rectangle center along -y in local frame
+      const c=Math.cos(Aangle), s=Math.sin(Aangle); const dx=0, dy=-(Aheight/2+28); return { x:Acenter.x+dx*c-dy*s, y:Acenter.y+dx*s+dy*c };
+    }
+
+    const B0 = [{x:W*0.60,y:H*0.30},{x:W*0.80,y:H*0.30},{x:W*0.80,y:H*0.60},{x:W*0.60,y:H*0.60}];
+    let B = B0.map(p=>({...p}));
+
+    // --- Interaction ---
+    let drag=null; // {mode:'b-vertex'|'b-translate'|'a-rotate', index?, prev:{x,y}}
+
+    function getPointer(evt){ const r=stage.getBoundingClientRect(); return { x:clamp(evt.clientX-r.left,0,W), y:clamp(evt.clientY-r.top,0,H) }; }
+    function pointInPoly(pt,poly){ let inside=false; for(let i=0,j=poly.length-1;i<poly.length;j=i++){ const xi=poly[i].x,yi=poly[i].y,xj=poly[j].x,yj=poly[j].y; const inter=(yi>pt.y)!=(yj>pt.y) && pt.x < ((xj - xi)*(pt.y - yi))/(yj - yi) + xi; if(inter) inside=!inside; } return inside; }
+
+    stage.addEventListener('pointerdown', (e)=>{
+      const p=getPointer(e);
+      // rotation handle first
+      const rh=rotHandlePos(); if (dist2(p,rh) <= (ROT_HANDLE_R+4)**2) { drag={mode:'a-rotate'}; stage.setPointerCapture(e.pointerId); return; }
+
+      // B vertex
+      const thr2=(HANDLE_R+3)**2; for(let i=0;i<B.length;i++){ if(dist2(p,B[i])<=thr2){ drag={mode:'b-vertex',index:i}; stage.setPointerCapture(e.pointerId); return; } }
+      // B translate
+      if (pointInPoly(p,B)){ drag={mode:'b-translate', prev:p}; stage.setPointerCapture(e.pointerId); }
+    });
+
+    stage.addEventListener('pointermove', (e)=>{
+      if(!drag) return; const p=getPointer(e);
+      if (drag.mode==='b-vertex'){
+        const i=drag.index; B=B.map((q,idx)=> idx===i? {x:p.x,y:p.y}: q); updateScene();
+      } else if (drag.mode==='b-translate'){
+        const dx=p.x-drag.prev.x, dy=p.y-drag.prev.y; B=B.map(q=>({x:clamp(q.x+dx,0,W), y:clamp(q.y+dy,0,H)})); drag.prev=p; updateScene();
+      } else if (drag.mode==='a-rotate'){
+        // compute angle from Acenter to pointer (screen coords: y downwards)
+        const ang=Math.atan2(p.y-Acenter.y, p.x-Acenter.x) - Math.PI/2; // so 0 means upright
+        Aangle=ang; A = rectRot(Acenter.x,Acenter.y,Awidth,Aheight,Aangle); updateScene();
+      }
+    });
+
+    stage.addEventListener('pointerup', (e)=>{ drag=null; try{ stage.releasePointerCapture(e.pointerId);}catch{} });
+    stage.addEventListener('pointerleave', ()=>{ drag=null; });
+
+    // show/hide intersection switch
+    const showInterSwitch = document.getElementById('showInterSwitch');
+    let showIntersection = true;
+    showInterSwitch.addEventListener('click', ()=>{ showIntersection=!showIntersection; showInterSwitch.classList.toggle('on', showIntersection); updateScene(); });
+
+    // --- Metrics ---
+    const iouVal=document.getElementById('iouVal');
+    const interVal=document.getElementById('interVal');
+    const uVal=document.getElementById('uVal');
+
+    // --- Render ---
+    function updateScene(){
+      // draw polygons
+      polyA.setAttribute('points', A.map(p=>`${p.x},${p.y}`).join(' '));
+      polyB.setAttribute('points', B.map(p=>`${p.x},${p.y}`).join(' '));
+
+      // B handles
+      while(bHandles.firstChild) bHandles.removeChild(bHandles.firstChild);
+      for(let i=0;i<B.length;i++){ const c=ns('circle'); c.setAttribute('cx',B[i].x); c.setAttribute('cy',B[i].y); c.setAttribute('r',HANDLE_R); c.setAttribute('fill','#7c3aed'); c.setAttribute('stroke','#fff'); c.setAttribute('stroke-width','2'); bHandles.appendChild(c); }
+
+      // A rotation handle
+      while(aHandles.firstChild) aHandles.removeChild(aHandles.firstChild);
+      const rh=rotHandlePos(); const hc=ns('circle'); hc.setAttribute('cx',rh.x); hc.setAttribute('cy',rh.y); hc.setAttribute('r',ROT_HANDLE_R); hc.setAttribute('fill','#2563eb'); hc.setAttribute('stroke','#fff'); hc.setAttribute('stroke-width','2'); aHandles.appendChild(hc);
+      const rod=ns('line'); rod.setAttribute('x1',Acenter.x); rod.setAttribute('y1',Acenter.y); rod.setAttribute('x2',rh.x); rod.setAttribute('y2',rh.y); rod.setAttribute('stroke','#2563eb33'); rod.setAttribute('stroke-width','2'); aHandles.appendChild(rod);
+
+      // intersection
+      while(interGroup.firstChild) interGroup.removeChild(interGroup.firstChild);
+      const interPoly = clipSubjectByConvex(B, A);
+      const interArea = interPoly.length? areaOfSimplePoly(interPoly): 0;
+      const areaA = areaOfSimplePoly(A);
+      const areaB = areaOfSimplePoly(B);
+      const unionArea = Math.max(1e-9, areaA + areaB - interArea);
+      if (showIntersection && interPoly.length){ const path=ns('path'); let d=''; for(let i=0;i<interPoly.length;i++){ const {x,y}=interPoly[i]; d+=(i===0?`M ${x} ${y}`:` L ${x} ${y}`);} d+=' Z'; path.setAttribute('d',d); path.setAttribute('fill', '#f59e0b55'); path.setAttribute('stroke', '#b45309'); path.setAttribute('stroke-width','1.5'); interGroup.appendChild(path); }
+
+      // metrics
+      iouVal.textContent = (interArea/unionArea*100).toFixed(1) + '%';
+      interVal.textContent = interArea.toFixed(1);
+      uVal.textContent = unionArea.toFixed(1);
+    }
+
+    updateScene();
+  </script>
+</body>
+</html>
