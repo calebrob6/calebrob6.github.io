@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Morphology Playground</title>
+  <style>
+    :root{
+      --bg:#f8fafc;         /* page background */
+      --text:#0f172a;       /* primary text */
+      --muted:#475569;      /* muted text */
+      --border:#e5e7eb;     /* borders */
+      --card:#ffffff;       /* cards */
+      --shadow:0 6px 20px rgba(15,23,42,0.06);
+      --violet:#a855f7;     /* foreground fill */
+      --violet-stroke:#7c3aed;
+      --grid:#94a3b31a;     /* subtle grid */
+      --btn:#0f172a; --btn-bg:#ffffff; --btn-border:#e5e7eb; --btn-hover:#0b1220; --btn-border-hover:#cbd5e1;
+      --accent:#2563eb; --accent-bg:#dbeafe; --accent-border:#bfdbfe;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Apple Color Emoji","Segoe UI Emoji";background:var(--bg);color:var(--text)}
+    .wrap{max-width:1200px;margin:24px auto;padding:0 16px}
+
+    header{display:flex;flex-direction:column;gap:10px;margin-bottom:16px}
+    h1{font-size:24px;letter-spacing:.2px;margin:0}
+    .desc{color:var(--muted);line-height:1.55}
+
+    .grid{display:grid;grid-template-columns:1fr 360px;gap:16px}
+    @media (max-width: 1024px){.grid{grid-template-columns:1fr}}
+
+    .card{background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow);overflow:hidden}
+    .body{padding:14px}
+
+    .stage-wrap{display:flex;justify-content:center}
+    canvas.stage{border:1px solid var(--border);border-radius:12px;background:#fff;touch-action:none}
+
+    .ctrl-col{display:flex;flex-direction:column;gap:14px}
+    .row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+
+    .label{font-size:13px;color:var(--muted)}
+    .seg{display:flex;border:1px solid var(--border);background:#fff;border-radius:10px;overflow:hidden}
+    .seg button{appearance:none;border:0;background:#fff;padding:8px 12px;font-weight:600;cursor:pointer}
+    .seg button + button{border-left:1px solid var(--border)}
+    .seg button.active{background:var(--accent-bg); color:var(--accent);}
+
+    .switch{position:relative;width:44px;height:24px;border-radius:999px;background:#e2e8f0;border:1px solid var(--border);cursor:pointer}
+    .knob{position:absolute;top:1px;left:1px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2);transition:transform .18s ease}
+    .switch.on{background:#dbeafe;border-color:#bfdbfe}
+    .switch.on .knob{transform:translateX(20px)}
+
+    .hint{color:var(--muted);font-size:13px;margin-top:8px}
+
+    .oplist{display:grid;gap:10px}
+    .oprow{display:grid;grid-template-columns:max-content 1fr;gap:12px;align-items:center}
+    .btn{appearance:none;border:1px solid var(--btn-border);background:var(--btn-bg);color:var(--btn);padding:8px 12px;border-radius:10px;cursor:pointer;font-weight:700;white-space:nowrap}
+    .btn:hover{border-color:var(--btn-border-hover)}
+    .opdesc{font-size:13px;color:var(--muted)}
+  .seprev{align-items:flex-start}
+    .se-canvas{border:1px solid var(--border);border-radius:10px;background:#fff;box-shadow:var(--shadow)}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>Morphology Playground</h1>
+      <div class="desc">
+        <strong>Morphological operations</strong> transform a <em>binary image</em> using a small pattern called a
+        <em>structuring element (SE)</em>.
+        <ul style="margin:8px 0 0 18px; padding:0;">
+          <li><b>Dilation</b>: increases object area and accentuates features. Implements a sliding-<em>maximum</em> over the SE (a max filter): a pixel becomes 1 if any pixel under the SE is 1.</li>
+          <li><b>Erosion</b>: decreases object area and removes small features. Implements a sliding-<em>minimum</em> (a min filter): a pixel stays 1 only if <em>all</em> pixels under the SE are 1.</li>
+          <li><b>Opening</b> (erosion → dilation): removes small noise and thin protrusions smaller than the SE while preserving larger shapes.</li>
+          <li><b>Closing</b> (dilation → erosion): fills small holes and bridges small gaps narrower than the SE.</li>
+          <li><b>Boundary</b>: estimates the outline via <code>A − (A ⊖ SE)</code> (original minus eroded).</li>
+        </ul>
+      </div>
+    </header>
+
+    <div class="grid">
+      <div class="card"><div class="body">
+        <div class="stage-wrap">
+          <canvas id="stage" class="stage" width="900" height="540"></canvas>
+        </div>
+        <div class="hint">The canvas shows an upscaled binary grid. Buttons apply operations in-place; <b>Undo</b> reverts the last change.</div>
+      </div></div>
+
+      <div class="card"><div class="body ctrl-col">
+        <div class="row">
+          <span class="label">Structuring element</span>
+          <div class="seg" id="seSeg">
+            <button data-shape="disk" class="active">Disk</button>
+            <button data-shape="square">Square</button>
+            <button data-shape="cross">Cross</button>
+          </div>
+        </div>
+        <div class="row" style="gap:12px">
+          <span class="label" style="min-width:110px">Radius: <span id="radVal">3</span></span>
+          <input id="rad" type="range" min="1" max="12" step="1" value="3"/>
+        </div>
+        <div class="row seprev">
+          <span class="label" style="min-width:110px">SE preview</span>
+          <canvas id="seCanvas" width="160" height="160" class="se-canvas"></canvas>
+        </div>
+        <div class="row" style="justify-content:flex-start">
+          <div id="gridSwitch" class="switch on" role="switch" aria-checked="true"><div class="knob"></div></div>
+          <label for="gridSwitch">Show grid</label>
+        </div>
+
+        <div class="oplist">
+          <div class="oprow">
+            <button class="btn" data-op="dilate">Dilate</button>
+            <div class="opdesc">Grow shapes: set a pixel to 1 if any pixel in its SE-neighborhood is 1 (max filter).</div>
+          </div>
+          <div class="oprow">
+            <button class="btn" data-op="erode">Erode</button>
+            <div class="opdesc">Shrink shapes: keep a pixel 1 only if <em>all</em> pixels in its SE-neighborhood are 1 (min filter).</div>
+          </div>
+          <div class="oprow">
+            <button class="btn" data-op="open">Open</button>
+            <div class="opdesc">Erode then dilate: remove small speckles/protrusions smaller than the SE; smooths contours.</div>
+          </div>
+          <div class="oprow">
+            <button class="btn" data-op="close">Close</button>
+            <div class="opdesc">Dilate then erode: fill small holes and bridge narrow gaps; connects nearby components.</div>
+          </div>
+          <div class="oprow">
+            <button class="btn" data-op="boundary">Boundary</button>
+            <div class="opdesc">Outline estimate: <code>A − (A ⊖ SE)</code>; yields a ~1–r pixel wide border depending on the SE.</div>
+          </div>
+        </div>
+
+        <div class="row" style="gap:8px; margin-top:4px; flex-wrap:wrap;">
+          <button class="btn" id="undoBtn">Undo</button>
+          <button class="btn" id="resetBtn">Reset</button>
+        </div>
+      </div></div>
+    </div>
+  </div>
+
+  <script>
+    // --- Canvas & Grid Setup ---
+    const CANVAS_W = 900, CANVAS_H = 540;
+    const SCALE = 5;                   // px per cell
+    const W = Math.floor(CANVAS_W / SCALE);
+    const H = Math.floor(CANVAS_H / SCALE);
+
+    const canvas = document.getElementById('stage');
+    const ctx = canvas.getContext('2d');
+
+    let showGrid = true;
+
+    // Binary grid: 0 or 1
+    let grid = new Uint8Array(W * H);
+    let grid0 = null; // baseline
+    const history = []; // simple undo stack of Uint8Array snapshots
+
+    function idx(x,y){ return y*W + x; }
+
+    // --- Seed shapes ---
+    function clearGrid(g){ g.fill(0); }
+    function seedShapes(g){
+      clearGrid(g);
+      // 1) Opening demo: blobby disk with thin spurs + pepper noise (opening will prune these)
+      const cx1 = Math.floor(W*0.22), cy1 = Math.floor(H*0.28), r1 = Math.floor(Math.min(W,H)*0.10);
+      drawDisk(g, cx1, cy1, r1);
+      const nSpurs = 8, spurLen = Math.floor(Math.min(W,H)*0.06);
+      for(let k=0;k<nSpurs;k++){
+        const a = (k * 2*Math.PI) / nSpurs;
+        const x0 = Math.round(cx1 + (r1-2) * Math.cos(a));
+        const y0 = Math.round(cy1 + (r1-2) * Math.sin(a));
+        const x1 = Math.round(cx1 + (r1 + spurLen) * Math.cos(a));
+        const y1 = Math.round(cy1 + (r1 + spurLen) * Math.sin(a));
+        drawLine(g, x0, y0, x1, y1, 1, 1); // thin protrusion
+      }
+      addNoise(g, 120, cx1 - r1 - 14, cx1 + r1 + 14, cy1 - r1 - 14, cy1 + r1 + 14);
+
+      // 2) Closing demo (fill small holes): a rectangle with a tiny hole
+      const rx = Math.floor(W*0.58), ry = Math.floor(H*0.14);
+      const rw = Math.floor(W*0.22), rh = Math.floor(H*0.26);
+      drawRect(g, rx, ry, rw, rh);
+      carveDisk(g, rx + Math.floor(rw*0.55), ry + Math.floor(rh*0.45), Math.max(2, Math.floor(Math.min(rw,rh)*0.05)));
+
+      // 3) Closing demo (bridge narrow gaps): two disks separated by a small gap
+      const cx2 = Math.floor(W*0.26), cy2 = Math.floor(H*0.72), r2 = Math.floor(Math.min(W,H)*0.085);
+      drawDisk(g, cx2 - (r2 + 3), cy2, r2);
+      drawDisk(g, cx2 + (r2 + 3), cy2, r2);
+
+      // 4) Opening demo (remove thin connections): two blobs joined by a 1px isthmus
+      const cx3 = Math.floor(W*0.72), cy3 = Math.floor(H*0.72), r3 = Math.floor(Math.min(W,H)*0.08);
+      const leftCx = cx3 - (r3 + 6), rightCx = cx3 + (r3 + 6);
+      drawDisk(g, leftCx, cy3, r3);
+      drawDisk(g, rightCx, cy3, r3);
+      drawLine(g, leftCx + r3, cy3, rightCx - r3, cy3, 1, 1); // 1-pixel bridge the opening should remove
+    }
+
+    function drawDisk(g, cx, cy, r){
+      const r2 = r*r; for(let y=cy-r; y<=cy+r; y++){ if(y<0||y>=H) continue; for(let x=cx-r; x<=cx+r; x++){ if(x<0||x>=W) continue; const dx=x-cx, dy=y-cy; if(dx*dx+dy*dy<=r2) g[idx(x,y)] = 1; }}
+    }
+    function drawRect(g, x, y, w, h){ for(let yy=y; yy<y+h; yy++){ if(yy<0||yy>=H) continue; for(let xx=x; xx<x+w; xx++){ if(xx<0||xx>=W) continue; g[idx(xx,yy)] = 1; }} }
+    function drawTriangle(g, a,b,c){
+      const minX=Math.max(0, Math.min(a.x,b.x,c.x)), maxX=Math.min(W-1, Math.max(a.x,b.x,c.x));
+      const minY=Math.max(0, Math.min(a.y,b.y,c.y)), maxY=Math.min(H-1, Math.max(a.y,b.y,c.y));
+      const area = (p,q,r)=> (q.x-p.x)*(r.y-p.y) - (q.y-p.y)*(r.x-p.x);
+      for(let y=minY; y<=maxY; y++){
+        for(let x=minX; x<=maxX; x++){
+          const p={x,y};
+          const b1 = area(p,a,b) < 0, b2 = area(p,b,c) < 0, b3 = area(p,c,a) < 0;
+          if ((b1===b2) && (b2===b3)) g[idx(x,y)] = 1;
+        }
+      }
+    }
+    function drawRing(g, cx, cy, rOuter, rInner){
+      const rO2=rOuter*rOuter, rI2=rInner*rInner; for(let y=cy-rOuter; y<=cy+rOuter; y++){ if(y<0||y>=H) continue; for(let x=cx-rOuter; x<=cx+rOuter; x++){ if(x<0||x>=W) continue; const dx=x-cx, dy=y-cy; const d2=dx*dx+dy*dy; if(d2<=rO2 && d2>=rI2) g[idx(x,y)]=1; }}
+    }
+
+    // Extra helpers for demonstrative seeds
+    function drawLine(g, x0, y0, x1, y1, thickness=1, val=1){
+      // Bresenham with optional thickness (square neighborhood)
+      x0=Math.round(x0); y0=Math.round(y0); x1=Math.round(x1); y1=Math.round(y1);
+      const dx=Math.abs(x1-x0), dy=Math.abs(y1-y0);
+      const sx=x0<x1?1:-1, sy=y0<y1?1:-1; let err=dx-dy;
+      const r=Math.max(0, Math.floor((thickness-1)/2));
+      while(true){
+        for(let yy=y0-r; yy<=y0+r; yy++){
+          for(let xx=x0-r; xx<=x0+r; xx++){
+            if(xx>=0&&xx<W&&yy>=0&&yy<H) g[idx(xx,yy)] = val;
+          }
+        }
+        if(x0===x1 && y0===y1) break;
+        const e2=2*err; if(e2>-dy){ err-=dy; x0+=sx; } if(e2<dx){ err+=dx; y0+=sy; }
+      }
+    }
+    function carveDisk(g, cx, cy, r){
+      const r2=r*r; for(let y=cy-r; y<=cy+r; y++){ if(y<0||y>=H) continue; for(let x=cx-r; x<=cx+r; x++){ if(x<0||x>=W) continue; const dx=x-cx, dy=y-cy; if(dx*dx+dy*dy<=r2) g[idx(x,y)] = 0; }}
+    }
+    function addNoise(g, count, minX, maxX, minY, maxY){
+      minX=Math.max(0,Math.min(W-1,Math.floor(minX||0))); maxX=Math.max(0,Math.min(W-1,Math.floor(maxX||W-1)));
+      minY=Math.max(0,Math.min(H-1,Math.floor(minY||0))); maxY=Math.max(0,Math.min(H-1,Math.floor(maxY||H-1)));
+      for(let i=0;i<count;i++){
+        const x = Math.floor(minX + Math.random()*(Math.max(1,maxX-minX+1)));
+        const y = Math.floor(minY + Math.random()*(Math.max(1,maxY-minY+1)));
+        g[idx(x,y)] = 1;
+      }
+    }
+
+    // --- Rendering ---
+    function draw(){
+      ctx.clearRect(0,0,CANVAS_W,CANVAS_H);
+      // background
+      ctx.fillStyle = '#ffffff'; ctx.fillRect(0,0,CANVAS_W,CANVAS_H);
+
+      // draw grid (optional)
+      if (showGrid){
+        ctx.strokeStyle = '#00000010'; ctx.lineWidth = 1;
+        for(let x=0; x<=W; x++){ ctx.beginPath(); ctx.moveTo(x*SCALE+0.5, 0); ctx.lineTo(x*SCALE+0.5, H*SCALE); ctx.stroke(); }
+        for(let y=0; y<=H; y++){ ctx.beginPath(); ctx.moveTo(0, y*SCALE+0.5); ctx.lineTo(W*SCALE, y*SCALE+0.5); ctx.stroke(); }
+      }
+
+      // draw pixels
+      ctx.fillStyle = 'rgba(168,85,247,0.30)';
+      ctx.strokeStyle = '#7c3aed';
+      ctx.lineWidth = 0.8;
+      for(let y=0; y<H; y++){
+        for(let x=0; x<W; x++){
+          if (grid[idx(x,y)]){
+            ctx.fillRect(x*SCALE, y*SCALE, SCALE, SCALE);
+          }
+        }
+      }
+      // optional outline (simple): draw around filled cells
+      ctx.globalAlpha = 0.9; ctx.strokeStyle = '#7c3aed';
+      for(let y=0; y<H; y++){
+        for(let x=0; x<W; x++){
+          if (!grid[idx(x,y)]) continue;
+          // if any 4-neighbor is empty, draw a thin rect stroke
+          if ((y>0 && !grid[idx(x,y-1)]) || (y<H-1 && !grid[idx(x,y+1)]) || (x>0 && !grid[idx(x-1,y)]) || (x<W-1 && !grid[idx(x+1,y)])){
+            ctx.strokeRect(x*SCALE+0.2, y*SCALE+0.2, SCALE-0.4, SCALE-0.4);
+          }
+        }
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    // --- Structuring Element ---
+    let seShape = 'disk';
+    let seRadius = 3;
+    let seOffsets = [];
+    function rebuildSE(){
+      const r = seRadius; const offs = [];
+      if (seShape === 'square'){
+        for(let dy=-r; dy<=r; dy++) for(let dx=-r; dx<=r; dx++) offs.push([dx,dy]);
+      } else if (seShape === 'cross'){
+        for(let dy=-r; dy<=r; dy++) for(let dx=-r; dx<=r; dx++) if (Math.abs(dx)+Math.abs(dy) <= r) offs.push([dx,dy]);
+      } else { // disk (Euclidean)
+        const r2 = r*r; for(let dy=-r; dy<=r; dy++) for(let dx=-r; dx<=r; dx++) if (dx*dx+dy*dy <= r2) offs.push([dx,dy]);
+      }
+      seOffsets = offs; drawSEPreview();
+    }
+
+    // --- SE Preview ---
+    function drawSEPreview(){
+      const c = document.getElementById('seCanvas'); if(!c) return; const ctx2 = c.getContext('2d');
+      // Handle high-DPI screens while keeping CSS size stable
+      const cssW = c.getAttribute('width') ? parseInt(c.getAttribute('width'),10) : c.clientWidth;
+      const cssH = c.getAttribute('height') ? parseInt(c.getAttribute('height'),10) : c.clientHeight;
+      const dpr = (window.devicePixelRatio||1);
+      if (c.width !== Math.round(cssW*dpr) || c.height !== Math.round(cssH*dpr)){
+        c.width = Math.round(cssW*dpr);
+        c.height = Math.round(cssH*dpr);
+      }
+      ctx2.setTransform(dpr,0,0,dpr,0,0);
+
+      const w = cssW, h = cssH;
+      ctx2.clearRect(0,0,w,h);
+      ctx2.fillStyle = '#ffffff'; ctx2.fillRect(0,0,w,h);
+      const r = seRadius; const n = 2*r + 1; const pad = 8;
+      const cell = Math.max(4, Math.floor(Math.min(w-2*pad, h-2*pad) / n));
+      const size = cell * n; const x0 = Math.floor((w - size)/2); const y0 = Math.floor((h - size)/2);
+      // grid
+      ctx2.strokeStyle = '#00000010'; ctx2.lineWidth = 1;
+      for(let i=0;i<=n;i++){
+        const x = x0 + i*cell + 0.5; ctx2.beginPath(); ctx2.moveTo(x, y0); ctx2.lineTo(x, y0+size); ctx2.stroke();
+        const y = y0 + i*cell + 0.5; ctx2.beginPath(); ctx2.moveTo(x0, y); ctx2.lineTo(x0+size, y); ctx2.stroke();
+      }
+      // cells in SE
+      ctx2.fillStyle = 'rgba(168,85,247,0.30)';
+      ctx2.strokeStyle = '#7c3aed';
+      ctx2.lineWidth = 1;
+      const rOff = r;
+      for(const [dx,dy] of seOffsets){
+        const ix = dx + rOff, iy = dy + rOff; if(ix<0||iy<0||ix>=n||iy>=n) continue;
+        const px = x0 + ix*cell, py = y0 + iy*cell;
+        ctx2.fillRect(px, py, cell, cell);
+        ctx2.strokeRect(px+0.2, py+0.2, cell-0.4, cell-0.4);
+      }
+      // center highlight
+      ctx2.strokeStyle = '#2563eb'; ctx2.lineWidth = 2;
+      ctx2.strokeRect(x0 + r*cell + 0.5, y0 + r*cell + 0.5, cell - 1, cell - 1);
+    }
+
+    // --- Morph Ops ---
+    function dilate(src){
+      const out = new Uint8Array(W*H);
+      for(let y=0;y<H;y++){
+        for(let x=0;x<W;x++){
+          let v = 0;
+          for(const [dx,dy] of seOffsets){ const xx=x+dx, yy=y+dy; if(xx>=0&&xx<W&&yy>=0&&yy<H){ if(src[idx(xx,yy)]){ v=1; break; } } }
+          out[idx(x,y)] = v;
+        }
+      }
+      return out;
+    }
+    function erode(src){
+      const out = new Uint8Array(W*H);
+      for(let y=0;y<H;y++){
+        for(let x=0;x<W;x++){
+          let v = 1;
+          for(const [dx,dy] of seOffsets){ const xx=x+dx, yy=y+dy; if(!(xx>=0&&xx<W&&yy>=0&&yy<H) || !src[idx(xx,yy)]){ v=0; break; } }
+          out[idx(x,y)] = v;
+        }
+      }
+      return out;
+    }
+    function opening(src){ return dilate( erode(src) ); }
+    function closing(src){ return erode( dilate(src) ); }
+    function boundary(src){ const er = erode(src); const out = new Uint8Array(W*H); for(let i=0;i<out.length;i++) out[i] = src[i] && !er[i] ? 1 : 0; return out; }
+
+    // --- UI wiring ---
+    const rad = document.getElementById('rad');
+    const radVal = document.getElementById('radVal');
+    rad.addEventListener('input', ()=>{ seRadius = parseInt(rad.value,10); radVal.textContent = seRadius; rebuildSE(); draw(); });
+
+    document.getElementById('seSeg').addEventListener('click', (e)=>{
+      const btn = e.target.closest('button'); if(!btn) return; [...e.currentTarget.children].forEach(b=>b.classList.remove('active')); btn.classList.add('active'); seShape = btn.dataset.shape; rebuildSE(); draw();
+    });
+
+    document.getElementById('gridSwitch').addEventListener('click', (e)=>{ const sw=e.currentTarget; sw.classList.toggle('on'); showGrid = sw.classList.contains('on'); draw(); });
+
+    document.querySelectorAll('[data-op]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        // snapshot for undo
+        history.push(grid.slice()); if(history.length>32) history.shift();
+        const op = btn.dataset.op;
+        if (op==='dilate') grid = dilate(grid);
+        else if (op==='erode') grid = erode(grid);
+        else if (op==='open') grid = opening(grid);
+        else if (op==='close') grid = closing(grid);
+        else if (op==='boundary') grid = boundary(grid);
+        draw();
+      });
+    });
+
+    document.getElementById('undoBtn').addEventListener('click', ()=>{ if(history.length){ grid = history.pop(); draw(); }});
+    document.getElementById('resetBtn').addEventListener('click', ()=>{ grid = grid0.slice(); history.length = 0; draw(); });
+
+    // --- Init ---
+    seedShapes(grid);
+    grid0 = grid.slice();
+    rebuildSE();
+    draw();
+  </script>
+</body>
+</html>
