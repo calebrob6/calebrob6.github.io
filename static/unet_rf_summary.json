@@ -1,0 +1,74 @@
+{
+  "models": {
+    "resnet18": {
+      "display_name": "Resnet18",
+      "receptive_field_height": 326,
+      "receptive_field_width": 326,
+      "receptive_field_max": 326,
+      "num_parameters": 14321937,
+      "measurement_method": "empirical_full_model",
+      "python_code": "import segmentation_models_pytorch as smp\n\nmodel = smp.Unet(\n    encoder_name=\"resnet18\",\n    encoder_depth=5,\n    encoder_weights=\"imagenet\",  # or None for random weights\n    in_channels=3,\n    classes=1,  # adjust for your number of classes\n    activation=None,  # or 'sigmoid', 'softmax', etc.\n)\n"
+    },
+    "resnet50": {
+      "display_name": "Resnet50",
+      "receptive_field_height": 169,
+      "receptive_field_width": 169,
+      "receptive_field_max": 169,
+      "num_parameters": 32514833,
+      "measurement_method": "empirical_full_model",
+      "python_code": "import segmentation_models_pytorch as smp\n\nmodel = smp.Unet(\n    encoder_name=\"resnet50\",\n    encoder_depth=5,\n    encoder_weights=\"imagenet\",  # or None for random weights\n    in_channels=3,\n    classes=1,  # adjust for your number of classes\n    activation=None,  # or 'sigmoid', 'softmax', etc.\n)\n"
+    },
+    "efficientnet-b0": {
+      "display_name": "Efficientnet B0",
+      "receptive_field_height": 86,
+      "receptive_field_width": 86,
+      "receptive_field_max": 86,
+      "num_parameters": 6250893,
+      "measurement_method": "empirical_full_model",
+      "python_code": "import segmentation_models_pytorch as smp\n\nmodel = smp.Unet(\n    encoder_name=\"efficientnet-b0\",\n    encoder_depth=5,\n    encoder_weights=\"imagenet\",  # or None for random weights\n    in_channels=3,\n    classes=1,  # adjust for your number of classes\n    activation=None,  # or 'sigmoid', 'softmax', etc.\n)\n"
+    },
+    "efficientnet-b4": {
+      "display_name": "Efficientnet B4",
+      "receptive_field_height": 94,
+      "receptive_field_width": 94,
+      "receptive_field_max": 94,
+      "num_parameters": 20224825,
+      "measurement_method": "empirical_full_model",
+      "python_code": "import segmentation_models_pytorch as smp\n\nmodel = smp.Unet(\n    encoder_name=\"efficientnet-b4\",\n    encoder_depth=5,\n    encoder_weights=\"imagenet\",  # or None for random weights\n    in_channels=3,\n    classes=1,  # adjust for your number of classes\n    activation=None,  # or 'sigmoid', 'softmax', etc.\n)\n"
+    },
+    "vgg16": {
+      "display_name": "Vgg16",
+      "receptive_field_height": 119,
+      "receptive_field_width": 119,
+      "receptive_field_max": 119,
+      "num_parameters": 23747089,
+      "measurement_method": "empirical_full_model",
+      "python_code": "import segmentation_models_pytorch as smp\n\nmodel = smp.Unet(\n    encoder_name=\"vgg16\",\n    encoder_depth=5,\n    encoder_weights=\"imagenet\",  # or None for random weights\n    in_channels=3,\n    classes=1,  # adjust for your number of classes\n    activation=None,  # or 'sigmoid', 'softmax', etc.\n)\n"
+    },
+    "densenet121": {
+      "display_name": "Densenet121",
+      "receptive_field_height": 253,
+      "receptive_field_width": 253,
+      "receptive_field_max": 253,
+      "num_parameters": 13601361,
+      "measurement_method": "empirical_full_model",
+      "python_code": "import segmentation_models_pytorch as smp\n\nmodel = smp.Unet(\n    encoder_name=\"densenet121\",\n    encoder_depth=5,\n    encoder_weights=\"imagenet\",  # or None for random weights\n    in_channels=3,\n    classes=1,  # adjust for your number of classes\n    activation=None,  # or 'sigmoid', 'softmax', etc.\n)\n"
+    },
+    "mobilenet_v2": {
+      "display_name": "Mobilenet V2",
+      "receptive_field_height": 100,
+      "receptive_field_width": 100,
+      "receptive_field_max": 100,
+      "num_parameters": 6628369,
+      "measurement_method": "empirical_full_model",
+      "python_code": "import segmentation_models_pytorch as smp\n\nmodel = smp.Unet(\n    encoder_name=\"mobilenet_v2\",\n    encoder_depth=5,\n    encoder_weights=\"imagenet\",  # or None for random weights\n    in_channels=3,\n    classes=1,  # adjust for your number of classes\n    activation=None,  # or 'sigmoid', 'softmax', etc.\n)\n"
+    }
+  },
+  "metadata": {
+    "extracted_at": "2025-10-10",
+    "total_models": 7,
+    "input_size": 512,
+    "method": "empirical_full_model",
+    "description": "Receptive fields measured by propagating single pixel through full U-Net model"
+  }
+}

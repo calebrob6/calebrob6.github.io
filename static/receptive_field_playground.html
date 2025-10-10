@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Receptive Field & Effective Receptive Field — Interactive Visualizer</title>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['\\(', '\\)']],
+        displayMath: [['\\[', '\\]']]
+      }
+    };
+  </script>
+  <style>
+    :root{
+      --bg:#f8fafc;         /* page background */
+      --text:#0f172a;       /* primary text */
+      --muted:#475569;      /* muted text */
+      --border:#e5e7eb;     /* borders */
+      --card:#ffffff;       /* cards */
+      --shadow:0 6px 20px rgba(15,23,42,0.06);
+      --accent:#2563eb;
+      --accent-2:#a855f7;
+      --warn:#ef4444;
+      --grid:#94a3b31a;     /* subtle grid */
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Apple Color Emoji","Segoe UI Emoji";background:var(--bg);color:var(--text)}
+    .wrap{max-width:75%;margin:24px auto;padding:0 16px}
+
+    header{display:flex;flex-direction:column;gap:10px;margin-bottom:16px}
+    h1{font-size:24px;letter-spacing:.2px;margin:0}
+    .desc{color:var(--muted);line-height:1.5}
+    .desc code{background:#0000000d;padding:0 4px;border-radius:6px}
+
+    .content{display:flex;flex-direction:column;gap:16px}
+    .vis-section{width:100%}
+    .controls-section{width:100%}
+    .models-section{width:100%}
+
+    .card{background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow);overflow:hidden}
+    .head{padding:12px 14px;border-bottom:1px solid var(--border)}
+    .head h2{margin:0;font-size:16px}
+    .body{padding:14px}
+
+    .stage-wrap{display:grid;grid-template-columns:1fr 40px 1fr;gap:12px;align-items:center;justify-items:center}
+    .label{font-size:12px;color:var(--muted);margin-top:6px;text-align:center}
+
+    .gridStage{border:1px solid var(--border);border-radius:12px;background:#fff;touch-action:none}
+    .sep{height:100%;width:1px;background:var(--border)}
+
+    .controls{display:grid;gap:12px}
+    .row{display:flex;align-items:center;gap:8px}
+    .row label{width:130px;color:var(--muted)}
+    input[type="range"]{width:100%}
+    select, input[type="number"]{padding:6px 8px;border:1px solid var(--border);border-radius:8px;background:#fff}
+    .tog{display:flex;align-items:center;gap:8px}
+
+    .legend{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+    .lg{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+    .swatch{width:14px;height:14px;border-radius:4px;border:1px solid var(--border)}
+
+    .hint{color:var(--muted);font-size:13px;margin-top:10px}
+
+    .models-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-top:12px}
+    .model-card{border:1px solid var(--border);border-radius:10px;padding:12px;background:#fff;cursor:pointer;transition:all 0.2s}
+    .model-card:hover{border-color:var(--accent);box-shadow:0 2px 8px rgba(37,99,235,0.1)}
+    .model-card.selected{border-color:var(--accent);background:#eef2ff}
+    .model-name{font-weight:600;color:var(--text);margin-bottom:4px}
+    .model-rf{font-size:12px;color:var(--muted);font-family:ui-monospace,monospace}
+    .model-stages{font-size:11px;color:var(--muted);margin-top:4px}
+    .model-params{font-size:11px;color:var(--accent);margin-top:2px;font-weight:500}
+    .metric{border:1px solid var(--border);border-radius:10px;padding:10px;margin-top:8px;background:#fff}
+    .metric small{display:block;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;font-size:11px}
+    .metric .val{font-weight:700;font-size:16px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>Receptive Field & Effective Receptive Field — Interactive Visualizer</h1>
+      <div class="desc">
+        <p>For a stack of convolution layers (stride=1, dilation=1), the <i>receptive field</i> of an output pixel is the set of input pixels that can influence it. With kernel sizes \(k_1,\dots,k_L\) and stride \(s_m = 1\), the receptive-field size along one axis after \(L\) layers is</p>
+        <p style="margin:.4em 0 .8em .3em">\[ r_L \;=\; 1 + \sum_{\ell=1}^{L} (k_\ell-1) \prod_{m=1}^{\ell-1} s_m\;\;\text{with stride } s_m=1\;\Rightarrow\; r_L = 1 + \sum_{\ell=1}^{L} (k_\ell-1). \]</p>
+        <p>The <i>effective receptive field</i> (ERF) describes how influence is distributed within that receptive field. While the theoretical RF defines the maximum spatial extent, the ERF shows that not all pixels contribute equally. With random weights, the ERF follows approximately a Gaussian distribution centered in the RF, with influence decaying toward the edges (Luo et&nbsp;al., 2016). However, <b>training can significantly reshape the ERF</b> – the network may learn to focus attention on specific spatial patterns, potentially creating non-Gaussian or multi-modal ERFs depending on the task and data.</p>
+        <p><b>Architectural Effects.</b> <i>Adding layers</i> increases the RF size linearly: each additional layer with kernel size \(k\) adds \((k-1)\) to the total RF. <i>Larger kernels</i> have a more dramatic effect, as a single 7×7 layer contributes as much as three 3×3 layers (\(7-1 = 6\) vs \(3×(3-1) = 6\)). However, stacking smaller kernels often provides better representational capacity and training dynamics than single large kernels.</p>
+        <p>We approximate the untrained ERF here by repeatedly convolving a delta function with uniform \(k\times k\) kernels \(L\) times, then visualizing the normalized weights. This shows the "default" influence pattern before training.</p>
+      </div>
+    </header>
+
+    <div class="content">
+      <div class="vis-section">
+        <div class="card"><div class="body">
+          <div class="stage-wrap">
+            <canvas id="inputCanvas" class="gridStage" width="480" height="480" aria-label="Input grid"></canvas>
+            <div class="sep"></div>
+            <canvas id="outputCanvas" class="gridStage" width="480" height="480" aria-label="Output grid"></canvas>
+            <div class="label">Input image</div>
+            <div></div>
+            <div class="label">Output (semantic segmentation)</div>
+          </div>
+          <div class="hint">Hover over a cell on the <b>output</b> grid to see its receptive field on the input. Use the controls below to change depth, kernel size, and padding. Toggle ERF to see center-weighted influence.</div>
+        </div></div>
+      </div>
+
+      <div class="controls-section">
+        <div class="card"><div class="body">
+          <div class="controls">
+            <div class="row"><label>Image size (N×N)</label><input id="imgSize" type="range" min="8" max="32" value="16"><span id="imgSizeVal">16</span></div>
+            <div class="row"><label>Layers (L)</label><input id="layers" type="range" min="1" max="8" value="3"><span id="layersVal">3</span></div>
+            <div class="row"><label>Kernel size (k)</label><input id="kernel" type="range" min="1" max="9" step="2" value="3"><span id="kernelVal">3</span></div>
+            <div class="row"><label>Mode</label>
+              <select id="mode">
+                <option value="rf">Receptive field (binary)</option>
+                <option value="erf">Effective receptive field (weights)</option>
+              </select>
+            </div>
+            <div class="row tog"><input id="showGridNums" type="checkbox" checked><label for="showGridNums">Show indices</label></div>
+            <div class="legend">
+              <div class="lg"><span class="swatch" style="background:#dbeafe;border-color:#93c5fd"></span> Receptive field area</div>
+              <div class="lg"><span class="swatch" style="background:#ddd"></span> ERF heat (darker = stronger)</div>
+              <div class="lg"><span class="swatch" style="background:#fff"></span> Non-influential</div>
+              <div class="lg"><span class="swatch" style="background:#e9d5ff"></span> Selected output pixel</div>
+            </div>
+            <div class="metric"><small>Output size</small><div class="val"><span id="outSizeVal">—</span></div></div>
+            <div class="metric"><small>RF side length r<sub>L</sub></small><div class="val"><span id="rfVal">—</span></div></div>
+          </div>
+        </div></div>
+      </div>
+
+      <div class="models-section">
+        <div class="card"><div class="body">
+          <h3 style="margin:0 0 8px 0">Real U-Net Architectures</h3>
+          <p style="margin:0 0 12px 0;color:var(--muted);font-size:13px">Empirically measured receptive fields from segmentation_models_pytorch U-Net models.</p>
+          <p style="margin:0 0 16px 0;color:var(--muted);font-size:13px;">
+            <strong>Measurement method:</strong> These receptive fields were measured by creating U-Net models with normalized weights (1/numel()) and zero biases, 
+            propagating a single pixel activation through the complete model using 512×512 input images, and measuring the spatial extent of the output activation. 
+            This captures the true end-to-end receptive field of the full segmentation model, including both encoder and decoder effects.
+          </p>
+          <div class="models-grid" id="modelsGrid">
+            <div style="grid-column: 1/-1; text-align:center; color:var(--muted); padding:20px">Loading models...</div>
+          </div>
+          <div id="selectedModelInfo" style="margin-top:16px;display:none">
+            <div style="border:1px solid var(--border);border-radius:10px;padding:12px;background:#f8fafc">
+              <div style="font-weight:600;margin-bottom:8px">Architecture: <span id="modelName">—</span></div>
+              <div style="font-size:13px;color:var(--muted);margin-bottom:8px">Receptive field progression through encoder stages:</div>
+              <div id="modelRF" style="font-family:ui-monospace,monospace;font-size:12px;color:var(--text)">—</div>
+              <div style="margin-top:8px;font-size:12px;color:var(--muted)">
+                💡 <strong>Tip:</strong> Compare how different architectures achieve different RF growth patterns. ResNets start large due to 7×7 initial conv, while others grow more gradually.
+              </div>
+            </div>
+          </div>
+        </div></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ===== Utilities =====
+    const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+    function lerp(a,b,t){ return a+(b-a)*t; }
+
+    // ===== State =====
+    const inputCanvas = document.getElementById('inputCanvas');
+    const outputCanvas = document.getElementById('outputCanvas');
+    const ictx = inputCanvas.getContext('2d');
+    const octx = outputCanvas.getContext('2d');
+
+    const imgSizeEl = document.getElementById('imgSize');
+    const layersEl = document.getElementById('layers');
+    const kernelEl = document.getElementById('kernel');
+    const modeEl = document.getElementById('mode');
+    const showGridNumsEl = document.getElementById('showGridNums');
+
+    const imgSizeVal = document.getElementById('imgSizeVal');
+    const layersVal = document.getElementById('layersVal');
+    const kernelVal = document.getElementById('kernelVal');
+    const outSizeVal = document.getElementById('outSizeVal');
+    const rfVal = document.getElementById('rfVal');
+
+    let N = +imgSizeEl.value;   // input N x N
+    let L = +layersEl.value;    // number of layers
+    let K = +kernelEl.value;    // kernel size (odd)
+    let P = Math.floor(K / 2);  // "same" padding - always (K-1)/2
+
+    let outN = computeOutputSize(N, K, P, L); // output size per axis
+
+    // hovered output cell
+    let hoverIJ = {i: Math.floor(outN/2), j: Math.floor(outN/2)};
+
+    // Models data
+    let modelsData = null;
+    let selectedModel = null;
+
+    // ===== Models functionality =====
+    async function loadModels() {
+      try {
+        const response = await fetch('unet_rf_summary.json');
+        modelsData = await response.json();
+        displayModels();
+      } catch (error) {
+        console.error('Failed to load models data:', error);
+        document.getElementById('modelsGrid').innerHTML = 
+          '<div style="grid-column: 1/-1; text-align:center; color:var(--warn); padding:20px">Failed to load unet_rf_summary.json</div>';
+      }
+    }
+
+    function displayModels() {
+      const grid = document.getElementById('modelsGrid');
+      if (!modelsData || !modelsData.models) {
+        grid.innerHTML = '<div style="grid-column: 1/-1; text-align:center; color:var(--muted); padding:20px">No models data available</div>';
+        return;
+      }
+
+      const modelEntries = Object.entries(modelsData.models);
+      grid.innerHTML = '';
+
+      modelEntries.forEach(([key, model]) => {
+        const card = document.createElement('div');
+        card.className = 'model-card';
+        card.dataset.modelKey = key;
+        
+        // Handle different data formats
+        let rfText, stages;
+        if (model.receptive_fields && Array.isArray(model.receptive_fields)) {
+          // Legacy format with array of RFs
+          const validRFs = model.receptive_fields.filter(rf => rf > 0);
+          rfText = validRFs.map(rf => rf.toString()).join(' → ');
+          stages = `${validRFs.length} stages`;
+        } else if (model.receptive_field_max || model.receptive_field_height) {
+          // New format with single final RF measurement
+          const maxRF = model.receptive_field_max || Math.max(model.receptive_field_height || 0, model.receptive_field_width || 0);
+          rfText = `${maxRF}×${maxRF}`;
+          stages = `Final RF (empirical)`;
+        } else {
+          rfText = 'Unknown';
+          stages = 'No data';
+        }
+        
+        // Add parameter count if available
+        let paramText = '';
+        if (model.num_parameters) {
+          const params = model.num_parameters;
+          if (params >= 1e6) {
+            paramText = `<div class="model-params">${(params/1e6).toFixed(1)}M params</div>`;
+          } else if (params >= 1e3) {
+            paramText = `<div class="model-params">${(params/1e3).toFixed(0)}K params</div>`;
+          } else {
+            paramText = `<div class="model-params">${params} params</div>`;
+          }
+        }
+        
+        card.innerHTML = `
+          <div class="model-name">${model.display_name}</div>
+          <div class="model-rf">RF: ${rfText}</div>
+          <div class="model-stages">${stages}</div>
+          ${paramText}
+        `;
+        
+        card.addEventListener('click', () => selectModel(key, model));
+        grid.appendChild(card);
+      });
+      
+      // Auto-select ResNet18 if available
+      if (modelsData.models['resnet18']) {
+        selectModel('resnet18', modelsData.models['resnet18']);
+      } else {
+        // If ResNet18 not found, select the first model
+        const firstModel = modelEntries[0];
+        if (firstModel) {
+          selectModel(firstModel[0], firstModel[1]);
+        }
+      }
+    }
+
+    function selectModel(key, model) {
+      // Update selection state
+      selectedModel = { key, ...model };
+      
+      // Update UI
+      document.querySelectorAll('.model-card').forEach(card => {
+        card.classList.toggle('selected', card.dataset.modelKey === key);
+      });
+      
+      // Show model info
+      const infoDiv = document.getElementById('selectedModelInfo');
+      const nameSpan = document.getElementById('modelName');
+      const rfDiv = document.getElementById('modelRF');
+      
+      nameSpan.textContent = model.display_name;
+      
+      // Format RF information based on data structure
+      let rfContent;
+      if (model.receptive_fields && Array.isArray(model.receptive_fields)) {
+        // Legacy format with RF progression
+        const validRFs = model.receptive_fields.filter(rf => rf > 0);
+        const rfStages = validRFs.map((rf, i) => {
+          const stageName = i === 0 ? 'Input' : `Stage ${i}`;
+          return `${stageName}: ${rf}×${rf}`;
+        }).join('  →  ');
+        rfContent = `<div>${rfStages}</div>`;
+      } else if (model.receptive_field_max || model.receptive_field_height) {
+        // New empirical format
+        const maxRF = model.receptive_field_max || Math.max(model.receptive_field_height || 0, model.receptive_field_width || 0);
+        const heightRF = model.receptive_field_height || maxRF;
+        const widthRF = model.receptive_field_width || maxRF;
+        
+        rfContent = `<div>Final Receptive Field: ${heightRF}×${widthRF} pixels</div>`;
+        
+        // Add parameter count if available
+        if (model.num_parameters) {
+          const params = model.num_parameters;
+          let paramText;
+          if (params >= 1e6) {
+            paramText = `${(params/1e6).toFixed(1)}M parameters`;
+          } else if (params >= 1e3) {
+            paramText = `${(params/1e3).toFixed(0)}K parameters`;
+          } else {
+            paramText = `${params} parameters`;
+          }
+          rfContent += `<div style="margin-top:4px;color:var(--muted);font-size:12px">${paramText}</div>`;
+        }
+      } else {
+        rfContent = '<div>No receptive field data available</div>';
+      }
+      
+      rfDiv.innerHTML = `
+        ${rfContent}
+        <small style="color:var(--muted)">Method: ${model.measurement_method || modelsData.metadata?.method || 'Empirical'}</small>
+      `;
+      
+      // Add Python code directly if available
+      if (model.python_code) {
+        const codeSection = document.createElement('div');
+        codeSection.style.cssText = 'margin-top:12px; border:1px solid var(--border); border-radius:8px; overflow:hidden;';
+        
+        const codeHeader = document.createElement('div');
+        codeHeader.style.cssText = 'background:#f8fafc; padding:8px 12px; border-bottom:1px solid var(--border); font-weight:600; font-size:13px; color:var(--text);';
+        codeHeader.textContent = 'Python Code';
+        
+        const codeBlock = document.createElement('pre');
+        codeBlock.style.cssText = 'margin:0; padding:12px; background:#fff; overflow-x:auto; font-family:"Consolas","Monaco",monospace; font-size:12px; line-height:1.4; color:var(--text);';
+        codeBlock.textContent = model.python_code;
+        
+        const codeFooter = document.createElement('div');
+        codeFooter.style.cssText = 'padding:8px 12px; background:#f8fafc; border-top:1px solid var(--border);';
+        
+        const copyButton = document.createElement('button');
+        copyButton.textContent = '📋 Copy to Clipboard';
+        copyButton.style.cssText = 'background:var(--accent); color:white; border:none; padding:6px 12px; border-radius:4px; cursor:pointer; font-size:12px;';
+        copyButton.onclick = () => {
+          navigator.clipboard.writeText(model.python_code).then(() => {
+            copyButton.textContent = '✓ Copied!';
+            setTimeout(() => copyButton.textContent = '📋 Copy to Clipboard', 2000);
+          });
+        };
+        
+        codeFooter.appendChild(copyButton);
+        codeSection.appendChild(codeHeader);
+        codeSection.appendChild(codeBlock);
+        codeSection.appendChild(codeFooter);
+        rfDiv.appendChild(codeSection);
+      }
+      
+      infoDiv.style.display = 'block';
+    }
+
+    // ===== Layout helpers =====
+    function clear(ctx){ ctx.clearRect(0,0,ctx.canvas.width,ctx.canvas.height); }
+    function drawGrid(ctx, cells, showIdx=false){
+      const W = ctx.canvas.width, H = ctx.canvas.height;
+      const s = Math.min(W, H) / cells;
+      ctx.save();
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0,0,W,H);
+      // grid lines
+      ctx.strokeStyle = '#00000012';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      for(let u=0; u<=cells; u++){
+        ctx.moveTo(u*s+0.5, 0);
+        ctx.lineTo(u*s+0.5, cells*s);
+        ctx.moveTo(0, u*s+0.5);
+        ctx.lineTo(cells*s, u*s+0.5);
+      }
+      ctx.stroke();
+      // indices
+      if (showIdx && s >= 18){
+        ctx.fillStyle = '#64748b';
+        ctx.font = `${Math.max(10, Math.floor(s*0.35))}px system-ui, sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        for(let i=0;i<cells;i++) for(let j=0;j<cells;j++){
+          ctx.fillText(`${i},${j}`, j*s+s/2, i*s+s/2);
+        }
+      }
+      ctx.restore();
+      return s;
+    }
+
+    function fillCell(ctx, cells, i, j, color){
+      if(i<0||i>=cells||j<0||j>=cells) return;
+      const s = Math.min(ctx.canvas.width, ctx.canvas.height) / cells;
+      ctx.save();
+      ctx.fillStyle = color;
+      ctx.fillRect(j*s+1, i*s+1, s-2, s-2);
+      ctx.restore();
+    }
+
+    function shadeCell(ctx, cells, i, j, alpha, stroke=false){
+      if(i<0||i>=cells||j<0||j>=cells) return;
+      const s = Math.min(ctx.canvas.width, ctx.canvas.height) / cells;
+      ctx.save();
+      ctx.fillStyle = `rgba(0,0,0,${alpha})`;
+      ctx.fillRect(j*s+1, i*s+1, s-2, s-2);
+      if (stroke){ ctx.strokeStyle = '#00000022'; ctx.strokeRect(j*s+1, i*s+1, s-2, s-2); }
+      ctx.restore();
+    }
+
+    function hatchOutside(ctx, rect){
+      // draw red hashed stripes for missing context region (rect = {x0,y0,x1,y1} in input cell coords, may extend outside [0,N))
+      const s = Math.min(ctx.canvas.width, ctx.canvas.height) / N;
+      const x0 = rect.x0, y0 = rect.y0, x1 = rect.x1, y1 = rect.y1;
+      const gx0 = Math.floor(Math.min(x0, x1));
+      const gy0 = Math.floor(Math.min(y0, y1));
+      const gx1 = Math.ceil(Math.max(x0, x1));
+      const gy1 = Math.ceil(Math.max(y0, y1));
+      ctx.save();
+      ctx.beginPath();
+      for(let i=gy0;i<gy1;i++){
+        for(let j=gx0;j<gx1;j++){
+          if (i<0||i>=N||j<0||j>=N){
+            ctx.fillStyle = '#fecaca';
+            ctx.fillRect(j*s+1, i*s+1, s-2, s-2);
+            ctx.strokeStyle = '#f87171';
+            ctx.beginPath();
+            ctx.moveTo(j*s+3, i*s+3);
+            ctx.lineTo(j*s+s-3, i*s+s-3);
+            ctx.moveTo(j*s+s-3, i*s+3);
+            ctx.lineTo(j*s+3, i*s+s-3);
+            ctx.stroke();
+          }
+        }
+      }
+      ctx.restore();
+    }
+
+    // ===== Model geometry =====
+    function computeOutputSize(n, k, p, L){
+      let m = n;
+      for(let t=0;t<L;t++) m = m - k + 1 + 2*p; // stride=1
+      return Math.max(0, m);
+    }
+
+    function receptiveFieldSize(k, L){
+      // stride=1, dilation=1, possibly different k per layer (here constant k)
+      return 1 + L*(k-1);
+    }
+
+    function backprojectBounds(i, j){
+      // For given output (i,j), compute the exact RF bounds by simulating the convolution layers
+      // Each conv layer with kernel K and padding P maps output coord to input range [out-P, out-P+K-1]
+      
+      // Start with the output coordinate
+      let minY = i, maxY = i;
+      let minX = j, maxX = j;
+      
+      // For each layer, expand the range according to the convolution operation
+      for(let layer = 0; layer < L; layer++){
+        // For this layer, each output position corresponds to input range [pos-P, pos-P+K-1]
+        let newMinY = minY - P;
+        let newMaxY = maxY - P + K - 1;
+        let newMinX = minX - P;  
+        let newMaxX = maxX - P + K - 1;
+        
+        minY = newMinY;
+        maxY = newMaxY;
+        minX = newMinX;
+        maxX = newMaxX;
+      }
+      
+      const rect = {
+        y0: minY,
+        x0: minX,
+        y1: maxY + 1,  // +1 because we want [min, max] inclusive -> [min, max+1) exclusive
+        x1: maxX + 1
+      };
+      return rect;
+    }
+
+    // ===== Effective Receptive Field approximation =====
+    function computeERFWeights(k, L){
+      // Build a (r x r) kernel by convolving a kxk ones kernel with itself L times.
+      const r = receptiveFieldSize(k, L);
+      const size = r;
+      // start with delta at center
+      let grid = Array.from({length:size}, (_, i)=> Array.from({length:size}, (_, j)=> (i===Math.floor(size/2) && j===Math.floor(size/2)) ? 1 : 0));
+      if (k === 1 || L === 0) return grid;
+      const ones = Array.from({length:k}, ()=> Array.from({length:k}, ()=>1));
+      // 2D convolution with zero padding on the temporary grid (kernel fully inside)
+      const convolve = (A, B)=>{ // B is kxk ones
+        const h = A.length, w = A[0].length;
+        const kh = B.length, kw = B[0].length;
+        const oh = h - kh + 1, ow = w - kw + 1; // valid conv
+        const out = Array.from({length:h}, ()=> Array.from({length:w}, ()=>0));
+        // place result centered back into out so size stays constant
+        const tmp = Array.from({length:oh}, ()=> Array.from({length:ow}, ()=>0));
+        for(let i=0;i<oh;i++){
+          for(let j=0;j<ow;j++){
+            let s=0; for(let u=0;u<kh;u++) for(let v=0;v<kw;v++) s += A[i+u][j+v]*B[u][v];
+            tmp[i][j]=s;
+          }
+        }
+        // center tmp into out
+        const offi = Math.floor((h-oh)/2), offj=Math.floor((w-ow)/2);
+        for(let i=0;i<oh;i++) for(let j=0;j<ow;j++) out[i+offi][j+offj]=tmp[i][j];
+        return out;
+      };
+      for(let t=0;t<L;t++) grid = convolve(grid, ones);
+      // normalize to [0,1]
+      let mn=Infinity, mx=-Infinity;
+      for(let i=0;i<size;i++) for(let j=0;j<size;j++){ const v=grid[i][j]; if(v<mn) mn=v; if(v>mx) mx=v; }
+      const span = Math.max(1e-9, mx-mn);
+      for(let i=0;i<size;i++) for(let j=0;j<size;j++) grid[i][j]=(grid[i][j]-mn)/span;
+      return grid;
+    }
+
+    let erfCache = new Map();
+    function getERF(){
+      const key = `${K}|${L}`;
+      if (!erfCache.has(key)) erfCache.set(key, computeERFWeights(K, L));
+      return erfCache.get(key);
+    }
+
+    // ===== Rendering =====
+    function render(){
+      // Update padding for "same" padding
+      P = Math.floor(K / 2);
+      
+      // recompute output size and rf
+      outN = computeOutputSize(N, K, P, L);
+      imgSizeVal.textContent = N;
+      layersVal.textContent = L;
+      kernelVal.textContent = K;
+      outSizeVal.textContent = outN > 0 ? `${outN} × ${outN}` : '0 (no valid output)';
+      rfVal.textContent = receptiveFieldSize(K, L);
+
+      // clamp hover index
+      hoverIJ.i = clamp(hoverIJ.i, 0, Math.max(0, outN-1));
+      hoverIJ.j = clamp(hoverIJ.j, 0, Math.max(0, outN-1));
+
+      // draw grids
+      const sIn = drawGrid(ictx, N, showGridNumsEl.checked);
+      const sOut = drawGrid(octx, Math.max(outN, 1), showGridNumsEl.checked && outN>0);
+
+      // paint receptive field / erf
+        if (outN > 0){
+          const rect = backprojectBounds(hoverIJ.i, hoverIJ.j);
+          const r = receptiveFieldSize(K, L);
+
+          if (modeEl.value === 'rf'){
+            // fill RF cells that intersect the input grid - use exact integer bounds
+            const y0 = rect.y0, x0 = rect.x0;
+            const y1 = rect.y1, x1 = rect.x1;
+            for(let i=y0;i<y1;i++) for(let j=x0;j<x1;j++){
+              if (i>=0 && i<N && j>=0 && j<N){
+                fillCell(ictx, N, i, j, '#dbeafe');
+              }
+            }
+          } else {
+            // ERF heatmap - map the ERF weights to the RF region
+            const W = getERF();
+            const rfHeight = rect.y1 - rect.y0;
+            const rfWidth = rect.x1 - rect.x0;
+            
+            for(let di=0; di<W.length; di++){
+              for(let dj=0; dj<W.length; dj++){
+                // Map ERF grid indices to input coordinates within the RF bounds
+                const i = rect.y0 + di;
+                const j = rect.x0 + dj;
+                if (i>=0 && i<N && j>=0 && j<N && di < rfHeight && dj < rfWidth){
+                  const w = W[di][dj];
+                  const alpha = 0.75 * w; // visualize weight
+                  shadeCell(ictx, N, i, j, alpha, false);
+                }
+              }
+            }
+          }
+
+          // highlight hovered output cell
+          fillCell(octx, outN, hoverIJ.i, hoverIJ.j, '#e9d5ff');
+          // draw RF bounding box on input
+          drawBoundingBox(ictx, N, rect, '#60a5fa');
+        }      // border labels
+      drawTitles();
+    }
+
+    function drawBoundingBox(ctx, cells, rect, stroke){
+      const s = Math.min(ctx.canvas.width, ctx.canvas.height) / cells;
+      const x = rect.x0 * s; const y = rect.y0 * s;
+      const w = (rect.x1 - rect.x0) * s; const h = (rect.y1 - rect.y0) * s;
+      ctx.save();
+      ctx.strokeStyle = stroke; ctx.lineWidth = 2;
+      ctx.setLineDash([6,4]);
+      ctx.strokeRect(x+0.5, y+0.5, w, h);
+      ctx.restore();
+    }
+
+    function drawTitles(){
+      // (optional overlay titles already in DOM labels)
+    }
+
+    // ===== Interaction =====
+    function outputCoordFromMouse(evt){
+      const rect = outputCanvas.getBoundingClientRect();
+      const x = clamp(evt.clientX - rect.left, 0, rect.width);
+      const y = clamp(evt.clientY - rect.top, 0, rect.height);
+      if (outN <= 0) return null;
+      const s = Math.min(rect.width, rect.height) / outN;
+      const j = Math.min(outN-1, Math.floor(x / s));
+      const i = Math.min(outN-1, Math.floor(y / s));
+      return {i,j};
+    }
+
+    outputCanvas.addEventListener('mousemove', (e)=>{
+      const ij = outputCoordFromMouse(e); if (!ij) return;
+      hoverIJ = ij; render();
+    });
+
+    outputCanvas.addEventListener('mouseleave', ()=>{
+      hoverIJ = {i: Math.floor(outN/2)||0, j: Math.floor(outN/2)||0};
+      render();
+    });
+
+    // Controls
+    imgSizeEl.addEventListener('input', ()=>{ N=+imgSizeEl.value; imgSizeVal.textContent=N; render(); });
+    layersEl.addEventListener('input', ()=>{ L=+layersEl.value; layersVal.textContent=L; erfCache.clear(); render(); });
+    kernelEl.addEventListener('input', ()=>{ K=+kernelEl.value; kernelVal.textContent=K; if(K%2===0) {K++; kernelEl.value=K; kernelVal.textContent=K;} erfCache.clear(); render(); });
+    modeEl.addEventListener('change', render);
+    showGridNumsEl.addEventListener('change', render);
+
+    // ===== Init =====
+    render();
+    loadModels();
+  </script>
+</body>
+</html>
