@@ -21,6 +21,10 @@ Explore the concept of receptive fields and effective receptive fields in convol
 ### [Morphology Playground](/static/morphology_playground.html)
 Interactive demonstration of morphological operations (erosion, dilation, opening, closing) commonly used in image processing. Draw shapes and apply operations to see their effects in real-time.
 
+### [Monty Hall Explorer](/static/monty_hall_playground.html)
+Interactive playground that lets you play and simulate generalized Monty Hall games with N doors, K host openings, and optional uninformed host behavior to see how switching amplifies your odds.
+
+
 ## Utilities
 
 ### [Runner's Pace Calculator](/static/pacing.html)

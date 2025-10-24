@@ -1,0 +1,993 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Monty Hall Explorer</title>
+    <style>
+        :root {
+            --bg: #f8fafc;
+            /* page background */
+            --text: #0f172a;
+            /* primary text */
+            --muted: #475569;
+            /* muted text */
+            --border: #e5e7eb;
+            /* borders */
+            --card: #ffffff;
+            /* cards */
+            --shadow: 0 6px 20px rgba(15, 23, 42, 0.06);
+            --blue: #3b82f6;
+            /* accent A */
+            --blue-stroke: #2563eb;
+            --violet: #a855f7;
+            /* accent B */
+            --violet-stroke: #7c3aed;
+            --amber: #f59e0b;
+            /* highlight */
+            --amber-stroke: #b45309;
+            --green: #10b981;
+            /* success */
+            --red: #ef4444;
+            /* error */
+            --grid: #94a3b31a;
+            /* subtle grid */
+        }
+
+        * {
+            box-sizing: border-box
+        }
+
+        html,
+        body {
+            height: 100%
+        }
+
+        body {
+            margin: 0;
+            font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+            background: var(--bg);
+            color: var(--text)
+        }
+
+        .wrap {
+            max-width: 1200px;
+            margin: 24px auto;
+            padding: 0 16px
+        }
+
+        header {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 16px
+        }
+
+        h1 {
+            font-size: 24px;
+            letter-spacing: .2px;
+            margin: 0
+        }
+
+        .desc {
+            color: var(--muted);
+            line-height: 1.45
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 320px;
+            gap: 16px
+        }
+
+        @media (max-width: 1024px) {
+            .grid {
+                grid-template-columns: 1fr
+            }
+        }
+
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            box-shadow: var(--shadow);
+            overflow: hidden
+        }
+
+        .head {
+            padding: 12px 14px;
+            border-bottom: 1px solid var(--border)
+        }
+
+        .head h2 {
+            margin: 0;
+            font-size: 16px
+        }
+
+        .body {
+            padding: 14px
+        }
+
+        .tabs {
+            display: flex;
+            gap: 6px
+        }
+
+        .tabbtn {
+            border: 1px solid var(--border);
+            background: #fff;
+            border-radius: 10px;
+            padding: 6px 10px;
+            cursor: pointer
+        }
+
+        .tabbtn.active {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8
+        }
+
+        .stage-wrap {
+            display: flex;
+            justify-content: center
+        }
+
+        svg.stage {
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: #fff;
+            touch-action: none
+        }
+
+        svg.stage.gameover {
+            filter: grayscale(.65) brightness(.92);
+            opacity: .75;
+            pointer-events: none
+        }
+
+        .metrics {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px
+        }
+
+        .metric {
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: #fff;
+            padding: 10px
+        }
+
+        .metric small {
+            display: block;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: .04em;
+            font-size: 11px
+        }
+
+        .metric .val {
+            font-weight: 700;
+            font-size: 18px
+        }
+
+        .metric.accent {
+            background: #f0f9ff;
+            border-color: #bae6fd
+        }
+
+        .metric.accent .val {
+            color: #075985
+        }
+
+        .metric.warn {
+            background: #fef2f2;
+            border-color: #fecaca
+        }
+
+        .metric.warn .val {
+            color: #991b1b
+        }
+
+        .ctrl {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 8px
+        }
+
+        .ctrl label {
+            font-size: 13px;
+            color: var(--muted)
+        }
+
+        .ctrl input[type="range"] {
+            width: 100%
+        }
+
+        .ctrl .num {
+            font-variant-numeric: tabular-nums;
+            font-weight: 600
+        }
+
+        .switch {
+            position: relative;
+            width: 44px;
+            height: 24px;
+            border-radius: 999px;
+            background: #e2e8f0;
+            border: 1px solid var(--border);
+            cursor: pointer
+        }
+
+        .knob {
+            position: absolute;
+            top: 1px;
+            left: 1px;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #fff;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, .2);
+            transition: transform .18s ease
+        }
+
+        .switch.on {
+            background: #dbeafe;
+            border-color: #bfdbfe
+        }
+
+        .switch.on .knob {
+            transform: translateX(20px)
+        }
+
+        .hint {
+            color: var(--muted);
+            font-size: 13px;
+            margin-top: 10px
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: #fff;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 8px 10px;
+            cursor: pointer
+        }
+
+        .btn.primary {
+            background: #1d4ed8;
+            color: #fff;
+            border-color: #1d4ed8
+        }
+
+        .btn.ghost {
+            background: #fff
+        }
+
+        .btn:disabled {
+            opacity: .55;
+            cursor: not-allowed
+        }
+
+        .row {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap
+        }
+
+        .sep {
+            height: 1px;
+            background: var(--border);
+            margin: 12px 0
+        }
+
+        .legend {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+            font-size: 12px;
+            color: var(--muted)
+        }
+
+        .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%
+        }
+
+        .dot.me {
+            background: var(--violet)
+        }
+
+        .dot.host {
+            background: var(--amber)
+        }
+
+        .dot.prize {
+            background: var(--green)
+        }
+
+        .hidden {
+            display: none !important
+        }
+
+        .door text.icon {
+            opacity: 0;
+            font-size: 32px;
+            pointer-events: none;
+            fill: #0f172a;
+            dominant-baseline: middle;
+            text-anchor: middle;
+            transition: opacity .2s ease
+        }
+
+        .door text.icon.show {
+            opacity: 1
+        }
+
+        .sparkline {
+            width: 100%;
+            height: 80px;
+            border: 1px solid var(--border);
+            background: #fff;
+            border-radius: 10px;
+            display: block
+        }
+
+        .sparkline path {
+            vector-effect: non-scaling-stroke
+        }
+
+        /* Door styles */
+        .door {
+            transition: transform .2s ease, opacity .2s ease
+        }
+
+        .door rect.panel {
+            fill: #f8fafc
+        }
+
+        .door rect.frame {
+            fill: #e2e8f0
+        }
+
+        .door text {
+            font-weight: 700;
+            font-size: 12px;
+            fill: #475569
+        }
+
+        .door.closed rect.panel {
+            fill: #eef2ff
+        }
+
+        .door.me rect.panel {
+            stroke: var(--violet-stroke);
+            stroke-width: 2;
+            fill: #f5f3ff
+        }
+
+        .door.hostopen rect.panel {
+            fill: #fff7ed
+        }
+
+        .door.hostopen rect.frame {
+            fill: #fed7aa
+        }
+
+        .door.win rect.panel {
+            fill: #ecfdf5
+        }
+
+        .door.win rect.frame {
+            fill: #a7f3d0
+        }
+
+        .door.lose rect.panel {
+            fill: #fef2f2
+        }
+
+        .door.lose rect.frame {
+            fill: #fecaca
+        }
+
+        .door.revealedcar rect.panel {
+            fill: #fee2e2
+        }
+    </style>
+</head>
+
+<body>
+    <div class="wrap">
+        <header>
+            <h1>Monty Hall Explorer</h1>
+            <div class="desc">
+                <p>The <b>Monty Hall problem</b> starts with you choosing one of many doors that hides a single prize
+                    car while every other door hides a goat. An informed host then opens <em>K</em> goat doors on
+                    purpose, never touching the prize when the host knows where it is. You may keep your original door
+                    or switch to one of the remaining closed options.</p>
+                <p>Switching works because your first guess is very likely wrong: it only wins with probability
+                    <code>1 / N</code>. When the host reveals goats, that large probability mass that you were wrong is
+                    concentrated into the other unopened doors. If the host opens <code>K</code> goats, there are
+                    <code>N - 1 - K</code> other closed doors sharing roughly <code>(N - 1) / N</code> of the
+                    probability—much better odds than staying. This playground lets you experience that intuition in a
+                    single game or verify it with large simulations, even when the host is sometimes uninformed.</p>
+            </div>
+        </header>
+
+        <div class="grid">
+            <div class="card">
+                <div class="head">
+                    <div class="row" role="tablist" aria-label="Mode">
+                        <button id="tabPlay" class="tabbtn active" role="tab" aria-selected="true">Play one
+                            game</button>
+                        <button id="tabSim" class="tabbtn" role="tab" aria-selected="false">Simulate many</button>
+                    </div>
+                </div>
+                <div class="body">
+                    <div id="playPane">
+                        <div class="stage-wrap">
+                            <svg id="stage" class="stage" width="100%" height="540" aria-label="Monty Hall stage"></svg>
+                        </div>
+                        <div id="status" class="hint" aria-live="polite"></div>
+                        <div id="resetRow" class="row" style="justify-content:center;margin-top:12px;display:none">
+                            <button id="btnReset" class="btn ghost" aria-label="Reset game">Reset</button>
+                        </div>
+                    </div>
+                    <div id="simPane" class="hidden" aria-live="polite">
+                        <div id="simStatus" class="hint">Use the controls to run Monte Carlo experiments.</div>
+                        <p class="hint">Simulations reuse the same door count, host behavior, and switching rules.
+                            Results stream into the metrics card so you can compare staying versus switching at scale.
+                        </p>
+                        <div class="row" style="margin-top:8px">
+                            <button class="btn" data-sim="100">Run 100</button>
+                            <button class="btn" data-sim="1000">Run 1,000</button>
+                            <button class="btn" data-sim="10000">Run 10,000</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="head">
+                    <h2>Controls & Metrics</h2>
+                </div>
+                <div class="body">
+                    <div class="metrics" style="margin-bottom:8px">
+                        <div class="metric accent"><small>Trials (effective)</small>
+                            <div id="mTrials" class="val">0</div>
+                        </div>
+                        <div class="metric"><small>Stay win rate</small>
+                            <div id="mStay" class="val">0.0%</div>
+                        </div>
+                        <div class="metric"><small>Switch win rate</small>
+                            <div id="mSwitch" class="val">0.0%</div>
+                        </div>
+                        <div class="metric warn"><small>Host revealed prize</small>
+                            <div id="mReveal" class="val">0.0%</div>
+                        </div>
+                    </div>
+
+                    <div class="ctrl">
+                        <label style="min-width:110px">Doors: <span id="doorsLbl" class="num">3</span></label>
+                        <input id="doors" type="range" min="3" max="20" value="3" />
+                    </div>
+                    <div class="ctrl">
+                        <label style="min-width:110px">Open K: <span id="openLbl" class="num">1</span></label>
+                        <input id="openK" type="range" min="1" max="18" value="1" />
+                    </div>
+                    <div class="ctrl">
+                        <div id="hostInfoSwitch" class="switch on" role="switch" aria-checked="true">
+                            <div class="knob"></div>
+                        </div>
+                        <label for="hostInfoSwitch"><b>Host gives information</b> (knows prize, never opens it)</label>
+                    </div>
+                    <div class="ctrl">
+                        <div id="offerSwitchSwitch" class="switch on" role="switch" aria-checked="true">
+                            <div class="knob"></div>
+                        </div>
+                        <label for="offerSwitchSwitch">Always offer a chance to switch</label>
+                    </div>
+
+                    <div class="sep"></div>
+
+                    <div class="sep"></div>
+                    <div class="sparkline-wrap">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+                            <small style="font-weight:600;color:var(--muted)">Win rate history</small>
+                            <small style="color:var(--muted)">stay vs switch</small>
+                        </div>
+                        <svg id="rateGraph" class="sparkline" viewBox="0 0 300 80" preserveAspectRatio="none"
+                            aria-label="Win rate history"></svg>
+                    </div>
+
+                    <div class="sep"></div>
+                    <div class="legend">
+                        <div class="dot me"></div> Your current door
+                        <div class="dot host"></div> Host opened
+                        <div class="dot prize"></div> Prize location (shown at end)
+                    </div>
+
+                    <div class="sep"></div>
+                    <div class="hint" id="theory"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // -------------------- Utilities --------------------
+        const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+        const pick = (arr, rnd) => arr[Math.floor(rnd() * arr.length)];
+
+    // Using Math.random directly for all randomness.
+
+        // -------------------- Stage / Drawing --------------------
+        let W = 900, H = 540; const colsBase = 10; // dynamic width for responsive layout
+        const stage = document.getElementById('stage');
+        const gridGroup = ns('g');
+        const doorsGroup = ns('g');
+        const overlays = ns('g');
+        stage.appendChild(gridGroup);
+        stage.appendChild(doorsGroup);
+        stage.appendChild(overlays);
+
+        drawGrid();
+        function ns(tag) { return document.createElementNS('http://www.w3.org/2000/svg', tag); }
+        function drawGrid() {
+            while (gridGroup.firstChild) gridGroup.removeChild(gridGroup.firstChild);
+            const step = 40; for (let x = step; x < W; x += step) addLine(x, 0, x, H); for (let y = step; y < H; y += step) addLine(0, y, W, y);
+            function addLine(x1, y1, x2, y2) { const l = ns('line'); l.setAttribute('x1', x1); l.setAttribute('y1', y1); l.setAttribute('x2', x2); l.setAttribute('y2', y2); l.setAttribute('stroke', '#00000010'); l.setAttribute('stroke-width', '1'); gridGroup.appendChild(l); }
+        }
+
+        function resizeStage() {
+            // Use parent width (card body) for stage drawing area
+            const parentWidth = stage.parentElement ? stage.parentElement.clientWidth : 900;
+            // Constrain to a minimum width
+            W = Math.max(400, parentWidth - 32); // subtract a little padding margin
+            stage.setAttribute('viewBox', `0 0 ${W} ${H}`);
+            stage.setAttribute('width', '100%');
+            drawGrid();
+            if (state) { drawDoors(state); }
+        }
+
+        function layoutRects(n) {
+            // Single row for small n; approximate square grid for larger counts
+            let cols, rows;
+            if (n <= 5) { cols = n; rows = 1; }
+            else {
+                cols = Math.ceil(Math.sqrt(n));
+                rows = Math.ceil(n / cols);
+            }
+            const pad = 20, cellW = (W - 2 * pad) / cols, cellH = (H - 2 * pad) / rows; // dynamic based on current width
+            const doorW = Math.max(40, Math.min(70, cellW - 28)); // ensure minimum width
+            const doorH = Math.max(70, Math.min(120, cellH - 24));
+            const boxes = []; let idx = 0;
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    if (idx >= n) break;
+                    const cx = pad + c * cellW + cellW / 2;
+                    const cy = pad + r * cellH + cellH / 2;
+                    boxes.push({ x: cx - doorW / 2, y: cy - doorH / 2, w: doorW, h: doorH });
+                    idx++;
+                }
+            }
+            return boxes;
+        }
+
+        function drawDoors(state) {
+            while (doorsGroup.firstChild) doorsGroup.removeChild(doorsGroup.firstChild);
+            const boxes = layoutRects(state.n);
+            state.doorBoxes = boxes;
+            for (let i = 0; i < state.n; i++) {
+                const g = ns('g'); g.classList.add('door');
+                const box = boxes[i];
+                g.setAttribute('transform', `translate(${box.x},${box.y})`);
+                const frame = ns('rect'); frame.setAttribute('class', 'frame'); frame.setAttribute('x', 0); frame.setAttribute('y', 0); frame.setAttribute('rx', 8); frame.setAttribute('ry', 8); frame.setAttribute('width', box.w); frame.setAttribute('height', box.h);
+                const panel = ns('rect'); panel.setAttribute('class', 'panel'); panel.setAttribute('x', 6); panel.setAttribute('y', 6); panel.setAttribute('rx', 6); panel.setAttribute('ry', 6); panel.setAttribute('width', box.w - 12); panel.setAttribute('height', box.h - 12);
+                const label = ns('text'); label.setAttribute('x', box.w / 2); label.setAttribute('y', box.h - 10); label.setAttribute('text-anchor', 'middle'); label.textContent = (i + 1);
+                // icon (emoji) – hidden until revealed or round finished
+                const icon = ns('text');
+                icon.setAttribute('x', box.w / 2);
+                icon.setAttribute('y', box.h / 2);
+                icon.setAttribute('class', 'icon');
+                icon.setAttribute('aria-hidden', 'true');
+                const isPrize = i === state.prize;
+                const goatEmoji = '🐐';
+                const carEmoji = '🚗';
+                icon.textContent = isPrize ? carEmoji : goatEmoji;
+                g.appendChild(frame); g.appendChild(panel); g.appendChild(label);
+                g.appendChild(icon);
+
+                // classes
+                if (!state.revealed[i]) g.classList.add('closed');
+                if (state.playerPick === i) g.classList.add('me');
+                if (state.revealed[i] && state.revealed[i] === 'host') g.classList.add('hostopen');
+                if (state.finished) {
+                    if (i === state.prize) { g.classList.add('win'); }
+                    else if (state.playerFinal === i) { g.classList.add('lose'); }
+                }
+                if (state.hostRevealedPrize && i === state.prize) g.classList.add('revealedcar');
+
+                // reveal icon conditions
+                const shouldShowIcon = (state.revealed[i] && state.revealed[i] === 'host') || state.finished || (state.hostRevealedPrize && i === state.prize);
+                if (shouldShowIcon) icon.classList.add('show');
+
+                // interaction (only when awaiting player's first pick or switching)
+                g.style.cursor = 'pointer';
+                g.addEventListener('click', () => onDoorClick(i));
+
+                doorsGroup.appendChild(g);
+            }
+
+            // overlay: legend prize location when finished
+            while (overlays.firstChild) overlays.removeChild(overlays.firstChild);
+            if (state.finished) {
+                const box = state.doorBoxes[state.prize];
+                const star = ns('text'); star.setAttribute('x', box.x + box.w / 2); star.setAttribute('y', box.y + 22); star.setAttribute('text-anchor', 'middle'); star.setAttribute('font-size', '18'); star.setAttribute('font-weight', '700'); star.setAttribute('fill', '#059669'); star.textContent = '★ Prize';
+                overlays.appendChild(star);
+            }
+        }
+
+        // -------------------- Model --------------------
+        const statusEl = document.getElementById('status');
+        const doorsInput = document.getElementById('doors');
+        const doorsLbl = document.getElementById('doorsLbl');
+        const openKInput = document.getElementById('openK');
+        const openLbl = document.getElementById('openLbl');
+        const hostInfoSwitch = document.getElementById('hostInfoSwitch');
+        const offerSwitchSwitch = document.getElementById('offerSwitchSwitch');
+
+        const mTrials = document.getElementById('mTrials');
+        const mStay = document.getElementById('mStay');
+        const mSwitch = document.getElementById('mSwitch');
+        const mReveal = document.getElementById('mReveal');
+        const theoryEl = document.getElementById('theory');
+
+        const btnReset = document.getElementById('btnReset');
+        const resetRow = document.getElementById('resetRow');
+
+        const tabPlay = document.getElementById('tabPlay');
+        const tabSim = document.getElementById('tabSim');
+        const playPane = document.getElementById('playPane');
+        const simPane = document.getElementById('simPane');
+
+        const simButtons = [...document.querySelectorAll('button[data-sim]')];
+
+        // persistent simulation tallies
+        let tallies = resetTallies();
+        let stayHist = [];
+        let switchHist = [];
+        let lastEffective = 0;
+
+        function resetTallies() {
+            return { trials: 0, stayWins: 0, switchWins: 0, hostRevealPrize: 0, effectiveTrials: 0 };
+        }
+
+        function updateMetrics() {
+            const t = tallies;
+            const stayRate = t.effectiveTrials ? (t.stayWins / t.effectiveTrials * 100) : 0;
+            const switchRate = t.effectiveTrials ? (t.switchWins / t.effectiveTrials * 100) : 0;
+            const revealRate = t.trials ? (t.hostRevealPrize / t.trials * 100) : 0;
+            mTrials.textContent = fmt(t.effectiveTrials);
+            mStay.textContent = stayRate.toFixed(1) + '%';
+            mSwitch.textContent = switchRate.toFixed(1) + '%';
+            mReveal.textContent = revealRate.toFixed(1) + '%';
+            // Append to history only when effective trials increased
+            if (t.effectiveTrials !== lastEffective) {
+                stayHist.push(stayRate);
+                switchHist.push(switchRate);
+                lastEffective = t.effectiveTrials;
+                drawRateGraph();
+            }
+            renderTheory();
+        }
+
+        function drawRateGraph() {
+            const svg = document.getElementById('rateGraph');
+            if (!svg) { return; }
+            const W = 300, H = 80; // matches viewBox
+            svg.innerHTML = '';
+            // background guide lines
+            const guideVals = [0, 25, 50, 75, 100];
+            guideVals.forEach(gv => {
+                const y = H - (gv / 100) * H;
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line.setAttribute('x1', '0'); line.setAttribute('x2', W);
+                line.setAttribute('y1', y); line.setAttribute('y2', y);
+                line.setAttribute('stroke', '#00000010');
+                line.setAttribute('stroke-width', '1');
+                svg.appendChild(line);
+            });
+            const series = [{ data: stayHist, color: '#6366f1' }, { data: switchHist, color: '#059669' }];
+            series.forEach(s => {
+                if (s.data.length < 2) return;
+                const dParts = [];
+                for (let i = 0; i < s.data.length; i++) {
+                    const x = (i / (s.data.length - 1)) * W;
+                    const y = H - (s.data[i] / 100) * H;
+                    dParts.push((i === 0 ? 'M' : 'L') + x.toFixed(1) + ',' + y.toFixed(1));
+                }
+                const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                path.setAttribute('d', dParts.join(' '));
+                path.setAttribute('fill', 'none');
+                path.setAttribute('stroke', s.color);
+                path.setAttribute('stroke-width', '2');
+                svg.appendChild(path);
+            });
+        }
+
+        function resetStatistics() {
+            tallies = resetTallies();
+            stayHist = []; switchHist = []; lastEffective = 0;
+            const g = document.getElementById('rateGraph'); if (g) g.innerHTML = '';
+            updateMetrics();
+        }
+        function fmt(x) { return x.toLocaleString(); }
+
+        function renderTheory() {
+            // theoretical (informed host): P(stay win)=1/n, P(switch win)=(n-1)/(n*M) with M = remaining closed others = n-1-K
+            const n = state.n, K = state.openK, M = Math.max(1, n - 1 - K);
+            if (state.hostGivesInfo) {
+                const pStay = 1 / n; const pSwitch = (n - 1) / (n * M);
+                theoryEl.innerHTML = `Theoretical (informative host): stay = <b>${(pStay * 100).toFixed(1)}%</b>, switch = <b>${(pSwitch * 100).toFixed(1)}%</b> (with M=${M} other closed door${M > 1 ? 's' : ''}).`;
+            } else {
+                theoryEl.textContent = 'Non‑informative host: there is no simple closed‑form advantage; results depend on the chance the host reveals the prize. See simulation stats above.';
+            }
+        }
+
+        // -------------------- Game State --------------------
+        const Steps = {
+            Choose: 'choose',
+            DecideSwitch: 'decide',
+        }; // trimmed unused steps
+
+        let state = null; // created in initState()
+
+        function initState() {
+            const n = +doorsInput.value | 0;
+            const Kraw = +openKInput.value | 0;
+            const K = clamp(Kraw, 1, Math.max(1, n - 2));
+            openKInput.max = Math.max(1, n - 2);
+            openKInput.value = K;
+            openLbl.textContent = K;
+
+            const hostGivesInfo = hostInfoSwitch.classList.contains('on');
+            const offerSwitch = offerSwitchSwitch.classList.contains('on');
+
+            state = {
+                n,
+                openK: K,
+                hostGivesInfo,
+                offerSwitch,
+                step: Steps.Choose,
+                prize: Math.floor(Math.random() * n),
+                playerPick: null,
+                playerFinal: null,
+                revealed: Array(n).fill(false), // false | 'host'
+                finished: false,
+                hostRevealedPrize: false,
+                doorBoxes: [],
+            };
+            drawDoors(state);
+            setStatus('Pick a door.');
+            if (resetRow) resetRow.style.display = 'none';
+            stage.classList.remove('gameover');
+            if (btnReset) {
+                btnReset.onclick = () => { initState(); };
+            }
+        }
+
+        function setStatus(msg) { statusEl.textContent = msg; }
+
+        function finalizeChoice() {
+            // ensure playerFinal set; if null treat as stay
+            if (state.playerFinal == null) state.playerFinal = state.playerPick;
+            revealOutcome();
+        }
+
+        function onDoorClick(i) {
+            if (state.finished) return;
+            if (state.step === Steps.Choose) {
+                state.playerPick = i; drawDoors(state);
+                hostOpens(Math.random);
+                if (state.hostRevealedPrize) {
+                    state.playerFinal = state.playerPick; finalizeChoice(); return;
+                }
+                state.step = Steps.DecideSwitch;
+                setStatus(`Stay on door ${i + 1} (click it again) or switch by clicking another closed door.`);
+            }
+            else if (state.step === Steps.DecideSwitch) {
+                // allow player to click another closed door to switch
+                if (state.revealed[i]) return;
+                if (i === state.playerPick) { state.playerFinal = state.playerPick; finalizeChoice(); return; }
+                state.playerFinal = i; finalizeChoice();
+            }
+        }
+
+        function hostOpens(rnd) {
+            // compute candidate doors host may open
+            const n = state.n, K = state.openK; const options = [];
+            for (let d = 0; d < n; d++) {
+                if (d === state.playerPick) continue;
+                if (state.hostGivesInfo) {
+                    if (d === state.prize) continue; // never opens the prize
+                }
+                options.push(d);
+            }
+            let opened = [];
+            // If host gives info: must open K distinct doors from options that do not include prize
+            if (state.hostGivesInfo) {
+                // ensure enough goats available
+                let goats = options.filter(d => d !== state.prize);
+                if (goats.length < K) {
+                    // In (rare) conflicting settings, cap K
+                    // but with informed host and excluding prize this should not happen if K<=n-2
+                    // Just in case:
+                    // reduce K and notify
+                    const newK = goats.length;
+                    state.openK = newK;
+                }
+                opened = sampleK(options.filter(d => d !== state.prize), state.openK, rnd);
+            } else {
+                // non‑informative: open uniformly from not-player doors, ignoring prize; if prize picked, it gets revealed
+                const candidates = options.slice();
+                opened = sampleK(candidates, state.openK, rnd);
+                if (opened.includes(state.prize)) state.hostRevealedPrize = true;
+            }
+            for (const d of opened) { state.revealed[d] = 'host'; }
+            drawDoors(state);
+        }
+
+        function sampleK(arr, k, rnd) {
+            const a = arr.slice(); const out = []; k = Math.min(k, a.length);
+            for (let i = 0; i < k; i++) {
+                const j = Math.floor(rnd() * a.length);
+                out.push(a[j]); a.splice(j, 1);
+            }
+            return out;
+        }
+
+    // helper to list remaining closed, non-picked doors
+
+        function closedOthers() {
+            const list = []; for (let d = 0; d < state.n; d++) if (d !== state.playerPick && !state.revealed[d]) list.push(d); return list;
+        }
+
+        function revealOutcome() {
+            // If playerFinal not set: by default staying means keep; if auto‑switch when exactly one closed other remains and offerSwitch is true
+            if (state.playerFinal == null) {
+                if (state.offerSwitch) {
+                    const rem = closedOthers();
+                    if (rem.length >= 1) { state.playerFinal = rem[0]; }
+                    else { state.playerFinal = state.playerPick; }
+                } else {
+                    state.playerFinal = state.playerPick;
+                }
+            }
+            state.finished = true; drawDoors(state);
+            endRound();
+        }
+
+        function endRound() {
+            const won = (state.playerFinal === state.prize);
+            const stayed = (state.playerFinal === state.playerPick);
+            const msg = won ? `You win by ${stayed ? 'staying' : 'switching'}!` : `You lose by ${stayed ? 'staying' : 'switching'}.`;
+            setStatus(msg + (state.hostRevealedPrize ? ' (Host revealed prize.)' : '') + ' Click Reset to play again.');
+            // Update tallies as a single effective trial if host did not reveal the prize OR if host gives info (always valid)
+            tallies.trials += 1;
+            if (state.hostRevealedPrize && !state.hostGivesInfo) tallies.hostRevealPrize += 1;
+
+            // Effective trial only when the classic decision point exists: either informed host, or non‑informative host who did not reveal the prize
+            const effective = state.hostGivesInfo || !state.hostRevealedPrize;
+            if (effective) {
+                tallies.effectiveTrials += 1;
+                const stayedWin = (state.playerPick === state.prize);
+                tallies.stayWins += stayedWin ? 1 : 0;
+                // Define switching as: choose uniformly from the remaining closed others at decision time
+                const n = state.n; const K = state.openK; const M = Math.max(1, n - 1 - K); // remaining closed others
+                // If M>=1 and prize not revealed, switching wins iff prize is in the set of remaining closed others and we pick it among M
+                const switchWin = (!state.revealed[state.prize] && state.playerPick !== state.prize) ? (1 / M) : 0; // 1 if M==1 and prize in remaining; 0 if prize is our door
+                // We record Bernoulli outcome based on this round's actual configuration
+                if (switchWin === 1) tallies.switchWins += 1; else if (switchWin === 0) { /* nothing */ }
+                else {
+                    // When M>1, probabilistic: flip a coin with prob=1/M to represent random switching among remaining doors
+                    if (Math.random() < (1 / M)) tallies.switchWins += (!state.revealed[state.prize] && state.playerPick !== state.prize) ? 1 : 0;
+                }
+            }
+            updateMetrics();
+            if (resetRow) resetRow.style.display = 'flex';
+            stage.classList.add('gameover');
+        }
+
+
+        // Toggle switches
+        hostInfoSwitch.addEventListener('click', () => { hostInfoSwitch.classList.toggle('on'); initState(); updateMetrics(); });
+        offerSwitchSwitch.addEventListener('click', () => { offerSwitchSwitch.classList.toggle('on'); initState(); updateMetrics(); });
+
+        doorsInput.addEventListener('input', () => { doorsLbl.textContent = doorsInput.value; syncOpenKMax(); initState(); resetStatistics(); });
+        openKInput.addEventListener('input', () => { openLbl.textContent = openKInput.value; initState(); resetStatistics(); });
+
+        function syncOpenKMax() { openKInput.max = Math.max(1, (+doorsInput.value | 0) - 2); if (+openKInput.value > +openKInput.max) openKInput.value = openKInput.max; openLbl.textContent = openKInput.value; }
+
+        // Tabs
+        tabPlay.addEventListener('click', () => { tabPlay.classList.add('active'); tabSim.classList.remove('active'); setMode('play'); });
+        tabSim.addEventListener('click', () => { tabSim.classList.add('active'); tabPlay.classList.remove('active'); setMode('sim'); });
+
+        function setMode(m) {
+            if (m === 'play') {
+                setStatus('Pick a door.');
+                playPane.classList.remove('hidden');
+                simPane.classList.add('hidden');
+            } else {
+                setStatus('Use the buttons below to run simulations.');
+                playPane.classList.add('hidden');
+                simPane.classList.remove('hidden');
+            }
+        }
+
+        // Sim buttons
+        simButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const nRuns = +btn.dataset.sim | 0; runSim(nRuns);
+            });
+        });
+
+        function runSim(N) {
+            const n = +doorsInput.value | 0; const K = +openKInput.value | 0; const hostInfo = hostInfoSwitch.classList.contains('on'); const offer = offerSwitchSwitch.classList.contains('on');
+            for (let t = 0; t < N; t++) {
+                const prize = Math.floor(Math.random() * n);
+                const playerPick = Math.floor(Math.random() * n);
+                const opened = new Array(n).fill(false);
+                let hostRevealedPrize = false;
+                let candidates = [];
+                for (let d = 0; d < n; d++) {
+                    if (d === playerPick) continue;
+                    if (hostInfo) { if (d === prize) continue; }
+                    candidates.push(d);
+                }
+                const toOpen = sampleK(candidates, Math.min(K, n - 1), Math.random);
+                for (const d of toOpen) { opened[d] = true; }
+                if (!hostInfo && toOpen.includes(prize)) hostRevealedPrize = true;
+                tallies.trials += 1;
+                if (hostRevealedPrize && !hostInfo) tallies.hostRevealPrize += 1;
+                const effective = hostInfo || !hostRevealedPrize;
+                if (effective) {
+                    tallies.effectiveTrials += 1;
+                    const stayedWin = (playerPick === prize); if (stayedWin) tallies.stayWins += 1;
+                    if (offer) {
+                        const M = Math.max(1, n - 1 - K);
+                        const prizeClosedOther = (!opened[prize] && prize !== playerPick);
+                        if (prizeClosedOther && Math.random() < 1 / M) tallies.switchWins += 1;
+                    }
+                }
+            }
+            updateMetrics();
+            initState();
+            setStatus(`Simulated ${fmt(N)} rounds.`);
+        }
+
+    // Init
+
+        function updateHeaders() {
+            doorsLbl.textContent = doorsInput.value;
+            openLbl.textContent = openKInput.value;
+        }
+
+        updateHeaders();
+        syncOpenKMax();
+        resizeStage();
+        initState();
+        updateMetrics();
+        window.addEventListener('resize', () => { resizeStage(); });
+
+    </script>
+</body>
+
+</html>
