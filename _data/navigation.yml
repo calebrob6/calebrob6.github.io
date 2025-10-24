@@ -3,5 +3,8 @@ main:
   - title: "Publications"
     url: /publications/
 
+  - title: "Visualizers"
+    url: /visualizers/
+
   - title: "Blog Posts"
     url: /year-archive/
