@@ -108,18 +108,24 @@
         This interactive visualization compares two complementary metrics for polygon similarity:
         <br><br>
         
-        <strong>PoLiS (Polygon-to-Line-Segment) distance</strong> measures the average distance between vertices of one polygon and the boundary of another polygon.
+        <strong>PoLiS (Polygon-to-Line-Segment) distance</strong> [1] measures the average distance between vertices of one polygon and the boundary of another polygon.
         The metric is computed as:
         $$\text{PoLiS}(A,B) = \frac{1}{2} \left( \frac{1}{|A|}\sum_{a_j \in A} \text{dist}(a_j, \partial B) + \frac{1}{|B|}\sum_{b_k \in B} \text{dist}(b_k, \partial A) \right)$$
         where \(\text{dist}(a_j, \partial B)\) is the shortest distance from vertex \(a_j\) to any edge of polygon \(B\).
-        Key properties of PoLiS:
+        Properties of PoLiS (copied from [1]):
         <ul style="margin:8px 0;padding-left:20px;color:var(--muted)">
           <li>Compares polygons, not only point sets, with different numbers of vertices</li>
           <li>Insensitive to additional points on polygon edges</li>
           <li>Monotonic with linear response to small changes in translation, rotation, and scale</li>
           <li>A true metric in the mathematical sense (satisfies triangle inequality)</li>
         </ul>
-        
+        <small style="color:var(--muted)">
+          [1] Avbelj, J., Müller, R., & Bamler, R. (2014). A metric for polygon comparison and building extraction evaluation. 
+          <em>IEEE Geoscience and Remote Sensing Letters, 12</em>(1), 170-174. 
+          [<a href="https://elib.dlr.de/90425/1/avbelj_GRSL_00093_2014_final_submitted.pdf" target="_blank" style="color:#2563eb">PDF</a>]
+        </small>
+        <br><br>
+
         <strong>IoU (Intersection over Union)</strong> measures the overlap between two polygons as the ratio of their intersection area to their union area:
         $$\text{IoU}(A,B) = \frac{\text{Area}(A \cap B)}{\text{Area}(A \cup B)} = \frac{\text{Area}(A \cap B)}{\text{Area}(A) + \text{Area}(B) - \text{Area}(A \cap B)}$$
         IoU ranges from 0 (no overlap) to 1 (perfect overlap) and is widely used in object detection and segmentation tasks.
@@ -134,12 +140,6 @@
         Here the <b style="color:var(--blue-stroke)">blue</b> rectangle is polygon A and the
         <b style="color:var(--violet-stroke)">purple</b> polygon is polygon B. Drag and reshape B, or rotate A, to explore
         how both metrics respond.
-        <br><br>
-        <small style="color:var(--muted)">
-          Reference: Avbelj, J., Müller, R., & Bamler, R. (2014). A metric for polygon comparison and building extraction evaluation. 
-          <em>IEEE Geoscience and Remote Sensing Letters, 12</em>(1), 170-174. 
-          [<a href="https://elib.dlr.de/90425/1/avbelj_GRSL_00093_2014_final_submitted.pdf" target="_blank" style="color:#2563eb">PDF</a>]
-        </small>
       </div>
     </header>
 
