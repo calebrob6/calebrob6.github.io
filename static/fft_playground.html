@@ -1,0 +1,1662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Grid Artifact FFT Playground</title>
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      }
+    };
+  </script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+  <style>
+    :root{
+      --bg:#f8fafc;
+      --text:#0f172a;
+      --muted:#475569;
+      --border:#e5e7eb;
+      --card:#ffffff;
+      --shadow:0 6px 20px rgba(15,23,42,0.06);
+      --blue:#3b82f6;
+      --blue-stroke:#2563eb;
+      --violet:#a855f7;
+      --violet-stroke:#7c3aed;
+      --amber:#f59e0b;
+      --amber-stroke:#b45309;
+      --grid:#94a3b31a;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Apple Color Emoji","Segoe UI Emoji";background:var(--bg);color:var(--text)}
+    /* Wider page = larger main canvases (still computed at N=256) */
+    .wrap{max-width:1400px;margin:24px auto;padding:0 16px}
+
+    header{display:flex;flex-direction:column;gap:10px;margin-bottom:16px}
+    h1{font-size:24px;letter-spacing:.2px;margin:0}
+    .desc{color:var(--muted);line-height:1.5}
+    .desc code{background:#0f172a08;border:1px solid var(--border);padding:1px 6px;border-radius:8px}
+    .desc .pill{display:inline-block;padding:2px 8px;border-radius:999px;background:#eef2ff;border:1px solid #e0e7ff;color:#3730a3;font-size:12px;margin-left:6px}
+
+    /* Narrower controls column gives more room to the spatial+FFT panels */
+    .grid{display:grid;grid-template-columns:1fr 280px;gap:16px}
+    @media (max-width: 1024px){.grid{grid-template-columns:1fr}}
+
+    .card{background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow);overflow:hidden}
+    .head{padding:12px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:10px}
+    .head h2{margin:0;font-size:16px}
+    .body{padding:14px}
+
+    .canvas-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start}
+    @media (max-width: 900px){.canvas-grid{grid-template-columns:1fr}}
+
+    /* Profile row: 3 plots on wide screens, then 2, then 1 */
+    #profilesWrap{grid-template-columns:1fr 1fr 1fr}
+    @media (max-width: 1100px){#profilesWrap{grid-template-columns:1fr 1fr}}
+    .panel{
+      border:1px solid var(--border);
+      border-radius:12px;
+      overflow:hidden;
+      background:#fff;
+    }
+    .panel .label{
+      padding:10px 12px;
+      border-bottom:1px solid var(--border);
+      color:var(--muted);
+      font-size:12px;
+      text-transform:uppercase;
+      letter-spacing:.05em;
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+    }
+    .panel .label b{color:var(--text);font-weight:650;text-transform:none;letter-spacing:0}
+    canvas.viz{
+      display:block;
+      width:100%;
+      aspect-ratio:1/1;
+      background:#fff;
+      image-rendering:pixelated;
+      image-rendering:crisp-edges;
+    }
+
+    /* FFT overlay text should render smoothly */
+    #fftCanvas{ image-rendering:auto; cursor: crosshair; }
+
+    /* Make the selected-bin spatial cosine smaller */
+    canvas#sinCanvas.viz{
+      width:360px;
+      max-width:100%;
+      margin:0 auto;
+    }
+
+    /* Small profile plots */
+    canvas.spark{
+      display:block;
+      width:100%;
+      height:160px;
+      background:#fff;
+    }
+
+    .metrics{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+    .metric{border:1px solid var(--border);border-radius:12px;background:#fff;padding:10px}
+    .metric small{display:block;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;font-size:11px}
+    .metric .val{font-weight:700;font-size:16px}
+
+    .control{margin-top:12px}
+    .control:first-child{margin-top:0}
+    .control label{display:flex;align-items:baseline;justify-content:space-between;gap:10px;font-size:13px;color:var(--text)}
+    .control .sub{margin-top:6px;color:var(--muted);font-size:12px;line-height:1.35}
+    input[type="range"]{width:100%}
+    .row{display:flex;gap:10px;align-items:center;margin-top:8px}
+    .num{
+      width:92px;
+      padding:8px 10px;
+      border:1px solid var(--border);
+      border-radius:12px;
+      background:#fff;
+      font-size:13px;
+      color:var(--text);
+      outline:none;
+    }
+    .btn{
+      display:inline-flex;align-items:center;justify-content:center;gap:8px;
+      padding:10px 12px;border-radius:12px;border:1px solid var(--border);
+      background:#fff;cursor:pointer;font-weight:650;color:var(--text);
+      box-shadow:0 1px 2px rgba(0,0,0,.04);
+      user-select:none;
+    }
+    .btn.primary{background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8}
+    .btn:active{transform:translateY(1px)}
+    .hint{color:var(--muted);font-size:13px;margin-top:10px;line-height:1.45}
+    .callout{
+      margin-top:12px;
+      padding:12px;
+      border-radius:12px;
+      border:1px solid #fed7aa;
+      background:#fff7ed;
+      color:#7c2d12;
+      font-size:13px;
+      line-height:1.45;
+    }
+
+    /* Explanation blocks */
+    .explain-block{
+      border:1px solid var(--border);
+      border-radius:12px;
+      background:#fff;
+      padding:12px;
+    }
+    .explain-block + .explain-block{ margin-top:12px; }
+    .explain-title{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      font-weight:750;
+      font-size:14px;
+      color:var(--text);
+      letter-spacing:.2px;
+      margin-bottom:8px;
+    }
+    .explain-title::before{
+      content:"";
+      width:10px;
+      height:10px;
+      border-radius:999px;
+      background:var(--blue-stroke);
+      flex:0 0 auto;
+    }
+    .explain-text{
+      color:var(--text);
+      font-size:13px;
+      line-height:1.5;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>Grid Artifact FFT Playground <span class="pill">log-power spectrum</span></h1>
+      <div class="desc">
+        This page synthesizes a 2D pattern (a <b>grid</b> or <b>noise</b>) and visualizes its 2D discrete Fourier transform (DFT).
+        The right-hand plot shows a <b>shifted log-power spectrum</b>:
+        \(\log(1 + |F(u,v)|^2)\) with <b>DC</b> (the mean) moved to the center via an FFT shift.<br><br>
+        Intuition: each pixel \(F(u,v)\) in the spectrum measures “how much of a sinusoid with frequency \((u,v)\) is present” in the image.
+        After shifting, a spectrum pixel at row \(i\), column \(j\) corresponds roughly to spatial frequencies
+        \(k_x \approx (j - N/2)/N\) and \(k_y \approx (i - N/2)/N\) in <b>cycles per pixel</b>.
+        Brighter pixels mean stronger repeating structure at that frequency.<br><br>
+        Read the spectrum like a polar plot: <b>radius</b> from the center increases with frequency magnitude (finer repetitions lie farther out),
+        and <b>angle</b> indicates orientation. A regular grid produces a few sharp peaks; rotating the grid rotates those peaks.
+        The blue reference rings mark constant <b>radius in FFT bins</b> (distance from DC). A ring at radius \(r\) corresponds to an approximate spatial period
+        \(\text{period} \approx N/r\) pixels (rule-of-thumb).
+        Noise spreads energy more broadly across frequencies. (For real-valued images, the magnitude spectrum is conjugate-symmetric.)
+      </div>
+    </header>
+
+    <div class="grid">
+      <div class="card">
+        <div class="head">
+          <h2>Spatial pattern and FFT</h2>
+        </div>
+        <div class="body">
+          <div class="canvas-grid">
+            <div class="panel">
+              <div class="label">
+                <span>Spatial raster</span>
+                <b id="spatialMeta">—</b>
+              </div>
+              <canvas id="gridCanvas" class="viz"></canvas>
+            </div>
+            <div class="panel">
+              <div class="label">
+                <span>FFT log-power</span>
+                <b id="fftMeta">—</b>
+              </div>
+              <canvas id="fftCanvas" class="viz"></canvas>
+            </div>
+          </div>
+
+          <div style="margin-top:12px">
+            <div class="panel">
+              <div class="label">
+                <span>Selected spectrum bin → spatial cosine</span>
+                <b id="sinMeta">Click a pixel in the FFT</b>
+              </div>
+              <canvas id="sinCanvas" class="viz"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="head"><h2>Controls</h2></div>
+        <div class="body">
+          <div class="control">
+            <label>
+              <span>Pattern</span>
+              <span><b id="patternVal">Grid</b></span>
+            </label>
+            <div class="row">
+              <select id="pattern" class="num" style="width:100%">
+                <option value="grid" selected>Grid</option>
+                <option value="gaussian">Gaussian noise</option>
+                <option value="perlin">Perlin noise</option>
+                <option value="preset">Preset images</option>
+              </select>
+            </div>
+            <div class="sub">Choose the spatial pattern to analyze in the FFT.</div>
+          </div>
+
+          <div class="control" id="presetControls" style="display:none">
+            <label>
+              <span>Preset</span>
+            </label>
+            <div class="row">
+              <select id="presetSelect" class="num" style="width:100%">
+                <option value="checkerboard" selected>Checkerboard</option>
+                <option value="impulse">Single pixel (impulse)</option>
+                <option value="two_impulses">Two pixels (interference fringes)</option>
+                <option value="step_edge">Step edge</option>
+                <option value="disk">Filled disk</option>
+                <option value="rings">Concentric rings</option>
+                <option value="text_fft">Text: FFT</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="control" id="gridControls">
+            <label>
+              <span>Grid cells across</span>
+              <span><b id="cellsVal">20</b></span>
+            </label>
+            <div class="row">
+              <input id="cells" type="range" min="4" max="128" step="1" value="20" />
+              <input id="cellsNum" class="num" type="number" min="4" max="512" step="1" value="20" />
+            </div>
+            <div class="sub">More cells → tighter spacing → FFT peaks farther from center.</div>
+          </div>
+
+          <div class="control">
+            <label>
+              <span>Orientation (degrees)</span>
+              <span><b id="angleVal">15</b>°</span>
+            </label>
+            <div class="row">
+              <input id="angle" type="range" min="0" max="180" step="1" value="15" />
+              <input id="angleNum" class="num" type="number" min="0" max="180" step="1" value="15" />
+            </div>
+            <div class="sub">Rotates the grid in the spatial domain; FFT peaks rotate by the same angle.</div>
+          </div>
+
+          <div class="control">
+            <label>
+              <span>Grid line thickness (px)</span>
+              <span><b id="thickVal">1</b></span>
+            </label>
+            <div class="row">
+              <input id="thick" type="range" min="1" max="6" step="1" value="1" />
+              <input id="thickNum" class="num" type="number" min="1" max="12" step="1" value="1" />
+            </div>
+            <div class="sub">Thicker lines add more “energy” across frequencies (peaks get brighter and broader).</div>
+          </div>
+
+          <div class="metrics">
+            <div class="metric">
+              <small>FFT size (N×N)</small>
+              <div id="nVal" class="val">—</div>
+            </div>
+          </div>
+
+          <div class="control" id="gaussianControls" style="display:none">
+            <label>
+              <span>Gaussian noise</span>
+            </label>
+            <div class="row">
+              <button id="regenGaussian" class="btn" title="Regenerate Gaussian noise">Regenerate</button>
+            </div>
+          </div>
+
+          <div class="control" id="perlinControls" style="display:none">
+            <label>
+              <span>Perlin noise</span>
+            </label>
+            <div class="row">
+              <button id="regenPerlin" class="btn" title="Regenerate Perlin noise">Regenerate</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <div class="head"><h2>1D profiles</h2></div>
+      <div class="body">
+        <div id="profilesWrap" class="canvas-grid">
+          <div class="panel">
+            <div class="label">
+              <span>1D profile</span>
+              <b>Radial average</b>
+            </div>
+            <canvas id="radialCanvas" class="spark"></canvas>
+          </div>
+          <div class="panel">
+            <div class="label">
+              <span>1D profile</span>
+              <b>Axis cuts (x / y)</b>
+            </div>
+            <canvas id="cutsCanvas" class="spark"></canvas>
+          </div>
+          <div class="panel">
+            <div class="label">
+              <span>1D profile</span>
+              <b>Radial peakiness (blue=mean, orange=p98)</b>
+            </div>
+            <canvas id="radialPeakCanvas" class="spark"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <div class="head"><h2>Explanation</h2></div>
+      <div class="body">
+        <div id="explainGrid" class="explain-block">
+          <div class="explain-title">Grid FFT intuition</div>
+          <div class="explain-text">
+            A grid is made of two orthogonal families of parallel lines. Each family is strongly periodic, so most of its energy lands in a few
+            discrete frequency bins, producing bright peaks in the spectrum.
+            If the grid has \(c\) cells across an \(N\)-pixel image, the fundamental repetition is about \(c\) cycles across the image,
+            so the strongest peaks tend to appear near radius \(r \approx c\) (in FFT bins).
+            Increasing “Grid cells across” makes the spacing smaller (higher frequency), so peaks move farther from the center.
+            Rotating the grid rotates the peak locations by the same angle.
+          </div>
+        </div>
+
+        <div id="explainGaussian" class="explain-block">
+          <div class="explain-title">Gaussian FFT intuition</div>
+          <div class="explain-text">
+            Independent (i.i.d.) Gaussian noise is (approximately) <b>white</b>: in expectation it has similar power at all spatial frequencies.
+            In the 2D FFT, that means there is no preferred radius or angle, so the spectrum has a roughly <b>isotropic</b> (directionless) appearance.
+            For a finite \(N\times N\) image, each frequency bin is a random draw, so the spectrum looks <b>speckled</b> rather than perfectly flat.
+            The <b>log-power</b> display compresses dynamic range, which visually turns that speckle into a more uniform “cloud”.
+          </div>
+        </div>
+
+        <div id="explainPerlin" class="explain-block">
+          <div class="explain-title">Perlin Noise FFT intuition</div>
+          <div class="explain-text">
+            Perlin noise is <b>smooth / correlated</b>, meaning nearby pixels are similar. Smooth variation corresponds to <b>low spatial frequencies</b>,
+            so the spectrum is brightest near DC (the center after shifting) and typically rolls off as you move outward.
+            With multiple octaves (fBm), you still see a low-frequency bias, but with additional mid/high-frequency texture.
+          </div>
+        </div>
+
+        <div id="explainProfiles" class="explain-block">
+          <div class="explain-title">What do the 1D profiles mean?</div>
+          <div class="explain-text">
+            The FFT image is 2D, but sometimes it’s easier to read a few <b>1D summaries</b>.
+            The three profile plots (in the section above) are computed from the <b>same shifted log-power spectrum</b>:
+            <br><br>
+            <b>Radial average</b> (power vs radius): for each radius \(r\) (distance from the center / DC, in FFT bins), we average spectrum values on the ring.
+            Since radius corresponds to frequency magnitude, this shows <b>how much energy lives at low vs high spatial frequencies</b>.
+            Example intuition: smooth (Perlin) noise concentrates near small \(r\); a fine grid produces bumps at larger \(r\) where its peaks sit.
+            <br><br>
+            <b>Axis cuts</b> (horizontal + vertical slices): we take the spectrum row and column through the center.
+            This emphasizes components aligned with the image axes. For a perfectly axis-aligned grid you’ll see strong spikes along these cuts;
+            rotating the grid moves energy off-axis, so these particular cuts may weaken even though the 2D spectrum still has strong peaks.
+            <br><br>
+            <b>Radial peakiness</b> (top percentile on each ring): for each radius \(r\), we look at the high end of spectrum values on that ring
+            (here: the \(98\)th percentile, i.e. roughly “top \(2\%\)”). This is similar in spirit to taking a max, but it’s a bit more robust:
+            a single outlier pixel won’t dominate as easily.
+            <br><br>
+            On the <b>Radial peakiness</b> plot, there are two overlaid curves:
+            <br>
+            <b>Blue</b> = ring mean \(\mu(r)\): this is the same radial average as the first plot, shown again here as a baseline.
+            <br>
+            <b>Orange</b> = \(98\)th-percentile ring value \(p_{98}(r)\): for each radius \(r\), collect all spectrum samples whose distance from DC rounds to \(r\),
+            sort them, and read off the value at the \(98\)th percentile. If a ring contains a few very bright frequency bins (sharp FFT peaks),
+            \(p_{98}(r)\) will jump upward at exactly those radii.
+            <br><br>
+            The key signal is the <b>gap</b> between blue and orange. For a grid, energy is concentrated into a few bins on a ring (peaks), so
+            \(p_{98}(r)\) can be much larger than \(\mu(r)\) at the grid’s fundamental radius (and often its harmonics).
+            For noise, ring values are less concentrated into a few spikes, so the blue curve tends to track closer to the orange curve.
+            <br><br>
+            <b>Period rings</b> on the FFT image: each ring marks an approximate constant spatial period.
+            If the FFT size is \(N\times N\) and a peak lies at radius \(r\) <b>bins</b> from the center, its dominant spatial period is roughly \(\text{period} \approx N/r\) pixels.
+            (For this page with \(N=256\): \(r=32\Rightarrow\) \(\approx 8\)px period; \(r=64\Rightarrow\) \(\approx 4\)px; \(r=128\Rightarrow\) \(\approx 2\)px.)
+            For an axis-aligned grid with “Grid cells across” \(=c\), the fundamental peaks often appear near \(r\approx c\) (about \(c\) cycles across the image).
+          </div>
+        </div>
+
+        <div id="explainArtifacts" class="explain-block">
+          <div class="explain-title">Detecting tiling and edge artifacts with the FFT</div>
+          <div class="explain-text">
+            The FFT is a powerful diagnostic for <b>unwanted periodic structure</b>. Artifacts that repeat in the image (or in how it’s produced)
+            concentrate energy into <b>localized peaks</b> at specific frequency bins.
+            <br><br>
+            <b>Tiling / repeating textures</b>: if an image is formed by repeating a tile of size \(T_x\times T_y\), then the image contains strong periodicities
+            at about \(k_x\approx N/T_x\) and \(k_y\approx N/T_y\) (and harmonics). In the shifted spectrum, this shows up as <b>bright symmetric peaks</b>
+            at a fixed radius (often multiple radii for harmonics). The peak <b>angle</b> indicates the dominant repetition direction.
+            <br><br>
+            <b>Seams / grid boundaries</b>: a faint seam every \(T\) pixels is still periodic, so it can create a <b>comb</b> of peaks along the axis normal to the seam.
+            If the seam is mainly vertical (a jump across \(x\)), energy tends to concentrate along the \(k_x\) direction; for horizontal seams it concentrates along \(k_y\).
+            <br><br>
+            <b>Edge artifacts (FFT assumes wrap-around)</b>: a DFT treats the image as if it repeats outside the boundary. If the left/right or top/bottom edges do not match,
+            the implied wrap-around creates a sharp discontinuity at the boundary. Sharp discontinuities inject broad <b>high-frequency</b> energy, often visible as
+            streaks or elevated intensity across many bins.
+            A common mitigation is to apply a <b>window</b> (e.g. Hann/Hamming) before the FFT to reduce edge discontinuities; the trade-off is slightly blurrier peaks.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ---------------------------
+    // Helpers
+    // ---------------------------
+    const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+    function wrapAngle180(deg) {
+      let a = deg % 180;
+      if (a < 0) a += 180;
+      return a;
+    }
+
+    function formatNumber(x, digits = 2) {
+      if (!Number.isFinite(x)) return '—';
+      return x.toFixed(digits);
+    }
+
+    // Deterministic PRNG for stable noise patterns
+    function mulberry32(seed) {
+      let t = seed >>> 0;
+      return function() {
+        t += 0x6D2B79F5;
+        let r = Math.imul(t ^ (t >>> 15), 1 | t);
+        r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
+        return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+
+    function randn(rng) {
+      // Box-Muller transform
+      let u = 0, v = 0;
+      while (u === 0) u = rng();
+      while (v === 0) v = rng();
+      return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+    }
+
+    // ---------------------------
+    // FFT (radix-2, in-place)
+    // ---------------------------
+    function fft1d(re, im, inverse=false) {
+      const n = re.length;
+      // bit-reversal permutation
+      for (let i = 1, j = 0; i < n; i++) {
+        let bit = n >> 1;
+        for (; j & bit; bit >>= 1) j ^= bit;
+        j ^= bit;
+        if (i < j) {
+          [re[i], re[j]] = [re[j], re[i]];
+          [im[i], im[j]] = [im[j], im[i]];
+        }
+      }
+
+      for (let len = 2; len <= n; len <<= 1) {
+        const ang = (2 * Math.PI / len) * (inverse ? 1 : -1);
+        const wlenRe = Math.cos(ang), wlenIm = Math.sin(ang);
+        for (let i = 0; i < n; i += len) {
+          let wRe = 1, wIm = 0;
+          const half = len >> 1;
+          for (let j = 0; j < half; j++) {
+            const uRe = re[i + j], uIm = im[i + j];
+            const vRe = re[i + j + half] * wRe - im[i + j + half] * wIm;
+            const vIm = re[i + j + half] * wIm + im[i + j + half] * wRe;
+
+            re[i + j] = uRe + vRe;
+            im[i + j] = uIm + vIm;
+            re[i + j + half] = uRe - vRe;
+            im[i + j + half] = uIm - vIm;
+
+            const nwRe = wRe * wlenRe - wIm * wlenIm;
+            const nwIm = wRe * wlenIm + wIm * wlenRe;
+            wRe = nwRe; wIm = nwIm;
+          }
+        }
+      }
+
+      if (inverse) {
+        for (let i = 0; i < n; i++) { re[i] /= n; im[i] /= n; }
+      }
+    }
+
+    function fft2d(re2, im2, n) {
+      // rows
+      const rowRe = new Float64Array(n);
+      const rowIm = new Float64Array(n);
+      for (let y = 0; y < n; y++) {
+        const off = y * n;
+        for (let x = 0; x < n; x++) { rowRe[x] = re2[off + x]; rowIm[x] = im2[off + x]; }
+        fft1d(rowRe, rowIm, false);
+        for (let x = 0; x < n; x++) { re2[off + x] = rowRe[x]; im2[off + x] = rowIm[x]; }
+      }
+
+      // cols
+      const colRe = new Float64Array(n);
+      const colIm = new Float64Array(n);
+      for (let x = 0; x < n; x++) {
+        for (let y = 0; y < n; y++) { colRe[y] = re2[y * n + x]; colIm[y] = im2[y * n + x]; }
+        fft1d(colRe, colIm, false);
+        for (let y = 0; y < n; y++) { re2[y * n + x] = colRe[y]; im2[y * n + x] = colIm[y]; }
+      }
+    }
+
+    // ---------------------------
+    // Pattern synthesis (grid lines)
+    // ---------------------------
+    function makeGridRaster(n, cellsAcross, angleDeg, lineThicknessPx) {
+      const cell = Math.max(1e-6, n / Math.max(1, cellsAcross));
+      const thick = Math.max(0.5, lineThicknessPx);
+
+      const ang = angleDeg * Math.PI / 180;
+      const c = Math.cos(ang), s = Math.sin(ang);
+
+      const cx = (n - 1) / 2, cy = (n - 1) / 2;
+      const val = new Float64Array(n * n);
+
+      let sum = 0;
+      for (let y = 0; y < n; y++) {
+        for (let x = 0; x < n; x++) {
+          // center coordinates
+          const dx = x - cx, dy = y - cy;
+
+          // rotate into grid frame (so changing angle rotates the grid)
+          const xr = dx * c + dy * s;
+          const yr = -dx * s + dy * c;
+
+          // distance to nearest grid line (vertical/horizontal)
+          const ux = xr / cell;
+          const uy = yr / cell;
+          const fx = ux - Math.floor(ux); // [0,1)
+          const fy = uy - Math.floor(uy);
+
+          const dxLine = Math.min(fx, 1 - fx) * cell;
+          const dyLine = Math.min(fy, 1 - fy) * cell;
+
+          const isLine = (dxLine <= thick) || (dyLine <= thick);
+          const v = isLine ? 1.0 : 0.0;
+
+          val[y * n + x] = v;
+          sum += v;
+        }
+      }
+
+      const mean = sum / (n * n);
+      return { val, mean, meta: { n, cell, thick } };
+    }
+
+    function makeGaussianNoise(n, seed = 1337) {
+      const rng = mulberry32(seed ^ (n * 2654435761));
+      const val = new Float64Array(n * n);
+      let sum = 0;
+      for (let i = 0; i < n * n; i++) {
+        // i.i.d. Normal(0,1), linearly mapped to [0,1] with clamping.
+        // (A linear map preserves the “whiteness” better than a nonlinear squashing.)
+        const g = randn(rng);
+        const v = clamp(0.5 + g * 0.18, 0, 1);
+        val[i] = v;
+        sum += v;
+      }
+      const mean = sum / (n * n);
+      return { val, mean, meta: { n, seed } };
+    }
+
+    // Lightweight 2D Perlin noise
+    function makePerlinNoise(n, seed = 1337) {
+      const rng = mulberry32(seed ^ (n * 1597334677));
+
+      // permutation table
+      const p = new Uint8Array(512);
+      const perm = new Uint8Array(256);
+      for (let i = 0; i < 256; i++) perm[i] = i;
+      // Fisher-Yates shuffle
+      for (let i = 255; i > 0; i--) {
+        const j = Math.floor(rng() * (i + 1));
+        const tmp = perm[i];
+        perm[i] = perm[j];
+        perm[j] = tmp;
+      }
+      for (let i = 0; i < 512; i++) p[i] = perm[i & 255];
+
+      const fade = (t) => t * t * t * (t * (t * 6 - 15) + 10);
+      const lerp = (a, b, t) => a + t * (b - a);
+      function grad(hash, x, y) {
+        // 8 gradients
+        const h = hash & 7;
+        const u = h < 4 ? x : y;
+        const v = h < 4 ? y : x;
+        return ((h & 1) ? -u : u) + ((h & 2) ? -v : v);
+      }
+      function perlin2(x, y) {
+        const xi = Math.floor(x) & 255;
+        const yi = Math.floor(y) & 255;
+        const xf = x - Math.floor(x);
+        const yf = y - Math.floor(y);
+        const u = fade(xf);
+        const v = fade(yf);
+
+        const aa = p[p[xi] + yi];
+        const ab = p[p[xi] + yi + 1];
+        const ba = p[p[xi + 1] + yi];
+        const bb = p[p[xi + 1] + yi + 1];
+
+        const x1 = lerp(grad(aa, xf, yf),     grad(ba, xf - 1, yf),     u);
+        const x2 = lerp(grad(ab, xf, yf - 1), grad(bb, xf - 1, yf - 1), u);
+        return lerp(x1, x2, v);
+      }
+
+      // Fractal Brownian Motion (few octaves)
+      const octaves = 4;
+      const baseFreq = 3.5; // controls smoothness (higher = more detail)
+      const lacunarity = 2.0;
+      const gain = 0.5;
+
+      const val = new Float64Array(n * n);
+      let sum = 0;
+      for (let y = 0; y < n; y++) {
+        for (let x = 0; x < n; x++) {
+          let amp = 1.0;
+          let freq = baseFreq;
+          let acc = 0;
+          let norm = 0;
+
+          for (let o = 0; o < octaves; o++) {
+            const nx = (x / n) * freq;
+            const ny = (y / n) * freq;
+            acc += amp * perlin2(nx, ny);
+            norm += amp;
+            amp *= gain;
+            freq *= lacunarity;
+          }
+
+          const v = (acc / norm + 1) * 0.5; // map approx [-1,1] to [0,1]
+          const idx = y * n + x;
+          val[idx] = v;
+          sum += v;
+        }
+      }
+      const mean = sum / (n * n);
+      return { val, mean, meta: { n, seed } };
+    }
+
+    // ---------------------------
+    // Preset images (synthetic)
+    // ---------------------------
+    function makePresetPattern(n, presetName) {
+      const val = new Float64Array(n * n);
+      const cx = (n - 1) / 2;
+      const cy = (n - 1) / 2;
+      let sum = 0;
+
+      function setPixel(x, y, v) {
+        if (x < 0 || y < 0 || x >= n || y >= n) return;
+        const idx = y * n + x;
+        val[idx] = v;
+      }
+
+      const name = presetName || 'checkerboard';
+
+      if (name === 'checkerboard') {
+        const block = 8;
+        for (let y = 0; y < n; y++) {
+          for (let x = 0; x < n; x++) {
+            const v = ((Math.floor(x / block) + Math.floor(y / block)) & 1) ? 1.0 : 0.0;
+            val[y * n + x] = v;
+            sum += v;
+          }
+        }
+      } else if (name === 'impulse') {
+        // A single bright pixel -> flat magnitude spectrum (up to phase).
+        setPixel(Math.floor(cx), Math.floor(cy), 1.0);
+        sum = 1.0;
+      } else if (name === 'two_impulses') {
+        // Two impulses -> cosine fringes in frequency.
+        const dx = Math.floor(n * 0.12);
+        setPixel(Math.floor(cx - dx), Math.floor(cy), 1.0);
+        setPixel(Math.floor(cx + dx), Math.floor(cy), 1.0);
+        sum = 2.0;
+      } else if (name === 'step_edge') {
+        // A hard edge -> sinc-like spectrum concentrated along one axis.
+        for (let y = 0; y < n; y++) {
+          for (let x = 0; x < n; x++) {
+            const v = (x < n / 2) ? 0.0 : 1.0;
+            val[y * n + x] = v;
+            sum += v;
+          }
+        }
+      } else if (name === 'disk') {
+        // A filled disk -> Airy-like Bessel rings in the spectrum.
+        const r0 = n * 0.18;
+        const r02 = r0 * r0;
+        for (let y = 0; y < n; y++) {
+          const dy = y - cy;
+          for (let x = 0; x < n; x++) {
+            const dx = x - cx;
+            const v = ((dx * dx + dy * dy) <= r02) ? 1.0 : 0.0;
+            val[y * n + x] = v;
+            sum += v;
+          }
+        }
+      } else if (name === 'rings') {
+        // Radial cosine -> energy concentrated on a ring in frequency.
+        const freq = 16;
+        const sigma = n * 0.35;
+        const invSigma2 = 1 / (sigma * sigma);
+        for (let y = 0; y < n; y++) {
+          const dy = y - cy;
+          for (let x = 0; x < n; x++) {
+            const dx = x - cx;
+            const r = Math.hypot(dx, dy);
+            const env = Math.exp(-(r * r) * invSigma2);
+            const v = 0.5 + 0.5 * Math.cos((2 * Math.PI * freq * r) / n) * env;
+            val[y * n + x] = v;
+            sum += v;
+          }
+        }
+      } else if (name === 'text_fft') {
+        // Rasterize text into an offscreen canvas.
+        const c = document.createElement('canvas');
+        c.width = n;
+        c.height = n;
+        const ctx = c.getContext('2d', { willReadFrequently: true });
+        ctx.clearRect(0, 0, n, n);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, n, n);
+        ctx.fillStyle = '#000000';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.font = `800 ${Math.round(n * 0.26)}px system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial`;
+        ctx.fillText('FFT', n / 2, n / 2);
+
+        const img = ctx.getImageData(0, 0, n, n);
+        const data = img.data;
+        for (let i = 0; i < n * n; i++) {
+          // 1 for black ink, 0 for white background
+          const r = data[i * 4 + 0];
+          const v = 1.0 - (r / 255);
+          val[i] = v;
+          sum += v;
+        }
+      } else {
+        // default
+        for (let y = 0; y < n; y++) {
+          for (let x = 0; x < n; x++) {
+            const v = ((x ^ y) & 1) ? 1.0 : 0.0;
+            val[y * n + x] = v;
+            sum += v;
+          }
+        }
+      }
+
+      const mean = sum / (n * n);
+      return { val, mean, meta: { n, preset: name } };
+    }
+
+    // ---------------------------
+    // Rendering
+    // ---------------------------
+    function getThemeVar(name, fallback) {
+      try {
+        const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+        return v || fallback;
+      } catch {
+        return fallback;
+      }
+    }
+    function renderGridToCanvas(canvas, n, val) {
+      canvas.width = n;
+      canvas.height = n;
+      const ctx = canvas.getContext('2d', { willReadFrequently: false });
+      ctx.imageSmoothingEnabled = false;
+
+      const img = ctx.createImageData(n, n);
+      const data = img.data;
+      for (let i = 0; i < n * n; i++) {
+        // white background, black grid lines
+        const v = val[i]; // 1=line, 0=bg
+        const px = v > 0.5 ? 0 : 255;
+        const k = i * 4;
+        data[k + 0] = px;
+        data[k + 1] = px;
+        data[k + 2] = px;
+        data[k + 3] = 255;
+      }
+      ctx.putImageData(img, 0, 0);
+    }
+
+    function renderScalarToCanvas(canvas, n, val, opts = {}) {
+      const vMin = (typeof opts.min === 'number') ? opts.min : 0;
+      const vMax = (typeof opts.max === 'number') ? opts.max : 1;
+      const inv = (vMax > vMin) ? (1 / (vMax - vMin)) : 0;
+
+      canvas.width = n;
+      canvas.height = n;
+      const ctx = canvas.getContext('2d', { willReadFrequently: false });
+      ctx.imageSmoothingEnabled = false;
+
+      const img = ctx.createImageData(n, n);
+      const data = img.data;
+      for (let i = 0; i < n * n; i++) {
+        const t = clamp((val[i] - vMin) * inv, 0, 1);
+        const px = Math.round(t * 255);
+        const k = i * 4;
+        data[k + 0] = px;
+        data[k + 1] = px;
+        data[k + 2] = px;
+        data[k + 3] = 255;
+      }
+      ctx.putImageData(img, 0, 0);
+    }
+
+    // Offscreen buffer for FFT image generation (n x n)
+    let _fftOffscreen = null;
+    function getFFTOffscreen(n) {
+      if (_fftOffscreen && _fftOffscreen.n === n) return _fftOffscreen;
+      const c = document.createElement('canvas');
+      c.width = n;
+      c.height = n;
+      const ctx = c.getContext('2d', { willReadFrequently: false });
+      _fftOffscreen = { n, canvas: c, ctx };
+      return _fftOffscreen;
+    }
+
+    function renderSpectrumToCanvas(canvas, n, logPowShifted, maxVal, selection = null, selectionText = "") {
+      // Render at the element's CSS size for crisp overlay text.
+      const rect = canvas.getBoundingClientRect();
+      const cssSize = Math.max(200, Math.round(rect.width || n));
+      const dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
+
+      canvas.width = Math.round(cssSize * dpr);
+      canvas.height = Math.round(cssSize * dpr);
+
+      const ctx = canvas.getContext('2d', { willReadFrequently: false });
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.imageSmoothingEnabled = false;
+
+      // Build the grayscale spectrum in an offscreen n×n buffer, then scale-draw.
+      const off = getFFTOffscreen(n);
+      const offCtx = off.ctx;
+      const img = offCtx.createImageData(n, n);
+      const data = img.data;
+
+      const inv = maxVal > 0 ? (255 / maxVal) : 0;
+      for (let i = 0; i < n * n; i++) {
+        let v = logPowShifted[i] * inv;
+        v = Math.pow(clamp(v / 255, 0, 1), 0.65) * 255;
+
+        const px = Math.round(clamp(v, 0, 255));
+        const k = i * 4;
+        data[k + 0] = px;
+        data[k + 1] = px;
+        data[k + 2] = px;
+        data[k + 3] = 255;
+      }
+      offCtx.putImageData(img, 0, 0);
+
+      // Clear and draw scaled spectrum
+      ctx.clearRect(0, 0, cssSize, cssSize);
+      ctx.drawImage(off.canvas, 0, 0, cssSize, cssSize);
+
+      // overlay faint crosshair at center (in CSS pixels)
+      const cx = cssSize / 2;
+      const cy = cssSize / 2;
+      ctx.save();
+      ctx.globalAlpha = 0.55;
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = "#00000022";
+      ctx.beginPath();
+      ctx.moveTo(cx, 0); ctx.lineTo(cx, cssSize);
+      ctx.moveTo(0, cy); ctx.lineTo(cssSize, cy);
+      ctx.stroke();
+
+      // center dot
+      ctx.globalAlpha = 0.85;
+      ctx.fillStyle = "#00000033";
+      ctx.beginPath();
+      ctx.arc(cx, cy, 2.2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+
+      drawSpectrumGuides(ctx, n, cssSize);
+
+      // Selection marker + overlay text
+      if (selection && Number.isFinite(selection.i) && Number.isFinite(selection.j)) {
+        const scale = cssSize / n;
+        const x = (selection.j + 0.5) * scale;
+        const y = (selection.i + 0.5) * scale;
+
+        ctx.save();
+        ctx.globalAlpha = 1;
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = getThemeVar('--amber-stroke', '#b45309');
+        ctx.fillStyle = "rgba(245,158,11,0.12)";
+        ctx.beginPath();
+        ctx.arc(x, y, 7, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = getThemeVar('--amber', '#f59e0b');
+        ctx.beginPath();
+        ctx.arc(x, y, 2.1, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        if (selectionText) {
+          ctx.save();
+          ctx.font = "600 13px system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial";
+          ctx.textBaseline = "top";
+          const padX = 8;
+          const padY = 6;
+          const w = ctx.measureText(selectionText).width;
+          const boxW = w + padX * 2;
+          const boxH = 13 + padY * 2;
+
+          const xx = clamp(x + 10, 6, cssSize - boxW - 6);
+          const yy = clamp(y + 10, 6, cssSize - boxH - 6);
+
+          ctx.fillStyle = "rgba(15,23,42,0.78)";
+          ctx.fillRect(xx, yy, boxW, boxH);
+          ctx.fillStyle = "rgba(255,255,255,0.98)";
+          ctx.fillText(selectionText, xx + padX, yy + padY);
+          ctx.restore();
+        }
+      }
+    }
+
+    function drawSpectrumGuides(ctx, n, cssSize) {
+      const cx = cssSize / 2;
+      const cy = cssSize / 2;
+      const scale = cssSize / n;
+      const maxR = (n / 2);
+
+      const guideColor = getThemeVar('--blue', '#3b82f6');
+      const guideStroke = getThemeVar('--blue-stroke', '#2563eb');
+
+      function drawLabel(x, y, text) {
+        ctx.save();
+        ctx.font = "600 14px system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial";
+        ctx.textBaseline = "top";
+        const padX = 8;
+        const padY = 6;
+        const w = ctx.measureText(text).width;
+        const boxW = w + padX * 2;
+        const boxH = 14 + padY * 2;
+
+        // Clamp so the label stays inside the canvas
+        const xx = clamp(x, 6, cssSize - boxW - 6);
+        const yy = clamp(y, 6, cssSize - boxH - 6);
+
+        // background
+        ctx.fillStyle = "rgba(15,23,42,0.72)";
+        ctx.fillRect(xx, yy, boxW, boxH);
+
+        // text
+        ctx.fillStyle = "rgba(255,255,255,0.98)";
+        ctx.fillText(text, xx + padX, yy + padY);
+        ctx.restore();
+
+        return { x: xx, y: yy, w: boxW, h: boxH };
+      }
+
+      // Concentric rings at fixed radius (FFT bins) from DC.
+      // For a given radius r, the corresponding spatial period is approximately period ≈ N / r pixels.
+      const radiiBins = [32, 64, 128];
+
+      ctx.save();
+      ctx.lineWidth = 1.5;
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = guideStroke;
+      ctx.shadowColor = "rgba(0,0,0,0.25)";
+      ctx.shadowBlur = 1.5;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 0;
+
+      for (const rBin of radiiBins) {
+        const r = rBin;
+        if (!(r > 2 && r <= maxR)) continue;
+
+        ctx.beginPath();
+        ctx.arc(cx, cy, r * scale, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
+      // Angle ticks (orientation): draw faint spokes at 0°, 45°, 90°.
+      // Note: image y-axis points down, so +90° points down.
+      const anglesDeg = [0, 45, 90];
+      ctx.strokeStyle = guideColor;
+
+      for (const deg of anglesDeg) {
+        const a = deg * Math.PI / 180;
+        const dx = Math.cos(a);
+        const dy = Math.sin(a);
+        const r0 = 6;
+        const r1 = (cssSize / 2) - 8;
+
+        ctx.beginPath();
+        ctx.moveTo(cx + dx * r0, cy + dy * r0);
+        ctx.lineTo(cx + dx * r1, cy + dy * r1);
+        ctx.stroke();
+
+        // small tick at edge
+        ctx.save();
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(cx + dx * (r1 - 6), cy + dy * (r1 - 6));
+        ctx.lineTo(cx + dx * r1, cy + dy * r1);
+        ctx.stroke();
+        ctx.restore();
+
+        const label = `${deg}°`;
+        drawLabel(cx + dx * (r1 - 44), cy + dy * (r1 - 44), label);
+      }
+
+      ctx.restore();
+
+    }
+
+    function computeRadialAverage(n, field) {
+      const cx = n / 2;
+      const cy = n / 2;
+      const maxR = Math.floor(n / 2);
+      const sum = new Float64Array(maxR + 1);
+      const cnt = new Uint32Array(maxR + 1);
+
+      for (let y = 0; y < n; y++) {
+        const dy = y - cy;
+        for (let x = 0; x < n; x++) {
+          const dx = x - cx;
+          const r = Math.round(Math.hypot(dx, dy));
+          if (r <= maxR) {
+            const v = field[y * n + x];
+            sum[r] += v;
+            cnt[r] += 1;
+          }
+        }
+      }
+
+      const out = new Float64Array(maxR + 1);
+      for (let r = 0; r <= maxR; r++) out[r] = cnt[r] ? (sum[r] / cnt[r]) : 0;
+      return out;
+    }
+
+    function computeRadialPercentile(n, field, q = 0.98) {
+      const cx = n / 2;
+      const cy = n / 2;
+      const maxR = Math.floor(n / 2);
+
+      const bins = Array.from({ length: maxR + 1 }, () => []);
+      for (let y = 0; y < n; y++) {
+        const dy = y - cy;
+        for (let x = 0; x < n; x++) {
+          const dx = x - cx;
+          const r = Math.round(Math.hypot(dx, dy));
+          if (r <= maxR) bins[r].push(field[y * n + x]);
+        }
+      }
+
+      const out = new Float64Array(maxR + 1);
+      const qq = clamp(q, 0, 1);
+      for (let r = 0; r <= maxR; r++) {
+        const arr = bins[r];
+        if (!arr.length) { out[r] = 0; continue; }
+        arr.sort((a, b) => a - b);
+        const idx = Math.floor(qq * (arr.length - 1));
+        out[r] = arr[idx];
+      }
+      return out;
+    }
+
+    function renderLinePlot(canvas, seriesList, opts = {}) {
+      // Render at the element's CSS size for crisp text (avoid squished scaling).
+      const rect = canvas.getBoundingClientRect();
+      const cssW = Math.max(240, Math.round(rect.width || 680));
+      const cssH = Math.max(120, Math.round(rect.height || 160));
+      const dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
+
+      canvas.width = Math.round(cssW * dpr);
+      canvas.height = Math.round(cssH * dpr);
+
+      const ctx = canvas.getContext('2d', { willReadFrequently: false });
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      const width = cssW;
+      const height = cssH;
+
+      const padL = 36;
+      const padR = 12;
+      const padT = 12;
+      // Extra room so tick labels and x-axis label don't overlap.
+      const padB = (opts.xLabel ? 44 : 30);
+      const plotW = width - padL - padR;
+      const plotH = height - padT - padB;
+
+      // background
+      ctx.clearRect(0, 0, width, height);
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, width, height);
+
+      // bounds
+      let minY = Number.POSITIVE_INFINITY;
+      let maxY = Number.NEGATIVE_INFINITY;
+      let maxX = 0;
+      for (const s of seriesList) {
+        maxX = Math.max(maxX, (s.data.length - 1));
+        for (let i = 0; i < s.data.length; i++) {
+          const v = s.data[i];
+          if (Number.isFinite(v)) {
+            if (v < minY) minY = v;
+            if (v > maxY) maxY = v;
+          }
+        }
+      }
+      if (!Number.isFinite(minY) || !Number.isFinite(maxY) || minY === maxY) {
+        minY = 0;
+        maxY = 1;
+      }
+
+      // optionally pin to 0..max
+      if (opts.zeroMin) minY = Math.min(0, minY);
+
+      const xToPx = (x) => padL + (x / Math.max(1, maxX)) * plotW;
+      const yToPx = (y) => padT + (1 - (y - minY) / (maxY - minY)) * plotH;
+
+      // grid
+      ctx.save();
+      ctx.strokeStyle = "#00000014";
+      ctx.lineWidth = 1;
+      for (let i = 0; i <= 4; i++) {
+        const yy = padT + (i / 4) * plotH;
+        ctx.beginPath();
+        ctx.moveTo(padL, yy);
+        ctx.lineTo(padL + plotW, yy);
+        ctx.stroke();
+      }
+      ctx.restore();
+
+      // axes
+      ctx.save();
+      ctx.strokeStyle = "#00000024";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(padL, padT);
+      ctx.lineTo(padL, padT + plotH);
+      ctx.lineTo(padL + plotW, padT + plotH);
+      ctx.stroke();
+      ctx.restore();
+
+      // y labels (min/max)
+      // (intentionally no y-axis labels; they tend to add clutter here)
+
+      // x tick labels
+      ctx.save();
+      ctx.fillStyle = "#475569";
+      ctx.font = "13px system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial";
+      ctx.textBaseline = "top";
+      const xTicks = [0, Math.floor(maxX / 2), maxX];
+      for (const t of xTicks) {
+        const text = (opts.xTickLabel ? opts.xTickLabel(t, maxX) : String(t));
+        const x = xToPx(t);
+        const w = ctx.measureText(text).width;
+        ctx.fillText(text, clamp(x - w / 2, 2, width - w - 2), padT + plotH + 6);
+      }
+      if (opts.xLabel) {
+        const text = opts.xLabel;
+        const w = ctx.measureText(text).width;
+        ctx.fillText(text, padL + (plotW - w) / 2, height - 18);
+      }
+      ctx.restore();
+
+      // lines
+      for (const s of seriesList) {
+        ctx.save();
+        ctx.strokeStyle = s.color || "#2563eb";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        for (let i = 0; i < s.data.length; i++) {
+          const x = xToPx(i);
+          const y = yToPx(s.data[i]);
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+
+    // ---------------------------
+    // Main compute pipeline
+    // ---------------------------
+    const gridCanvas = document.getElementById('gridCanvas');
+    const fftCanvas  = document.getElementById('fftCanvas');
+    const sinCanvas  = document.getElementById('sinCanvas');
+
+    const pattern = document.getElementById('pattern');
+    const gridControls = document.getElementById('gridControls');
+    const presetControls = document.getElementById('presetControls');
+    const presetSelect = document.getElementById('presetSelect');
+    const gaussianControls = document.getElementById('gaussianControls');
+    const perlinControls = document.getElementById('perlinControls');
+    const cells = document.getElementById('cells');
+    const cellsNum = document.getElementById('cellsNum');
+    const angle = document.getElementById('angle');
+    const angleNum = document.getElementById('angleNum');
+    const thick = document.getElementById('thick');
+    const thickNum = document.getElementById('thickNum');
+
+    const patternVal = document.getElementById('patternVal');
+    const cellsVal = document.getElementById('cellsVal');
+    const angleVal = document.getElementById('angleVal');
+    const thickVal = document.getElementById('thickVal');
+
+    const regenGaussian = document.getElementById('regenGaussian');
+    const regenPerlin = document.getElementById('regenPerlin');
+
+    const nVal = document.getElementById('nVal');
+    const spatialMeta = document.getElementById('spatialMeta');
+    const fftMeta = document.getElementById('fftMeta');
+    const sinMeta = document.getElementById('sinMeta');
+    const profilesWrap = document.getElementById('profilesWrap');
+    const radialCanvas = document.getElementById('radialCanvas');
+    const cutsCanvas = document.getElementById('cutsCanvas');
+    const radialPeakCanvas = document.getElementById('radialPeakCanvas');
+
+    // Seeds for noise patterns (updated by regenerate buttons)
+    let gaussianSeed = 1337;
+    let perlinSeed = 1337;
+
+    // Selected (shifted) FFT bin: { i, j } with DC at (n/2,n/2)
+    let selectedBin = null;
+
+    // Cache the most recent FFT computation so clicking doesn't recompute.
+    let currentState = null;
+
+    // Base FFT meta label (used so hover can append info without losing context)
+    let fftMetaBase = '—';
+
+    // Hovered (shifted) FFT bin (snapped)
+    let hoverBin = null;
+
+    function getBinInfoFromShifted(n, iShift, jShift, re, im) {
+      const half = n >> 1;
+      const kx = jShift - half;
+      const ky = iShift - half;
+
+      // Invert the shift mapping to find the unshifted FFT index.
+      const x = (jShift - half) & (n - 1);
+      const y = (iShift - half) & (n - 1);
+      const idx = y * n + x;
+
+      const a = re[idx];
+      const b = im[idx];
+      const mag2 = a * a + b * b;
+      const phase = Math.atan2(b, a);
+
+      const r = Math.hypot(kx, ky);
+      const wavelengthPx = (r > 0) ? (n / r) : Infinity;
+      const waveDeg = (r > 0) ? (Math.atan2(ky, kx) * 180 / Math.PI) : NaN;
+      const stripeDeg = (r > 0) ? wrapAngle180(waveDeg + 90) : NaN;
+
+      return { iShift, jShift, kx, ky, idx, mag2, phase, r, wavelengthPx, waveDeg, stripeDeg };
+    }
+
+    function makeSpatialCosine(n, kx, ky, phase = 0) {
+      const out = new Float64Array(n * n);
+      const twoPiOverN = 2 * Math.PI / n;
+      for (let y = 0; y < n; y++) {
+        for (let x = 0; x < n; x++) {
+          const arg = twoPiOverN * (kx * x + ky * y) + phase;
+          out[y * n + x] = 0.5 + 0.5 * Math.cos(arg);
+        }
+      }
+      return out;
+    }
+
+    function renderSpectrumFromState() {
+      if (!currentState) return;
+      const { n, re, im, logPowShifted, maxLP, totalEnergy } = currentState;
+
+      // Sticky selection overlay ONLY (hover does not affect spectrum rendering)
+      let overlay = "";
+      if (selectedBin) {
+        const info = getBinInfoFromShifted(n, selectedBin.i, selectedBin.j, re, im);
+        const pct = (totalEnergy > 0) ? (100 * info.mag2 / totalEnergy) : 0;
+        const wl = (info.r > 0) ? `${formatNumber(info.wavelengthPx, 2)}px` : "DC";
+        const orient = (info.r > 0) ? `${formatNumber(info.stripeDeg, 1)}°` : "—";
+        overlay = `this bin explains ~${formatNumber(pct, 2)}% energy | k=(${info.kx},${info.ky})  λ≈${wl}  orient≈${orient}`;
+      }
+      renderSpectrumToCanvas(fftCanvas, n, logPowShifted, maxLP, selectedBin, overlay);
+    }
+
+    function renderSelectedBinPanelFromState() {
+      if (!currentState) return;
+      const { n, re, im, totalEnergy } = currentState;
+
+      // Hover takes precedence for the Selected Spectrum Bin panel.
+      const activeBin = hoverBin || selectedBin;
+      const mode = hoverBin ? 'Hover' : selectedBin ? 'Selected' : null;
+
+      if (activeBin && mode) {
+        const info = getBinInfoFromShifted(n, activeBin.i, activeBin.j, re, im);
+        const pct = (totalEnergy > 0) ? (100 * info.mag2 / totalEnergy) : 0;
+        const sinField = makeSpatialCosine(n, info.kx, info.ky, info.phase);
+        renderScalarToCanvas(sinCanvas, n, sinField, { min: 0, max: 1 });
+
+        if (info.r > 0) {
+          sinMeta.textContent = `${mode}: this bin explains ~${formatNumber(pct, 2)}% energy | k=(${info.kx},${info.ky})  λ≈${formatNumber(info.wavelengthPx, 2)} px/cycle  orient≈${formatNumber(info.stripeDeg, 1)}°`;
+        } else {
+          sinMeta.textContent = `${mode}: DC (mean), this bin explains ~${formatNumber(pct, 2)}% energy`;
+        }
+        return;
+      }
+
+      // No hover and no selection
+      sinMeta.textContent = 'Hover over the FFT (click to pin)';
+      const ctx = sinCanvas.getContext('2d');
+      if (ctx) {
+        const rect = sinCanvas.getBoundingClientRect();
+        const cssSize = Math.max(200, Math.round(rect.width || 256));
+        const dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
+        sinCanvas.width = Math.round(cssSize * dpr);
+        sinCanvas.height = Math.round(cssSize * dpr);
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, cssSize, cssSize);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, cssSize, cssSize);
+      }
+    }
+
+    function randomSeed() {
+      // 31-bit positive int
+      return (Math.floor(Math.random() * 0x7fffffff) + 1) | 0;
+    }
+
+    function getParams() {
+      const nc = clamp(parseInt(cellsNum.value, 10) || 20, 4, 512);
+      const ang = clamp(parseFloat(angleNum.value) || 0, 0, 180);
+      const th = clamp(parseInt(thickNum.value, 10) || 1, 1, 16);
+      const pat = pattern.value || 'grid';
+      const preset = (presetSelect && presetSelect.value) ? presetSelect.value : 'checkerboard';
+      return { pattern: pat, preset, cells: nc, angleDeg: ang, thickPx: th };
+    }
+
+    function pickFFTSize() {
+      // Keep it fast but still crisp.
+      return 256;
+    }
+
+    function syncPatternUI(pat) {
+      const label = pat === 'grid' ? 'Grid'
+        : pat === 'gaussian' ? 'Gaussian noise'
+        : pat === 'perlin' ? 'Perlin noise'
+        : pat === 'preset' ? 'Preset images'
+        : pat;
+      patternVal.textContent = label;
+
+      const showGrid = (pat === 'grid');
+      const showPreset = (pat === 'preset');
+      gridControls.style.display = showGrid ? '' : 'none';
+      presetControls.style.display = showPreset ? '' : 'none';
+      // Angle/thickness only relevant to grid
+      document.getElementById('angle').closest('.control').style.display = showGrid ? '' : 'none';
+      document.getElementById('thick').closest('.control').style.display = showGrid ? '' : 'none';
+
+      gaussianControls.style.display = (pat === 'gaussian') ? '' : 'none';
+      perlinControls.style.display = (pat === 'perlin') ? '' : 'none';
+    }
+
+    function computeAndRender() {
+      const p = getParams();
+
+      syncPatternUI(p.pattern);
+
+      // Sync UI
+      cells.value = p.cells;
+      angle.value = p.angleDeg;
+      thick.value = p.thickPx;
+
+      cellsVal.textContent = p.cells;
+      angleVal.textContent = p.angleDeg.toFixed(0);
+      thickVal.textContent = p.thickPx;
+
+      const n = pickFFTSize();
+
+      // 1) Make rasterized grid (and mean-center it for FFT)
+      let synth;
+      if (p.pattern === 'grid') {
+        synth = makeGridRaster(n, p.cells, p.angleDeg, p.thickPx);
+      } else if (p.pattern === 'gaussian') {
+        synth = makeGaussianNoise(n, gaussianSeed);
+      } else if (p.pattern === 'perlin') {
+        synth = makePerlinNoise(n, perlinSeed);
+      } else if (p.pattern === 'preset') {
+        synth = makePresetPattern(n, p.preset);
+      } else {
+        synth = makeGridRaster(n, p.cells, p.angleDeg, p.thickPx);
+      }
+
+      const { val, mean, meta } = synth;
+
+      // Render spatial
+      if (p.pattern === 'grid') {
+        renderGridToCanvas(gridCanvas, n, val);
+      } else {
+        renderScalarToCanvas(gridCanvas, n, val, { min: 0, max: 1 });
+      }
+
+      // 2) FFT input arrays (mean removed so DC isn't overwhelming)
+      const re = new Float64Array(n * n);
+      const im = new Float64Array(n * n);
+      for (let i = 0; i < n * n; i++) re[i] = val[i] - mean;
+
+      // 3) 2D FFT
+      fft2d(re, im, n);
+
+      // 4) log-power + fftshift for display
+      const logPowShifted = new Float64Array(n * n);
+      let maxLP = 0;
+
+      // Energy accounting (raw |F|^2 per bin)
+      let totalEnergy = 0;
+
+      const half = n >> 1;
+      for (let y = 0; y < n; y++) {
+        const sy = (y + half) & (n - 1);
+        for (let x = 0; x < n; x++) {
+          const sx = (x + half) & (n - 1);
+
+          const src = y * n + x;
+          const dst = sy * n + sx;
+
+          const a = re[src], b = im[src];
+          const mag2 = a * a + b * b;
+          totalEnergy += mag2;
+
+          const lp = Math.log1p(mag2); // log-power
+          logPowShifted[dst] = lp;
+          if (lp > maxLP) maxLP = lp;
+        }
+      }
+
+      // Cache for click-to-inspect
+      currentState = { n, re, im, logPowShifted, maxLP, totalEnergy };
+
+      renderSpectrumFromState();
+      renderSelectedBinPanelFromState();
+
+      // 1D plots (always shown)
+      profilesWrap.style.display = '';
+
+      const radial = computeRadialAverage(n, logPowShifted);
+      renderLinePlot(radialCanvas, [
+        { data: radial, color: "#2563eb" }
+      ], {
+        zeroMin: true,
+        xLabel: "radius from DC (bins)",
+        xTickLabel: (t) => String(t)
+      });
+
+      // Radial "peakiness": high-percentile per ring.
+      const radialP98 = computeRadialPercentile(n, logPowShifted, 0.98);
+      renderLinePlot(radialPeakCanvas, [
+        { data: radial, color: "#2563eb" },
+        { data: radialP98, color: "#f59e0b" }
+      ], {
+        zeroMin: true,
+        xLabel: "radius from DC (bins)",
+        xTickLabel: (t) => String(t)
+      });
+
+      const mid = (n >> 1);
+      const cutX = new Float64Array(n);
+      const cutY = new Float64Array(n);
+      for (let i = 0; i < n; i++) {
+        cutX[i] = logPowShifted[mid * n + i];
+        cutY[i] = logPowShifted[i * n + mid];
+      }
+      renderLinePlot(cutsCanvas, [
+        { data: cutX, color: "#2563eb" },
+        { data: cutY, color: "#7c3aed" }
+      ], {
+        zeroMin: true,
+        xLabel: "frequency-bin index across center",
+        xTickLabel: (t, maxX) => {
+          const mid = Math.floor(maxX / 2);
+          if (t === 0) return "0";
+          if (t === mid) return "N/2";
+          if (t === maxX) return "N";
+          return String(t);
+        }
+      });
+
+      // Meta / metrics
+      nVal.textContent = `${n}×${n}`;
+
+      if (p.pattern === 'grid') {
+        spatialMeta.textContent = `cells=${p.cells}, angle=${p.angleDeg.toFixed(0)}°`;
+        fftMetaBase = `N=${n}, cell≈${meta.cell.toFixed(1)}px`;
+      } else if (p.pattern === 'preset') {
+        spatialMeta.textContent = `preset=${p.preset}`;
+        fftMetaBase = `N=${n}`;
+      } else {
+        const seed = (p.pattern === 'gaussian') ? gaussianSeed : (p.pattern === 'perlin') ? perlinSeed : 0;
+        spatialMeta.textContent = `${p.pattern} (seed=${seed})`;
+        fftMetaBase = `N=${n}`;
+      }
+
+      // Hover info is shown in the Selected Spectrum Bin section (not here)
+      fftMeta.textContent = fftMetaBase;
+
+      // Helpful: tooltip-ish summary
+      if (p.pattern === 'grid') {
+        gridCanvas.title = `FFT raster size N=${n}\nGrid: ${p.cells} cells across\nCell≈${meta.cell.toFixed(2)}px, thickness≈${meta.thick.toFixed(2)}px`;
+      } else {
+        gridCanvas.title = `FFT raster size N=${n}\nPattern: ${p.pattern}`;
+      }
+      fftCanvas.title = `Shown: log(1 + |FFT|^2), fftshifted (DC at center)\nBright = strong frequency component`;
+
+    }
+
+    // Debounce
+    let raf = 0;
+    function scheduleCompute() {
+      if (raf) cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        raf = 0;
+        computeAndRender();
+      });
+    }
+
+    // Wire up controls (range <-> number)
+    function bindPair(rangeEl, numEl, onChange) {
+      rangeEl.addEventListener('input', () => { numEl.value = rangeEl.value; onChange(); });
+      numEl.addEventListener('input', () => { rangeEl.value = numEl.value; onChange(); });
+      numEl.addEventListener('change', () => { rangeEl.value = numEl.value; onChange(); });
+    }
+
+    bindPair(cells, cellsNum, scheduleCompute);
+    bindPair(angle, angleNum, scheduleCompute);
+    bindPair(thick, thickNum, scheduleCompute);
+
+    pattern.addEventListener('change', scheduleCompute);
+    presetSelect.addEventListener('change', scheduleCompute);
+
+    regenGaussian.addEventListener('click', () => {
+      gaussianSeed = randomSeed();
+      scheduleCompute();
+    });
+
+    regenPerlin.addEventListener('click', () => {
+      perlinSeed = randomSeed();
+      scheduleCompute();
+    });
+
+    function pickSpectrumBinFromClick(evt) {
+      if (!currentState) return null;
+      const rect = fftCanvas.getBoundingClientRect();
+      const xCss = (evt.clientX - rect.left);
+      const yCss = (evt.clientY - rect.top);
+      if (!(xCss >= 0 && yCss >= 0 && xCss <= rect.width && yCss <= rect.height)) return null;
+
+      const n = currentState.n;
+      const cssSize = Math.max(200, Math.round(rect.width || n));
+      const x = clamp((xCss / Math.max(1, rect.width)) * cssSize, 0, cssSize - 1);
+      const y = clamp((yCss / Math.max(1, rect.height)) * cssSize, 0, cssSize - 1);
+
+      const j = clamp(Math.floor((x / cssSize) * n), 0, n - 1);
+      const i = clamp(Math.floor((y / cssSize) * n), 0, n - 1);
+      return { i, j };
+    }
+
+    fftCanvas.addEventListener('click', (evt) => {
+      const bin = pickSpectrumBinFromClick(evt);
+      if (!bin) return;
+      selectedBin = bin;
+      renderSpectrumFromState();
+      renderSelectedBinPanelFromState();
+    });
+
+    // Snap-to-nearest-bin hover: updates the Selected Spectrum Bin panel
+    let hoverRaf = 0;
+    fftCanvas.addEventListener('mousemove', (evt) => {
+      if (hoverRaf) cancelAnimationFrame(hoverRaf);
+      hoverRaf = requestAnimationFrame(() => {
+        hoverRaf = 0;
+        const bin = pickSpectrumBinFromClick(evt);
+        if (!bin) {
+          hoverBin = null;
+          renderSelectedBinPanelFromState();
+          return;
+        }
+        if (!hoverBin || hoverBin.i !== bin.i || hoverBin.j !== bin.j) {
+          hoverBin = bin;
+          renderSelectedBinPanelFromState();
+        }
+      });
+    });
+
+    fftCanvas.addEventListener('mouseleave', () => {
+      hoverBin = null;
+      renderSelectedBinPanelFromState();
+    });
+
+    // Re-render (including overlays) when layout changes.
+    window.addEventListener('resize', scheduleCompute);
+
+    // Initial render
+    computeAndRender();
+  </script>
+</body>
+</html>
