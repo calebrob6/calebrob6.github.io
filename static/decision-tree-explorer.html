@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Decision Tree Explorer - UCI Adult Income Dataset</title>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <link rel="stylesheet" href="decision-tree-explorer.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Decision Tree Interactive Demo</h1>
+            <div class="description">
+                <p>This demo uses the <a href="https://archive.ics.uci.edu/dataset/2/adult" target="_blank">UCI Adult Dataset</a> (also known as the "Census Income" dataset), extracted from the 1994 U.S. Census by Ronny Kohavi and Barry Becker. It is a classic <strong>binary classification</strong> benchmark where the goal is to predict whether an individual's annual income exceeds <span class="highlight">$50,000</span> based on demographic attributes.</p>
+                <p style="margin-top: 8px;">For this interactive demonstration, we use a subset of <strong><span id="train-info">2,000</span> training samples</strong> and <strong><span id="test-info">1,000</span> test samples</strong><span id="dataset-info" style="display:none;"></span>, with a selection of features including age, education level, hours worked per week, capital gains, marital status, occupation, and sex.</p>
+            </div>
+        </header>
+
+        <div class="main-tabs">
+            <button class="main-tab active" data-tab="manual">Manual Decision Tree</button>
+            <button class="main-tab" data-tab="algo">Automated Decision Tree</button>
+        </div>
+
+        <div class="tab-panel" id="tab-algo">
+            <div class="panel-content">
+                <div class="algo-grid">
+                    <div class="sidebar-col">
+                        <div class="card">
+                            <h3>Parameters</h3>
+                            <div class="control-group">
+                                <label>Max Depth <span class="val" id="max-depth-val">5</span></label>
+                                <input type="range" id="max-depth" min="1" max="15" value="5">
+                            </div>
+                            <div class="control-group">
+                                <label>Min Samples Split <span class="val" id="min-samples-val">10</span></label>
+                                <input type="range" id="min-samples" min="2" max="100" value="10">
+                            </div>
+                            <div class="control-group">
+                                <label>Min Samples Leaf <span class="val" id="min-leaf-val">5</span></label>
+                                <input type="range" id="min-leaf" min="1" max="50" value="5">
+                            </div>
+                            <div class="control-group">
+                                <label>Min Impurity Decrease <span class="val" id="min-impurity-val">0.00</span></label>
+                                <input type="range" id="min-impurity" min="0" max="10" value="0" step="1">
+                            </div>
+                            <div class="control-group">
+                                <label>Criterion</label>
+                                <select id="criterion">
+                                    <option value="gini">Gini Impurity</option>
+                                    <option value="entropy">Entropy (Info Gain)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="card" style="margin-top: 12px;">
+                            <h3>Features</h3>
+                            <div class="checkbox-list" id="feature-checkboxes"></div>
+                        </div>
+
+                        <button class="primary" id="train-btn">Build Tree</button>
+
+                        <div class="metrics-row">
+                            <div class="metric"><div class="value" id="accuracy">--</div><div class="label">Accuracy</div></div>
+                            <div class="metric"><div class="value" id="precision">--</div><div class="label">Precision</div></div>
+                            <div class="metric"><div class="value" id="recall">--</div><div class="label">Recall</div></div>
+                            <div class="metric"><div class="value" id="f1">--</div><div class="label">F1</div></div>
+                        </div>
+                    </div>
+
+                    <div class="tree-container">
+                        <div class="tree-header">
+                            <h3 style="font-size: 0.85rem; color: var(--text-secondary);">TREE STRUCTURE</h3>
+                            <div class="zoom-controls">
+                                <button id="zoom-out">−</button>
+                                <span class="zoom-level" id="zoom-level">100%</span>
+                                <button id="zoom-in">+</button>
+                                <button id="fit-view">Fit</button>
+                                <button id="reset-view">Reset</button>
+                            </div>
+                        </div>
+                        <div class="tree-viewport" id="tree-viewport">
+                            <div class="tree-viewport-inner" id="tree-inner">
+                                <svg id="tree-svg"></svg>
+                            </div>
+                        </div>
+                        <div class="legend">
+                            <span><span class="legend-dot pos"></span>Predicts &gt;50K</span>
+                            <span><span class="legend-dot neg"></span>Predicts &le;50K</span>
+                            <span class="branch-hint">← Yes | No →</span>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <h3>Feature Importance</h3>
+                        <div class="importance-bars" id="feature-importance">
+                            <p class="info-text">Build a tree to see importance</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-panel active" id="tab-manual">
+            <div class="panel-content">
+                <div class="manual-grid">
+                    <div class="manual-builder">
+                        <h3 style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 12px;">BUILD YOUR TREE</h3>
+                        <div id="manual-tree-editor"></div>
+                        <button class="primary" id="test-manual-btn">Test on Test Set</button>
+                        
+                        <div class="metrics-row">
+                            <div class="metric"><div class="value" id="manual-accuracy">--</div><div class="label">Accuracy</div></div>
+                            <div class="metric"><div class="value" id="manual-precision">--</div><div class="label">Precision</div></div>
+                            <div class="metric"><div class="value" id="manual-recall">--</div><div class="label">Recall</div></div>
+                            <div class="metric"><div class="value" id="manual-f1">--</div><div class="label">F1</div></div>
+                        </div>
+                    </div>
+
+                    <div class="manual-results">
+                        <div class="tree-header">
+                            <h3 style="font-size: 0.85rem; color: var(--text-secondary);">YOUR TREE STRUCTURE</h3>
+                            <div class="zoom-controls">
+                                <button id="manual-zoom-out">−</button>
+                                <span class="zoom-level" id="manual-zoom-level">100%</span>
+                                <button id="manual-zoom-in">+</button>
+                                <button id="manual-fit-view">Fit</button>
+                                <button id="manual-reset-view">Reset</button>
+                            </div>
+                        </div>
+                        <div class="tree-viewport" id="manual-tree-viewport">
+                            <div class="tree-viewport-inner" id="manual-tree-inner">
+                                <svg id="manual-tree-svg"></svg>
+                            </div>
+                        </div>
+                        <div class="legend">
+                            <span><span class="legend-dot pos"></span>Predicts &gt;50K</span>
+                            <span><span class="legend-dot neg"></span>Predicts &le;50K</span>
+                            <span class="branch-hint">← Yes | No →</span>
+                        </div>
+                        <div class="distribution-chart" id="feature-distribution">
+                            <h4>Feature Distribution (select a feature in your tree)</h4>
+                            <div id="distribution-content"><p class="info-text">Add a split node to see distribution</p></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Educational Section -->
+        <section class="education-section">
+            <h2>Understanding Split Criteria</h2>
+            <p class="intro">Decision trees use impurity measures to determine the best feature and threshold for splitting data. The goal is to create child nodes that are as "pure" as possible (containing mostly one class).</p>
+            
+            <div class="criteria-grid">
+                <div class="criterion-card">
+                    <h3>Gini Impurity</h3>
+                    <p>Measures the probability of incorrectly classifying a randomly chosen element if it were randomly labeled according to the distribution of labels in the node.</p>
+                    <div class="formula">
+                        $$\text{Gini}(D) = 1 - \sum_{i=1}^{C} p_i^2$$
+                    </div>
+                    <p>Where \(p_i\) is the proportion of samples belonging to class \(i\) in dataset \(D\), and \(C\) is the number of classes.</p>
+                    <div class="example">
+                        <strong>Example:</strong> For a node with 70% class A and 30% class B:<br>
+                        $$\text{Gini} = 1 - (0.7^2 + 0.3^2) = 1 - (0.49 + 0.09) = 0.42$$
+                    </div>
+                    <ul class="properties">
+                        <li>Range: 0 (pure) to 0.5 (for binary classification, maximum impurity)</li>
+                        <li>Computationally efficient (no logarithms)</li>
+                        <li>Default in scikit-learn's DecisionTreeClassifier</li>
+                    </ul>
+                </div>
+                
+                <div class="criterion-card">
+                    <h3>Entropy (Information Gain)</h3>
+                    <p>Based on information theory, entropy measures the average amount of information needed to identify the class of an element. Information gain is the reduction in entropy after a split.</p>
+                    <div class="formula">
+                        $$\text{Entropy}(D) = -\sum_{i=1}^{C} p_i \log_2(p_i)$$
+                    </div>
+                    <p>The information gain from splitting on feature \(A\) is:</p>
+                    <div class="formula">
+                        $$\text{Gain}(D, A) = \text{Entropy}(D) - \sum_{v \in \text{values}(A)} \frac{|D_v|}{|D|} \text{Entropy}(D_v)$$
+                    </div>
+                    <div class="example">
+                        <strong>Example:</strong> For a node with 70% class A and 30% class B:<br>
+                        $$\text{Entropy} = -(0.7 \log_2 0.7 + 0.3 \log_2 0.3) \approx 0.88 \text{ bits}$$
+                    </div>
+                    <ul class="properties">
+                        <li>Range: 0 (pure) to \(\log_2(C)\) (for \(C\) classes with equal distribution)</li>
+                        <li>Has roots in information theory (Shannon entropy)</li>
+                        <li>Used in the classic ID3 and C4.5 algorithms</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="comparison-section">
+                <h3>Choosing a Criterion</h3>
+                <p>In practice, Gini and Entropy often produce similar trees. Key considerations:</p>
+                <ul>
+                    <li><strong>Speed:</strong> Gini is slightly faster (no log computation)</li>
+                    <li><strong>Tendency:</strong> Entropy may create slightly more balanced trees</li>
+                    <li><strong>Multi-class:</strong> Both work well, but entropy's range scales with the number of classes</li>
+                </ul>
+                <p>The weighted impurity decrease for a split is calculated as:</p>
+                <div class="formula">
+                    $$\Delta \text{Impurity} = \text{Impurity}(D) - \frac{n_L}{n} \text{Impurity}(D_L) - \frac{n_R}{n} \text{Impurity}(D_R)$$
+                </div>
+                <p>Where \(D_L\) and \(D_R\) are the left and right child datasets, and \(n_L\), \(n_R\), \(n\) are their respective sample counts.</p>
+            </div>
+        </section>
+
+        <footer class="footer">By: Caleb Robinson, 2026</footer>
+    </div>
+
+    <script src="decision-tree-explorer-ui.js"></script>
+    <script src="decision-tree-algo.js"></script>
+    <script src="decision-tree-viz.js"></script>
+    <script>
+        // ===========================================
+        // CONFIGURATION - Edit these defaults easily
+        // ===========================================
+        const CONFIG = {
+            // Default dataset file to load (can be overridden with ?dataset=filename.json)
+            DEFAULT_DATASET: 'adult_subset.json',
+            
+            // Whether to show the Automated Decision Tree tab by default
+            // Can be overridden with ?showAlgo=true or ?showAlgo=false
+            SHOW_ALGO_TAB: true,
+            
+            // Features to include in the interface (can be overridden with ?features=age,sex,education-num)
+            // All features:
+            FEATURES: ['age', 'workclass', 'fnlwgt', 'education', 'education-num', 'marital-status', 'occupation', 'relationship', 'race', 'sex', 'capital-gain', 'capital-loss', 'hours-per-week', 'native-country'],
+            // FEATURES: ['age', 'education-num', 'hours-per-week', 'capital-gain', 'marital-status', 'occupation', 'sex']
+        };
+        // ===========================================
+
+        // Column mapping from JSON array index to feature name (full Adult dataset)
+        const COLUMN_MAP = {
+            0: 'age',
+            1: 'workclass',
+            2: 'fnlwgt',
+            3: 'education',
+            4: 'education-num',
+            5: 'marital-status',
+            6: 'occupation',
+            7: 'relationship',
+            8: 'race',
+            9: 'sex',
+            10: 'capital-gain',
+            11: 'capital-loss',
+            12: 'hours-per-week',
+            13: 'native-country',
+            14: 'income'
+        };
+        
+        // All valid feature names for the Adult dataset
+        const ALL_VALID_FEATURES = ['age', 'workclass', 'fnlwgt', 'education', 'education-num', 'marital-status', 'occupation', 'relationship', 'race', 'sex', 'capital-gain', 'capital-loss', 'hours-per-week', 'native-country'];
+        
+        // Hardcoded feature types for the Adult dataset
+        const ALL_CONTINUOUS_FEATURES = ['age', 'fnlwgt', 'education-num', 'capital-gain', 'capital-loss', 'hours-per-week'];
+        
+        // Derived from CONFIG (with URL override support)
+        const AVAILABLE_FEATURES = getFeaturesFromUrl(CONFIG.FEATURES);
+        const CONTINUOUS_FEATURES = ALL_CONTINUOUS_FEATURES.filter(f => AVAILABLE_FEATURES.includes(f));
+        
+        // Will be populated from data for categorical features
+        let CATEGORICAL_VALUES = {};
+
+        async function loadDataset() {
+            const datasetFile = getDatasetFilename(CONFIG.DEFAULT_DATASET);
+            const response = await fetch(datasetFile);
+            const json = await response.json();
+            
+            function parseRow(row) {
+                const income = row[14];
+                const label = income.includes('>50K') ? 1 : 0;
+                const features = {};
+                // Parse all features based on COLUMN_MAP
+                for (const [idx, name] of Object.entries(COLUMN_MAP)) {
+                    if (name !== 'income') {
+                        features[name] = row[parseInt(idx)];
+                    }
+                }
+                return { features, label };
+            }
+            
+            const trainData = json.train.map(parseRow);
+            const testData = json.test.map(parseRow);
+            
+            // Extract unique categorical values from data for all categorical features
+            const allData = [...trainData, ...testData];
+            AVAILABLE_FEATURES.forEach(f => {
+                if (!CONTINUOUS_FEATURES.includes(f)) {
+                    CATEGORICAL_VALUES[f] = [...new Set(allData.map(d => d.features[f]).filter(v => v !== undefined && v !== null && v !== '?'))];
+                }
+            });
+            
+            return { train: trainData, test: testData };
+        }
+
+        const state = { data: [], train: [], test: [], tree: null, selectedFeatures: [...AVAILABLE_FEATURES], manualTree: null, selectedNodeId: null };
+        
+        // Initialize visualizers after DOM ready
+        let viz, manualViz;
+
+        function buildTree() {
+            document.getElementById('train-info').textContent = state.train.length.toLocaleString();
+            document.getElementById('test-info').textContent = state.test.length.toLocaleString();
+
+            const tree = new DecisionTree({
+                maxDepth: parseInt(document.getElementById('max-depth').value),
+                minSamplesSplit: parseInt(document.getElementById('min-samples').value),
+                minSamplesLeaf: parseInt(document.getElementById('min-leaf').value),
+                minImpurityDecrease: parseInt(document.getElementById('min-impurity').value) / 100,
+                criterion: document.getElementById('criterion').value,
+                features: state.selectedFeatures,
+                continuousFeatures: CONTINUOUS_FEATURES
+            });
+            tree.fit(state.train);
+            state.tree = tree;
+
+            const preds = tree.predict(state.test);
+            const metrics = calcMetrics(state.test.map(d => d.label), preds);
+            updateMetrics(metrics);
+            updateImportance(tree.featureImportance);
+            viz.render(tree.tree);
+        }
+
+        let manualNodeId = 0;
+
+        function createNodeEditor(parentEl, depth = 0) {
+            const nodeId = manualNodeId++;
+            const div = document.createElement('div');
+            div.className = 'node-editor';
+            div.dataset.nodeId = nodeId;
+            div.dataset.depth = depth;
+            
+            const featureOpts = AVAILABLE_FEATURES.map(f => `<option value="${f}">${f}</option>`).join('');
+            
+            div.innerHTML = `
+                <h4>Node ${nodeId} ${depth > 0 ? '<button class="remove-btn" title="Remove">×</button>' : ''}</h4>
+                <div class="node-row">
+                    <select class="node-type">
+                        <option value="split">Split Node</option>
+                        <option value="leaf">Leaf Node</option>
+                    </select>
+                </div>
+                <div class="split-config">
+                    <div class="node-row">
+                        <select class="feature-select">${featureOpts}</select>
+                    </div>
+                    <div class="node-row threshold-row">
+                        <input type="number" class="threshold-input" placeholder="Threshold" value="30">
+                    </div>
+                    <div class="node-row category-row" style="display:none;">
+                        <select class="category-select"></select>
+                    </div>
+                </div>
+                <div class="leaf-config" style="display:none;">
+                    <div class="node-row">
+                        <select class="prediction-select">
+                            <option value="0">≤50K</option>
+                            <option value="1">>50K</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="node-children"></div>
+            `;
+
+            const typeSelect = div.querySelector('.node-type');
+            const splitConfig = div.querySelector('.split-config');
+            const leafConfig = div.querySelector('.leaf-config');
+            const featureSelect = div.querySelector('.feature-select');
+            const thresholdRow = div.querySelector('.threshold-row');
+            const categoryRow = div.querySelector('.category-row');
+            const categorySelect = div.querySelector('.category-select');
+            const childrenContainer = div.querySelector('.node-children');
+
+            typeSelect.addEventListener('change', () => {
+                const isLeaf = typeSelect.value === 'leaf';
+                splitConfig.style.display = isLeaf ? 'none' : 'block';
+                leafConfig.style.display = isLeaf ? 'block' : 'none';
+                div.classList.toggle('leaf-node', isLeaf);
+                childrenContainer.innerHTML = '';
+                if (!isLeaf) addChildButtons(childrenContainer, depth);
+                renderManualTree();
+            });
+
+            featureSelect.addEventListener('change', () => {
+                const f = featureSelect.value;
+                const isCont = CONTINUOUS_FEATURES.includes(f);
+                thresholdRow.style.display = isCont ? 'flex' : 'none';
+                categoryRow.style.display = isCont ? 'none' : 'flex';
+                if (!isCont) {
+                    categorySelect.innerHTML = (CATEGORICAL_VALUES[f] || []).map(v => `<option value="${v}">${v}</option>`).join('');
+                }
+                renderManualTree();
+            });
+            
+            // Add focus/click handler to highlight this node
+            div.addEventListener('click', (e) => {
+                e.stopPropagation();
+                selectNodeEditor(div);
+            });
+            div.addEventListener('focusin', () => {
+                selectNodeEditor(div);
+            });
+
+            div.querySelector('.threshold-input')?.addEventListener('change', renderManualTree);
+            div.querySelector('.threshold-input')?.addEventListener('input', renderManualTree);
+            div.querySelector('.category-select')?.addEventListener('change', renderManualTree);
+            div.querySelector('.prediction-select')?.addEventListener('change', renderManualTree);
+
+            const removeBtn = div.querySelector('.remove-btn');
+            if (removeBtn) {
+                removeBtn.addEventListener('click', () => {
+                    div.remove();
+                    renderManualTree();
+                });
+            }
+
+            addChildButtons(childrenContainer, depth);
+            parentEl.appendChild(div);
+            return div;
+        }
+
+        function addChildButtons(container, depth) {
+            if (depth >= 4) return;
+            const addBtn = document.createElement('button');
+            addBtn.className = 'add-node-btn';
+            addBtn.textContent = '+ Add Child Node';
+            addBtn.addEventListener('click', () => {
+                if (container.querySelectorAll(':scope > .node-editor').length < 2) {
+                    createNodeEditor(container, depth + 1);
+                    if (container.querySelectorAll(':scope > .node-editor').length >= 2) {
+                        addBtn.style.display = 'none';
+                    }
+                }
+                renderManualTree();
+            });
+            container.appendChild(addBtn);
+        }
+
+        function parseManualNode(el) {
+            if (!el) return null;
+            const nodeId = el.dataset.nodeId;
+            const type = el.querySelector('.node-type').value;
+            
+            if (type === 'leaf') {
+                return {
+                    type: 'leaf',
+                    nodeId,
+                    prediction: parseInt(el.querySelector('.prediction-select').value),
+                    samples: 0,
+                    distribution: {},
+                    depth: parseInt(el.dataset.depth)
+                };
+            }
+
+            const feature = el.querySelector('.feature-select').value;
+            const isCont = CONTINUOUS_FEATURES.includes(feature);
+            const children = el.querySelectorAll(':scope > .node-children > .node-editor');
+            const threshold = isCont ? parseFloat(el.querySelector('.threshold-input').value) : null;
+            const category = !isCont ? el.querySelector('.category-select').value : null;
+            
+            const leftNode = children[0] ? parseManualNode(children[0]) : { type: 'leaf', nodeId: nodeId + '_L', prediction: 0, samples: 0, distribution: {}, depth: parseInt(el.dataset.depth) + 1 };
+            const rightNode = children[1] ? parseManualNode(children[1]) : { type: 'leaf', nodeId: nodeId + '_R', prediction: 1, samples: 0, distribution: {}, depth: parseInt(el.dataset.depth) + 1 };
+            
+            return {
+                type: 'node',
+                nodeId,
+                feature,
+                splitType: isCont ? 'continuous' : 'categorical',
+                threshold,
+                category,
+                samples: 0,
+                distribution: {},
+                depth: parseInt(el.dataset.depth),
+                left: leftNode,
+                right: rightNode
+            };
+        }
+        
+        // Calculate sample counts for manual tree based on training data
+        function calculateManualTreeStats(node, data) {
+            if (!node || !data.length) return;
+            
+            node.samples = data.length;
+            const labels = data.map(d => d.label);
+            node.distribution = { 0: labels.filter(l => l === 0).length, 1: labels.filter(l => l === 1).length };
+            
+            if (node.type === 'leaf') return;
+            
+            let leftData, rightData;
+            if (node.splitType === 'continuous') {
+                leftData = data.filter(d => d.features[node.feature] <= node.threshold);
+                rightData = data.filter(d => d.features[node.feature] > node.threshold);
+            } else {
+                leftData = data.filter(d => d.features[node.feature] === node.category);
+                rightData = data.filter(d => d.features[node.feature] !== node.category);
+            }
+            
+            calculateManualTreeStats(node.left, leftData);
+            calculateManualTreeStats(node.right, rightData);
+        }
+        
+        function highlightNodeEditor(nodeId) {
+            // Remove highlight from all node editors
+            document.querySelectorAll('.node-editor.highlighted').forEach(el => {
+                el.classList.remove('highlighted');
+            });
+            
+            if (!nodeId) {
+                state.selectedNodeId = null;
+                updateFeatureDistribution();
+                return;
+            }
+            
+            state.selectedNodeId = nodeId;
+            
+            // Find and highlight the matching node editor
+            const nodeEl = document.querySelector(`.node-editor[data-node-id="${nodeId}"]`);
+            if (nodeEl) {
+                nodeEl.classList.add('highlighted');
+                nodeEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+            
+            // Also highlight in tree viz
+            if (manualViz) {
+                manualViz.highlightNode(nodeId);
+            }
+            
+            updateFeatureDistribution();
+        }
+        
+        function selectNodeEditor(div) {
+            const nodeId = div.dataset.nodeId;
+            
+            // Remove highlight from all
+            document.querySelectorAll('.node-editor.highlighted').forEach(el => {
+                el.classList.remove('highlighted');
+            });
+            
+            // Highlight this one
+            div.classList.add('highlighted');
+            state.selectedNodeId = nodeId;
+            
+            // Highlight in tree viz
+            if (manualViz) {
+                manualViz.highlightNode(nodeId);
+            }
+            
+            updateFeatureDistribution();
+        }
+
+        function renderManualTree() {
+            const rootEl = document.querySelector('#manual-tree-editor > .node-editor');
+            if (!rootEl) return;
+            state.manualTree = parseManualNode(rootEl);
+            
+            // Calculate sample stats based on training data
+            if (state.train.length) {
+                calculateManualTreeStats(state.manualTree, state.train);
+            }
+            
+            manualViz.render(state.manualTree);
+            updateFeatureDistribution();
+        }
+
+        function getSelectedNodeInfo() {
+            // Get info about the currently selected node in the manual tree builder
+            const nodeId = state.selectedNodeId;
+            if (!nodeId) {
+                // Default to root node
+                const rootEl = document.querySelector('#manual-tree-editor > .node-editor');
+                if (!rootEl) return null;
+                return getNodeInfoFromElement(rootEl);
+            }
+            
+            const nodeEl = document.querySelector(`.node-editor[data-node-id="${nodeId}"]`);
+            if (!nodeEl) return null;
+            return getNodeInfoFromElement(nodeEl);
+        }
+        
+        function getNodeInfoFromElement(el) {
+            const typeSelect = el.querySelector('.node-type');
+            if (!typeSelect || typeSelect.value !== 'split') return null;
+            
+            const feature = el.querySelector('.feature-select')?.value;
+            const isCont = CONTINUOUS_FEATURES.includes(feature);
+            const threshold = isCont ? parseFloat(el.querySelector('.threshold-input')?.value) : null;
+            const category = !isCont ? el.querySelector('.category-select')?.value : null;
+            
+            return { feature, isContinuous: isCont, threshold, category };
+        }
+        
+        // Get the data that flows to a specific node by traversing the tree path
+        function getDataForNode(nodeId) {
+            if (!state.manualTree || !state.train.length) return state.train;
+            
+            // Find path to node and filter data accordingly
+            function findAndFilter(node, data) {
+                if (!node) return null;
+                if (node.nodeId === nodeId) return data;
+                if (node.type === 'leaf') return null;
+                
+                let leftData, rightData;
+                if (node.splitType === 'continuous') {
+                    leftData = data.filter(d => d.features[node.feature] <= node.threshold);
+                    rightData = data.filter(d => d.features[node.feature] > node.threshold);
+                } else {
+                    leftData = data.filter(d => d.features[node.feature] === node.category);
+                    rightData = data.filter(d => d.features[node.feature] !== node.category);
+                }
+                
+                const leftResult = findAndFilter(node.left, leftData);
+                if (leftResult) return leftResult;
+                return findAndFilter(node.right, rightData);
+            }
+            
+            const result = findAndFilter(state.manualTree, state.train);
+            return result || state.train;
+        }
+
+        function updateFeatureDistribution() {
+            const container = document.getElementById('distribution-content');
+            const titleEl = document.querySelector('#feature-distribution h4');
+            const nodeInfo = getSelectedNodeInfo();
+            
+            if (!nodeInfo || !nodeInfo.feature || !state.train.length) {
+                if (titleEl) titleEl.textContent = 'Feature Distribution (select a split node)';
+                container.innerHTML = '<p class="info-text">Select a split node to see distribution</p>';
+                return;
+            }
+            
+            const feature = nodeInfo.feature;
+            const isContinuous = nodeInfo.isContinuous;
+            const threshold = nodeInfo.threshold;
+            const category = nodeInfo.category;
+            
+            // Get data that flows to the selected node
+            const nodeId = state.selectedNodeId || document.querySelector('#manual-tree-editor > .node-editor')?.dataset.nodeId;
+            const data = getDataForNode(nodeId);
+            
+            if (titleEl) {
+                titleEl.textContent = `Distribution: ${feature} (n=${data.length})`;
+            }
+            
+            if (isContinuous) {
+                // Create histogram bins
+                const values = data.map(d => d.features[feature]);
+                if (values.length === 0) {
+                    container.innerHTML = '<p class="info-text">No data at this node</p>';
+                    return;
+                }
+                
+                // Sort values for quantile-based binning
+                const sorted = [...values].sort((a, b) => a - b);
+                const min = sorted[0];
+                const max = sorted[sorted.length - 1];
+                
+                // Check if data is highly skewed (e.g., capital-gain has many zeros)
+                const uniqueValues = [...new Set(sorted)];
+                const binCount = Math.min(10, uniqueValues.length);
+                
+                // Use quantile-based bins for skewed data, uniform bins otherwise
+                let binEdges = [];
+                const skewRatio = sorted.filter(v => v === min).length / sorted.length;
+                
+                if (skewRatio > 0.3 && uniqueValues.length > binCount) {
+                    // Quantile-based binning for skewed data
+                    for (let i = 0; i <= binCount; i++) {
+                        const idx = Math.floor((i / binCount) * (sorted.length - 1));
+                        binEdges.push(sorted[idx]);
+                    }
+                    // Remove duplicate edges
+                    binEdges = [...new Set(binEdges)];
+                } else {
+                    // Uniform binning
+                    const binSize = (max - min) / binCount || 1;
+                    for (let i = 0; i <= binCount; i++) {
+                        binEdges.push(min + i * binSize);
+                    }
+                }
+                
+                const actualBinCount = binEdges.length - 1;
+                const bins = Array(actualBinCount).fill(null).map(() => ({ high: 0, low: 0 }));
+                
+                data.forEach(d => {
+                    const val = d.features[feature];
+                    let binIdx = binEdges.findIndex((edge, i) => i < actualBinCount && val >= edge && val <= binEdges[i + 1]);
+                    if (binIdx === -1) binIdx = actualBinCount - 1;
+                    if (binIdx < 0) binIdx = 0;
+                    if (d.label === 1) bins[binIdx].high++;
+                    else bins[binIdx].low++;
+                });
+                
+                const maxCount = Math.max(...bins.map(b => b.high + b.low), 1);
+                let html = '';
+                
+                // Show threshold line indicator
+                if (threshold !== null && !isNaN(threshold)) {
+                    const belowCount = sorted.filter(v => v <= threshold).length;
+                    const belowPct = (belowCount / sorted.length) * 100;
+                    html += `<div style="margin-bottom: 8px; font-size: 0.75rem; color: var(--text-secondary);">Threshold: <strong style="color: var(--warning);">${threshold.toFixed(1)}</strong> (${Math.round(belowPct)}% of samples ≤ threshold)</div>`;
+                }
+                
+                html += bins.map((bin, i) => {
+                    const rangeStart = binEdges[i];
+                    const rangeEnd = binEdges[i + 1];
+                    const total = bin.high + bin.low;
+                    const highPct = total > 0 ? (bin.high / total) * 100 : 0;
+                    const lowPct = total > 0 ? (bin.low / total) * 100 : 0;
+                    // Highlight bin containing threshold
+                    const containsThreshold = threshold !== null && rangeStart <= threshold && threshold <= rangeEnd;
+                    const style = containsThreshold ? 'border-left: 3px solid var(--warning); padding-left: 4px;' : '';
+                    // Format numbers nicely
+                    const formatNum = (n) => n >= 1000 ? (n/1000).toFixed(1) + 'k' : n.toFixed(0);
+                    return `<div class="dist-bar-row" style="${style}">
+                        <span class="dist-label">${formatNum(rangeStart)}-${formatNum(rangeEnd)}</span>
+                        <div class="dist-bar-bg" style="width: ${(total/maxCount)*100}%">
+                            <div class="dist-bar-low" style="width: ${lowPct}%"></div>
+                            <div class="dist-bar-high" style="width: ${highPct}%"></div>
+                        </div>
+                        <span class="dist-count">${total}</span>
+                    </div>`;
+                }).join('');
+                container.innerHTML = html;
+            } else {
+                // Categorical distribution
+                const counts = {};
+                data.forEach(d => {
+                    const val = d.features[feature];
+                    if (!counts[val]) counts[val] = { high: 0, low: 0 };
+                    if (d.label === 1) counts[val].high++;
+                    else counts[val].low++;
+                });
+                
+                if (Object.keys(counts).length === 0) {
+                    container.innerHTML = '<p class="info-text">No data at this node</p>';
+                    return;
+                }
+                
+                const sorted = Object.entries(counts).sort((a, b) => (b[1].high + b[1].low) - (a[1].high + a[1].low));
+                const maxCount = Math.max(...sorted.map(([_, c]) => c.high + c.low), 1);
+                
+                let html = '';
+                if (category) {
+                    html += `<div style="margin-bottom: 8px; font-size: 0.75rem; color: var(--text-secondary);">Split on: <strong style="color: var(--warning);">${category}</strong></div>`;
+                }
+                
+                html += sorted.map(([name, cnt]) => {
+                    const total = cnt.high + cnt.low;
+                    const highPct = total > 0 ? (cnt.high / total) * 100 : 0;
+                    const lowPct = total > 0 ? (cnt.low / total) * 100 : 0;
+                    // Highlight the selected category
+                    const isSelected = name === category;
+                    const style = isSelected ? 'border-left: 3px solid var(--warning); padding-left: 4px;' : '';
+                    return `<div class="dist-bar-row" style="${style}">
+                        <span class="dist-label" title="${name}">${name}</span>
+                        <div class="dist-bar-bg" style="width: ${(total/maxCount)*100}%">
+                            <div class="dist-bar-low" style="width: ${lowPct}%"></div>
+                            <div class="dist-bar-high" style="width: ${highPct}%"></div>
+                        </div>
+                        <span class="dist-count">${total}</span>
+                    </div>`;
+                }).join('');
+                container.innerHTML = html;
+            }
+        }
+
+        function predictManual(sample, node) {
+            if (!node || node.type === 'leaf') return node ? node.prediction : 0;
+            const val = sample[node.feature];
+            const goLeft = node.splitType === 'continuous' ? val <= node.threshold : val === node.category;
+            return goLeft ? predictManual(sample, node.left) : predictManual(sample, node.right);
+        }
+
+        function testManualTree() {
+            if (!state.manualTree || !state.test.length) {
+                alert('Build a tree and ensure test data exists');
+                return;
+            }
+            const preds = state.test.map(d => predictManual(d.features, state.manualTree));
+            const metrics = calcMetrics(state.test.map(d => d.label), preds);
+            updateMetrics(metrics, 'manual-');
+        }
+
+        async function init() {
+            // Setup algo tab visibility based on URL param or default
+            const showAlgo = getShowAlgoSetting(CONFIG.SHOW_ALGO_TAB);
+            setupAlgoTabVisibility(showAlgo);
+            
+            // Initialize tree visualizers with pan/zoom support
+            viz = new TreeViz(
+                document.getElementById('tree-svg'),
+                document.getElementById('tree-viewport'),
+                document.getElementById('tree-inner'),
+                document.getElementById('zoom-level'),
+                null  // No click handler for ML tree
+            );
+            manualViz = new TreeViz(
+                document.getElementById('manual-tree-svg'),
+                document.getElementById('manual-tree-viewport'),
+                document.getElementById('manual-tree-inner'),
+                document.getElementById('manual-zoom-level'),
+                highlightNodeEditor  // Click handler to highlight node in builder
+            );
+            
+            // Load real data from JSON
+            const { train, test } = await loadDataset();
+            state.train = train;
+            state.test = test;
+            state.data = [...train, ...test];
+            document.getElementById('train-info').textContent = train.length.toLocaleString();
+            document.getElementById('test-info').textContent = test.length.toLocaleString();
+
+            initTabs();
+            initCheckboxes(AVAILABLE_FEATURES, state);
+            initSliders();
+
+            document.getElementById('train-btn').addEventListener('click', buildTree);
+            document.getElementById('zoom-in').addEventListener('click', () => viz.zoomIn());
+            document.getElementById('zoom-out').addEventListener('click', () => viz.zoomOut());
+            document.getElementById('fit-view').addEventListener('click', () => viz.fitToView());
+            document.getElementById('reset-view').addEventListener('click', () => viz.reset());
+
+            document.getElementById('manual-zoom-in').addEventListener('click', () => manualViz.zoomIn());
+            document.getElementById('manual-zoom-out').addEventListener('click', () => manualViz.zoomOut());
+            document.getElementById('manual-fit-view').addEventListener('click', () => manualViz.fitToView());
+            document.getElementById('manual-reset-view').addEventListener('click', () => manualViz.reset());
+            document.getElementById('test-manual-btn').addEventListener('click', testManualTree);
+
+            createNodeEditor(document.getElementById('manual-tree-editor'), 0);
+            
+            // Only build automated tree if tab is visible
+            if (showAlgo) {
+                buildTree();
+            }
+            renderManualTree();
+        }
+
+        init();
+    </script>
+</body>
+</html>
