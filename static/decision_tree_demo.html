@@ -1,0 +1,1843 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Decision Tree Explorer - UCI Adult Income Dataset</title>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        :root {
+            --bg-primary: #0f0f0f;
+            --bg-secondary: #1a1a1a;
+            --bg-tertiary: #252525;
+            --text-primary: #e5e5e5;
+            --text-secondary: #a0a0a0;
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --error: #ef4444;
+            --border: #333;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+
+        header { text-align: center; padding: 24px 0 24px; margin-bottom: 20px; }
+        header h1 { font-size: 1.8rem; font-weight: 600; margin-bottom: 12px; }
+        header .description { 
+            color: var(--text-secondary); 
+            font-size: 0.9rem; 
+            line-height: 1.7;
+            max-width: 800px;
+            margin: 0 auto;
+            text-align: left;
+        }
+        header .description a { 
+            color: var(--accent); 
+            text-decoration: none; 
+        }
+        header .description a:hover { 
+            text-decoration: underline; 
+        }
+        header .description strong { 
+            color: var(--text-primary); 
+        }
+        header .description .highlight { 
+            color: var(--success); 
+            font-weight: 500; 
+        }
+
+        .distribution-chart {
+            background: var(--bg-primary);
+            border-radius: 6px;
+            padding: 12px;
+            margin-top: 12px;
+        }
+        .distribution-chart h4 {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+        .dist-bar-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 4px;
+            font-size: 0.7rem;
+        }
+        .dist-bar-row .dist-label {
+            width: 80px;
+            text-align: right;
+            color: var(--text-secondary);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .dist-bar-row .dist-bar-bg {
+            flex: 1;
+            height: 14px;
+            background: var(--bg-tertiary);
+            border-radius: 3px;
+            overflow: hidden;
+            display: flex;
+        }
+        .dist-bar-row .dist-bar-high {
+            height: 100%;
+            background: var(--success);
+        }
+        .dist-bar-row .dist-bar-low {
+            height: 100%;
+            background: var(--error);
+        }
+        .dist-bar-row .dist-count {
+            width: 50px;
+            color: var(--text-secondary);
+        }
+
+        .main-tabs {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 0;
+        }
+
+        .main-tab {
+            padding: 12px 24px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-bottom: none;
+            border-radius: 8px 8px 0 0;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .main-tab:hover { color: var(--text-primary); }
+        .main-tab.active {
+            background: var(--bg-tertiary);
+            color: var(--accent);
+            border-color: var(--accent);
+            border-bottom: 2px solid var(--bg-tertiary);
+        }
+
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
+
+        .panel-content {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 0 10px 10px 10px;
+            padding: 20px;
+        }
+
+        .algo-grid {
+            display: grid;
+            grid-template-columns: 280px 1fr 280px;
+            gap: 20px;
+        }
+
+        @media (max-width: 1100px) {
+            .algo-grid { grid-template-columns: 1fr; }
+        }
+
+        .card {
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            padding: 16px;
+        }
+
+        .card h3 {
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .control-group { margin-bottom: 14px; }
+        .control-group:last-child { margin-bottom: 0; }
+        .control-group label {
+            display: block;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            margin-bottom: 4px;
+        }
+        .control-group .val {
+            float: right;
+            color: var(--accent);
+            font-weight: 500;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 5px;
+            border-radius: 3px;
+            background: var(--bg-primary);
+            appearance: none;
+            cursor: pointer;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: var(--accent);
+            cursor: pointer;
+        }
+
+        select {
+            width: 100%;
+            padding: 8px 10px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text-primary);
+            font-size: 0.85rem;
+        }
+
+        .checkbox-list { display: flex; flex-direction: column; gap: 6px; }
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+        .checkbox-item input { accent-color: var(--accent); }
+
+        button.primary {
+            width: 100%;
+            padding: 10px 16px;
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-top: 12px;
+        }
+        button.primary:hover { background: var(--accent-hover); }
+
+        .sidebar-col {
+            min-width: 0;
+            overflow: hidden;
+        }
+
+        .metrics-row {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            margin-top: 16px;
+        }
+
+        .metric {
+            background: var(--bg-primary);
+            padding: 10px 8px;
+            border-radius: 6px;
+            text-align: center;
+        }
+
+        .metric .value {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--accent);
+        }
+
+        .metric .label {
+            font-size: 0.65rem;
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+
+        .tree-container {
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            padding: 16px;
+            min-height: 350px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .tree-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .tree-header h3 { margin: 0; }
+
+        .zoom-controls { display: flex; gap: 6px; align-items: center; }
+        .zoom-controls button {
+            padding: 4px 10px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 0.8rem;
+        }
+        .zoom-controls button:hover {
+            border-color: var(--accent);
+            color: var(--text-primary);
+        }
+        .zoom-controls .zoom-level {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            min-width: 40px;
+            text-align: center;
+        }
+
+        .tree-viewport {
+            width: 100%;
+            height: 400px;
+            overflow: hidden;
+            cursor: grab;
+            position: relative;
+            border-radius: 6px;
+            background: var(--bg-primary);
+        }
+        .tree-viewport:active { cursor: grabbing; }
+        .tree-viewport-inner {
+            transform-origin: 0 0;
+            position: absolute;
+        }
+
+        #tree-svg, #manual-tree-svg { min-height: 280px; }
+
+        .tree-node rect {
+            fill: var(--bg-primary);
+            stroke: var(--border);
+            stroke-width: 1.5px;
+            rx: 5;
+        }
+        .tree-node:hover rect { stroke: var(--accent); }
+        .tree-node.leaf.positive rect { stroke: var(--success); stroke-width: 2px; }
+        .tree-node.leaf.negative rect { stroke: var(--error); stroke-width: 2px; }
+        .tree-node text { fill: var(--text-primary); font-size: 10px; }
+        .tree-node text.sub { fill: var(--text-secondary); font-size: 9px; }
+        .tree-link { fill: none; stroke: var(--border); stroke-width: 1.5px; }
+
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 12px;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+        .legend-dot {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 4px;
+        }
+        .legend-dot.pos { background: var(--success); }
+        .legend-dot.neg { background: var(--error); }
+
+        .importance-bars { margin-top: 8px; }
+        .imp-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        .imp-row .fname {
+            width: 90px;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            text-align: right;
+            flex-shrink: 0;
+        }
+        .imp-row .bar-bg {
+            flex: 1;
+            height: 16px;
+            background: var(--bg-primary);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        .imp-row .bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent), var(--success));
+            border-radius: 3px;
+        }
+        .imp-row .pct {
+            width: 40px;
+            font-size: 0.75rem;
+            color: var(--text-primary);
+        }
+
+        .manual-grid {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 900px) {
+            .manual-grid { grid-template-columns: 1fr; }
+        }
+
+        .manual-builder { background: var(--bg-tertiary); border-radius: 8px; padding: 16px; }
+
+        .node-editor {
+            background: var(--bg-primary);
+            border-radius: 6px;
+            padding: 12px;
+            margin-bottom: 12px;
+            border-left: 3px solid var(--accent);
+        }
+
+        .node-editor.leaf-node { border-left-color: var(--success); }
+        .node-editor.highlighted { 
+            border-left-color: var(--warning); 
+            border-left-width: 4px;
+            background: var(--bg-tertiary);
+        }
+        .node-editor.highlighted > h4 { color: var(--warning); }
+
+        .node-editor h4 {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .tree-node { cursor: pointer; }
+        .tree-node.selected rect { stroke: var(--warning) !important; stroke-width: 3px !important; }
+
+        .node-row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .node-row select, .node-row input {
+            flex: 1;
+            padding: 6px 8px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--text-primary);
+            font-size: 0.8rem;
+        }
+
+        .node-children {
+            margin-left: 20px;
+            padding-left: 12px;
+            border-left: 1px dashed var(--border);
+        }
+
+        .add-node-btn {
+            background: transparent;
+            border: 1px dashed var(--border);
+            color: var(--text-secondary);
+            padding: 8px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            width: 100%;
+            margin-top: 8px;
+        }
+        .add-node-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+            background: transparent;
+        }
+
+        .remove-btn {
+            background: transparent;
+            border: none;
+            color: var(--error);
+            cursor: pointer;
+            font-size: 0.9rem;
+            padding: 2px 6px;
+        }
+
+        .manual-results {
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            padding: 16px;
+        }
+
+        .info-text {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            text-align: center;
+            padding: 40px 20px;
+        }
+
+        header .dataset-info {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            margin-top: 4px;
+        }
+        header .dataset-info span {
+            color: var(--accent);
+            font-weight: 500;
+        }
+
+        .legend .branch-hint {
+            color: var(--text-secondary);
+            font-size: 0.75rem;
+            margin-left: auto;
+            opacity: 0.8;
+        }
+
+        /* Educational Section */
+        .education-section {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 24px;
+            margin-top: 24px;
+        }
+
+        .education-section h2 {
+            font-size: 1.3rem;
+            margin-bottom: 12px;
+            color: var(--text-primary);
+        }
+
+        .education-section .intro {
+            color: var(--text-secondary);
+            margin-bottom: 20px;
+            font-size: 0.9rem;
+            line-height: 1.7;
+        }
+
+        .criteria-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 20px;
+            margin-bottom: 24px;
+        }
+
+        .criterion-card {
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            padding: 20px;
+            border-left: 3px solid var(--accent);
+        }
+
+        .criterion-card h3 {
+            font-size: 1rem;
+            color: var(--accent);
+            margin-bottom: 10px;
+        }
+
+        .criterion-card p {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            line-height: 1.6;
+            margin-bottom: 12px;
+        }
+
+        .criterion-card .formula {
+            background: var(--bg-primary);
+            padding: 12px 16px;
+            border-radius: 6px;
+            margin: 12px 0;
+            overflow-x: auto;
+            font-size: 0.95rem;
+        }
+
+        .criterion-card .example {
+            background: var(--bg-primary);
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            margin: 12px 0;
+            border-left: 2px solid var(--warning);
+        }
+
+        .criterion-card .properties {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            padding-left: 20px;
+            margin-top: 12px;
+        }
+
+        .criterion-card .properties li {
+            margin-bottom: 6px;
+        }
+
+        .comparison-section {
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            padding: 20px;
+        }
+
+        .comparison-section h3 {
+            font-size: 1rem;
+            color: var(--text-primary);
+            margin-bottom: 12px;
+        }
+
+        .comparison-section p {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            line-height: 1.6;
+            margin-bottom: 10px;
+        }
+
+        .comparison-section ul {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            padding-left: 24px;
+            margin-bottom: 16px;
+        }
+
+        .comparison-section ul li {
+            margin-bottom: 6px;
+        }
+
+        .comparison-section .formula {
+            background: var(--bg-primary);
+            padding: 12px 16px;
+            border-radius: 6px;
+            margin: 12px 0;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Decision Tree Interactive Demo</h1>
+            <div class="description">
+                <p>This demo uses the <a href="https://archive.ics.uci.edu/dataset/2/adult" target="_blank">UCI Adult Dataset</a> (also known as the "Census Income" dataset), extracted from the 1994 U.S. Census by Ronny Kohavi and Barry Becker. It is a classic <strong>binary classification</strong> benchmark where the goal is to predict whether an individual's annual income exceeds <span class="highlight">$50,000</span> based on demographic attributes.</p>
+                <p style="margin-top: 8px;">For this interactive demonstration, we use a subset of <strong><span id="train-info">2,000</span> training samples</strong> and <strong><span id="test-info">1,000</span> test samples</strong><span id="dataset-info" style="display:none;"></span>, with a selection of features including age, education level, hours worked per week, capital gains, marital status, occupation, and sex.</p>
+            </div>
+        </header>
+
+        <div class="main-tabs">
+            <button class="main-tab active" data-tab="manual">Manual Decision Tree</button>
+            <button class="main-tab" data-tab="algo">Automated Decision Tree</button>
+        </div>
+
+        <div class="tab-panel" id="tab-algo">
+            <div class="panel-content">
+                <div class="algo-grid">
+                    <div class="sidebar-col">
+                        <div class="card">
+                            <h3>Parameters</h3>
+                            <div class="control-group">
+                                <label>Max Depth <span class="val" id="max-depth-val">5</span></label>
+                                <input type="range" id="max-depth" min="1" max="15" value="5">
+                            </div>
+                            <div class="control-group">
+                                <label>Min Samples Split <span class="val" id="min-samples-val">10</span></label>
+                                <input type="range" id="min-samples" min="2" max="100" value="10">
+                            </div>
+                            <div class="control-group">
+                                <label>Min Samples Leaf <span class="val" id="min-leaf-val">5</span></label>
+                                <input type="range" id="min-leaf" min="1" max="50" value="5">
+                            </div>
+                            <div class="control-group">
+                                <label>Min Impurity Decrease <span class="val" id="min-impurity-val">0.00</span></label>
+                                <input type="range" id="min-impurity" min="0" max="10" value="0" step="1">
+                            </div>
+                            <div class="control-group">
+                                <label>Criterion</label>
+                                <select id="criterion">
+                                    <option value="gini">Gini Impurity</option>
+                                    <option value="entropy">Entropy (Info Gain)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="card" style="margin-top: 12px;">
+                            <h3>Features</h3>
+                            <div class="checkbox-list" id="feature-checkboxes"></div>
+                        </div>
+
+                        <button class="primary" id="train-btn">Build Tree</button>
+
+                        <div class="metrics-row">
+                            <div class="metric"><div class="value" id="accuracy">--</div><div class="label">Accuracy</div></div>
+                            <div class="metric"><div class="value" id="precision">--</div><div class="label">Precision</div></div>
+                            <div class="metric"><div class="value" id="recall">--</div><div class="label">Recall</div></div>
+                            <div class="metric"><div class="value" id="f1">--</div><div class="label">F1</div></div>
+                        </div>
+                    </div>
+
+                    <div class="tree-container">
+                        <div class="tree-header">
+                            <h3 style="font-size: 0.85rem; color: var(--text-secondary);">TREE STRUCTURE</h3>
+                            <div class="zoom-controls">
+                                <button id="zoom-out">−</button>
+                                <span class="zoom-level" id="zoom-level">100%</span>
+                                <button id="zoom-in">+</button>
+                                <button id="fit-view">Fit</button>
+                                <button id="reset-view">Reset</button>
+                            </div>
+                        </div>
+                        <div class="tree-viewport" id="tree-viewport">
+                            <div class="tree-viewport-inner" id="tree-inner">
+                                <svg id="tree-svg"></svg>
+                            </div>
+                        </div>
+                        <div class="legend">
+                            <span><span class="legend-dot pos"></span>Predicts &gt;50K</span>
+                            <span><span class="legend-dot neg"></span>Predicts &le;50K</span>
+                            <span class="branch-hint">← Yes | No →</span>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <h3>Feature Importance</h3>
+                        <div class="importance-bars" id="feature-importance">
+                            <p class="info-text">Build a tree to see importance</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-panel active" id="tab-manual">
+            <div class="panel-content">
+                <div class="manual-grid">
+                    <div class="manual-builder">
+                        <h3 style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 12px;">BUILD YOUR TREE</h3>
+                        <div id="manual-tree-editor"></div>
+                        <button class="primary" id="test-manual-btn">Test on Test Set</button>
+                        
+                        <div class="metrics-row">
+                            <div class="metric"><div class="value" id="manual-accuracy">--</div><div class="label">Accuracy</div></div>
+                            <div class="metric"><div class="value" id="manual-precision">--</div><div class="label">Precision</div></div>
+                            <div class="metric"><div class="value" id="manual-recall">--</div><div class="label">Recall</div></div>
+                            <div class="metric"><div class="value" id="manual-f1">--</div><div class="label">F1</div></div>
+                        </div>
+                    </div>
+
+                    <div class="manual-results">
+                        <div class="tree-header">
+                            <h3 style="font-size: 0.85rem; color: var(--text-secondary);">YOUR TREE STRUCTURE</h3>
+                            <div class="zoom-controls">
+                                <button id="manual-zoom-out">−</button>
+                                <span class="zoom-level" id="manual-zoom-level">100%</span>
+                                <button id="manual-zoom-in">+</button>
+                                <button id="manual-fit-view">Fit</button>
+                                <button id="manual-reset-view">Reset</button>
+                            </div>
+                        </div>
+                        <div class="tree-viewport" id="manual-tree-viewport">
+                            <div class="tree-viewport-inner" id="manual-tree-inner">
+                                <svg id="manual-tree-svg"></svg>
+                            </div>
+                        </div>
+                        <div class="legend">
+                            <span><span class="legend-dot pos"></span>Predicts &gt;50K</span>
+                            <span><span class="legend-dot neg"></span>Predicts &le;50K</span>
+                            <span class="branch-hint">← Yes | No →</span>
+                        </div>
+                        <div class="distribution-chart" id="feature-distribution">
+                            <h4>Feature Distribution (select a feature in your tree)</h4>
+                            <div id="distribution-content"><p class="info-text">Add a split node to see distribution</p></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Educational Section -->
+        <section class="education-section">
+            <h2>Understanding Split Criteria</h2>
+            <p class="intro">Decision trees use impurity measures to determine the best feature and threshold for splitting data. The goal is to create child nodes that are as "pure" as possible (containing mostly one class).</p>
+            
+            <div class="criteria-grid">
+                <div class="criterion-card">
+                    <h3>Gini Impurity</h3>
+                    <p>Measures the probability of incorrectly classifying a randomly chosen element if it were randomly labeled according to the distribution of labels in the node.</p>
+                    <div class="formula">
+                        $$\text{Gini}(D) = 1 - \sum_{i=1}^{C} p_i^2$$
+                    </div>
+                    <p>Where \(p_i\) is the proportion of samples belonging to class \(i\) in dataset \(D\), and \(C\) is the number of classes.</p>
+                    <div class="example">
+                        <strong>Example:</strong> For a node with 70% class A and 30% class B:<br>
+                        $$\text{Gini} = 1 - (0.7^2 + 0.3^2) = 1 - (0.49 + 0.09) = 0.42$$
+                    </div>
+                    <ul class="properties">
+                        <li>Range: 0 (pure) to 0.5 (for binary classification, maximum impurity)</li>
+                        <li>Computationally efficient (no logarithms)</li>
+                        <li>Default in scikit-learn's DecisionTreeClassifier</li>
+                    </ul>
+                </div>
+                
+                <div class="criterion-card">
+                    <h3>Entropy (Information Gain)</h3>
+                    <p>Based on information theory, entropy measures the average amount of information needed to identify the class of an element. Information gain is the reduction in entropy after a split.</p>
+                    <div class="formula">
+                        $$\text{Entropy}(D) = -\sum_{i=1}^{C} p_i \log_2(p_i)$$
+                    </div>
+                    <p>The information gain from splitting on feature \(A\) is:</p>
+                    <div class="formula">
+                        $$\text{Gain}(D, A) = \text{Entropy}(D) - \sum_{v \in \text{values}(A)} \frac{|D_v|}{|D|} \text{Entropy}(D_v)$$
+                    </div>
+                    <div class="example">
+                        <strong>Example:</strong> For a node with 70% class A and 30% class B:<br>
+                        $$\text{Entropy} = -(0.7 \log_2 0.7 + 0.3 \log_2 0.3) \approx 0.88 \text{ bits}$$
+                    </div>
+                    <ul class="properties">
+                        <li>Range: 0 (pure) to \(\log_2(C)\) (for \(C\) classes with equal distribution)</li>
+                        <li>Has roots in information theory (Shannon entropy)</li>
+                        <li>Used in the classic ID3 and C4.5 algorithms</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="comparison-section">
+                <h3>Choosing a Criterion</h3>
+                <p>In practice, Gini and Entropy often produce similar trees. Key considerations:</p>
+                <ul>
+                    <li><strong>Speed:</strong> Gini is slightly faster (no log computation)</li>
+                    <li><strong>Tendency:</strong> Entropy may create slightly more balanced trees</li>
+                    <li><strong>Multi-class:</strong> Both work well, but entropy's range scales with the number of classes</li>
+                </ul>
+                <p>The weighted impurity decrease for a split is calculated as:</p>
+                <div class="formula">
+                    $$\Delta \text{Impurity} = \text{Impurity}(D) - \frac{n_L}{n} \text{Impurity}(D_L) - \frac{n_R}{n} \text{Impurity}(D_R)$$
+                </div>
+                <p>Where \(D_L\) and \(D_R\) are the left and right child datasets, and \(n_L\), \(n_R\), \(n\) are their respective sample counts.</p>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        const AVAILABLE_FEATURES = ['age', 'education-num', 'hours-per-week', 'capital-gain', 'marital-status', 'occupation', 'sex'];
+        const CONTINUOUS_FEATURES = ['age', 'education-num', 'hours-per-week', 'capital-gain'];
+        
+        let CATEGORICAL_VALUES = {
+            'marital-status': [],
+            'occupation': [],
+            'sex': ['Male', 'Female']
+        };
+
+        // Column mapping from JSON array index to feature name
+        const COLUMN_MAP = {
+            0: 'age',
+            4: 'education-num',
+            12: 'hours-per-week',
+            10: 'capital-gain',
+            5: 'marital-status',
+            6: 'occupation',
+            9: 'sex',
+            14: 'income'
+        };
+
+        async function loadDataset() {
+            const response = await fetch('adult_subset.json');
+            const json = await response.json();
+            
+            function parseRow(row) {
+                const income = row[14];
+                const label = income.includes('>50K') ? 1 : 0;
+                return {
+                    features: {
+                        'age': row[0],
+                        'education-num': row[4],
+                        'hours-per-week': row[12],
+                        'capital-gain': row[10],
+                        'marital-status': row[5],
+                        'occupation': row[6],
+                        'sex': row[9]
+                    },
+                    label
+                };
+            }
+            
+            const trainData = json.train.map(parseRow);
+            const testData = json.test.map(parseRow);
+            
+            // Extract unique categorical values from data
+            const allData = [...trainData, ...testData];
+            CATEGORICAL_VALUES['marital-status'] = [...new Set(allData.map(d => d.features['marital-status']))];
+            CATEGORICAL_VALUES['occupation'] = [...new Set(allData.map(d => d.features['occupation']))];
+            CATEGORICAL_VALUES['sex'] = [...new Set(allData.map(d => d.features['sex']))];
+            
+            return { train: trainData, test: testData };
+        }
+
+        class DecisionTree {
+            constructor(opts = {}) {
+                this.maxDepth = opts.maxDepth || 10;
+                this.minSamplesSplit = opts.minSamplesSplit || 2;
+                this.minSamplesLeaf = opts.minSamplesLeaf || 1;
+                this.minImpurityDecrease = opts.minImpurityDecrease || 0;
+                this.criterion = opts.criterion || 'gini';
+                this.features = opts.features || AVAILABLE_FEATURES;
+                this.tree = null;
+                this.featureImportance = {};
+            }
+
+            impurity(labels) {
+                const n = labels.length;
+                if (n === 0) return 0;
+                const counts = {};
+                labels.forEach(l => counts[l] = (counts[l] || 0) + 1);
+                
+                if (this.criterion === 'entropy') {
+                    let ent = 0;
+                    Object.values(counts).forEach(c => {
+                        const p = c / n;
+                        if (p > 0) ent -= p * Math.log2(p);
+                    });
+                    return ent;
+                }
+                
+                let gini = 1;
+                Object.values(counts).forEach(c => { const p = c / n; gini -= p * p; });
+                return gini;
+            }
+
+            findBestSplit(data, feature) {
+                const n = data.length;
+                if (n < this.minSamplesSplit) return null;
+
+                const labels = data.map(d => d.label);
+                const currentImp = this.impurity(labels);
+                let bestGain = this.minImpurityDecrease, bestSplit = null;
+
+                if (CONTINUOUS_FEATURES.includes(feature)) {
+                    const vals = [...new Set(data.map(d => d.features[feature]))].sort((a,b) => a-b);
+                    for (let i = 0; i < vals.length - 1; i++) {
+                        const thresh = (vals[i] + vals[i+1]) / 2;
+                        const left = data.filter(d => d.features[feature] <= thresh);
+                        const right = data.filter(d => d.features[feature] > thresh);
+                        if (left.length < this.minSamplesLeaf || right.length < this.minSamplesLeaf) continue;
+                        
+                        const wImp = (left.length/n) * this.impurity(left.map(d=>d.label)) +
+                                     (right.length/n) * this.impurity(right.map(d=>d.label));
+                        const gain = currentImp - wImp;
+                        if (gain > bestGain) {
+                            bestGain = gain;
+                            bestSplit = { feature, threshold: thresh, type: 'continuous' };
+                        }
+                    }
+                } else {
+                    const cats = [...new Set(data.map(d => d.features[feature]))];
+                    for (const cat of cats) {
+                        const left = data.filter(d => d.features[feature] === cat);
+                        const right = data.filter(d => d.features[feature] !== cat);
+                        if (left.length < this.minSamplesLeaf || right.length < this.minSamplesLeaf) continue;
+                        
+                        const wImp = (left.length/n) * this.impurity(left.map(d=>d.label)) +
+                                     (right.length/n) * this.impurity(right.map(d=>d.label));
+                        const gain = currentImp - wImp;
+                        if (gain > bestGain) {
+                            bestGain = gain;
+                            bestSplit = { feature, category: cat, type: 'categorical' };
+                        }
+                    }
+                }
+                return bestGain > 0 ? { ...bestSplit, gain: bestGain } : null;
+            }
+
+            buildTree(data, depth = 0) {
+                const labels = data.map(d => d.label);
+                const counts = {};
+                labels.forEach(l => counts[l] = (counts[l] || 0) + 1);
+                const majority = Object.entries(counts).sort((a,b) => b[1]-a[1])[0][0];
+
+                if (depth >= this.maxDepth || data.length < this.minSamplesSplit || Object.keys(counts).length === 1) {
+                    return { type: 'leaf', prediction: parseInt(majority), samples: data.length, distribution: counts, depth };
+                }
+
+                let bestSplit = null;
+                for (const f of this.features) {
+                    const split = this.findBestSplit(data, f);
+                    if (split && (!bestSplit || split.gain > bestSplit.gain)) bestSplit = split;
+                }
+
+                if (!bestSplit) {
+                    return { type: 'leaf', prediction: parseInt(majority), samples: data.length, distribution: counts, depth };
+                }
+
+                this.featureImportance[bestSplit.feature] = (this.featureImportance[bestSplit.feature] || 0) + bestSplit.gain * data.length;
+
+                let leftData, rightData;
+                if (bestSplit.type === 'continuous') {
+                    leftData = data.filter(d => d.features[bestSplit.feature] <= bestSplit.threshold);
+                    rightData = data.filter(d => d.features[bestSplit.feature] > bestSplit.threshold);
+                } else {
+                    leftData = data.filter(d => d.features[bestSplit.feature] === bestSplit.category);
+                    rightData = data.filter(d => d.features[bestSplit.feature] !== bestSplit.category);
+                }
+
+                return {
+                    type: 'node', feature: bestSplit.feature, splitType: bestSplit.type,
+                    threshold: bestSplit.threshold, category: bestSplit.category,
+                    samples: data.length, distribution: counts, depth,
+                    left: this.buildTree(leftData, depth + 1),
+                    right: this.buildTree(rightData, depth + 1)
+                };
+            }
+
+            fit(data) {
+                this.featureImportance = {};
+                this.tree = this.buildTree(data);
+                const total = Object.values(this.featureImportance).reduce((a,b) => a+b, 0);
+                if (total > 0) for (const f in this.featureImportance) this.featureImportance[f] /= total;
+                return this;
+            }
+
+            predictOne(sample, node = this.tree) {
+                if (node.type === 'leaf') return node.prediction;
+                const goLeft = node.splitType === 'continuous' 
+                    ? sample[node.feature] <= node.threshold 
+                    : sample[node.feature] === node.category;
+                return goLeft ? this.predictOne(sample, node.left) : this.predictOne(sample, node.right);
+            }
+
+            predict(samples) { return samples.map(s => this.predictOne(s.features || s)); }
+            countNodes(node = this.tree) {
+                if (!node) return 0;
+                return node.type === 'leaf' ? 1 : 1 + this.countNodes(node.left) + this.countNodes(node.right);
+            }
+            getDepth(node = this.tree) {
+                if (!node || node.type === 'leaf') return node ? 1 : 0;
+                return 1 + Math.max(this.getDepth(node.left), this.getDepth(node.right));
+            }
+        }
+
+        function calcMetrics(yTrue, yPred) {
+            let tp=0, tn=0, fp=0, fn=0;
+            for (let i = 0; i < yTrue.length; i++) {
+                if (yTrue[i]===1 && yPred[i]===1) tp++;
+                else if (yTrue[i]===0 && yPred[i]===0) tn++;
+                else if (yTrue[i]===0 && yPred[i]===1) fp++;
+                else fn++;
+            }
+            return {
+                accuracy: (tp+tn)/(tp+tn+fp+fn) || 0,
+                precision: tp/(tp+fp) || 0,
+                recall: tp/(tp+fn) || 0,
+                f1: 2*((tp/(tp+fp))*(tp/(tp+fn)))/((tp/(tp+fp))+(tp/(tp+fn))) || 0
+            };
+        }
+
+        class TreeViz {
+            constructor(svg, viewport, inner, zoomDisplay, onNodeClick) {
+                this.svg = svg;
+                this.viewport = viewport;
+                this.inner = inner;
+                this.zoomDisplay = zoomDisplay;
+                this.onNodeClick = onNodeClick;
+                this.zoom = 1;
+                this.panX = 0;
+                this.panY = 0;
+                this.nodeW = 160;
+                this.nodeH = 52;
+                this.gapH = 12;
+                this.gapV = 28;
+                this.treeWidth = 0;
+                this.treeHeight = 0;
+                this.initPan();
+            }
+
+            initPan() {
+                if (!this.viewport) return;
+                let dragging = false, startX, startY, startPanX, startPanY;
+                
+                this.viewport.addEventListener('mousedown', (e) => {
+                    dragging = true;
+                    startX = e.clientX;
+                    startY = e.clientY;
+                    startPanX = this.panX;
+                    startPanY = this.panY;
+                });
+                
+                window.addEventListener('mousemove', (e) => {
+                    if (!dragging) return;
+                    this.panX = startPanX + (e.clientX - startX);
+                    this.panY = startPanY + (e.clientY - startY);
+                    this.updateTransform();
+                });
+                
+                window.addEventListener('mouseup', () => dragging = false);
+                
+                this.viewport.addEventListener('wheel', (e) => {
+                    e.preventDefault();
+                    const delta = e.deltaY > 0 ? 0.9 : 1.1;
+                    this.setZoom(this.zoom * delta);
+                });
+            }
+
+            updateTransform() {
+                if (this.inner) {
+                    this.inner.style.transform = `translate(${this.panX}px, ${this.panY}px) scale(${this.zoom})`;
+                }
+                if (this.zoomDisplay) {
+                    this.zoomDisplay.textContent = Math.round(this.zoom * 100) + '%';
+                }
+            }
+
+            layout(node, depth = 0, pos = 0) {
+                if (!node) return { width: 0, nodes: [], links: [] };
+                const nodes = [], links = [];
+
+                if (node.type === 'leaf') {
+                    nodes.push({ ...node, x: pos, y: depth, w: this.nodeW });
+                    return { width: this.nodeW, nodes, links };
+                }
+
+                const left = this.layout(node.left, depth + 1, pos);
+                const right = this.layout(node.right, depth + 1, pos + left.width + this.gapH);
+                const totalW = left.width + this.gapH + right.width;
+                const nodeX = pos + totalW / 2 - this.nodeW / 2;
+
+                nodes.push({ ...node, x: nodeX, y: depth, w: this.nodeW });
+
+                const leftChild = left.nodes.find(n => n.depth === depth + 1);
+                const rightChild = right.nodes.find(n => n.depth === depth + 1);
+                if (leftChild) links.push({ x1: nodeX + this.nodeW/2, y1: depth, x2: leftChild.x + this.nodeW/2, y2: depth + 1 });
+                if (rightChild) links.push({ x1: nodeX + this.nodeW/2, y1: depth, x2: rightChild.x + this.nodeW/2, y2: depth + 1 });
+
+                return { width: totalW, nodes: [...nodes, ...left.nodes, ...right.nodes], links: [...links, ...left.links, ...right.links] };
+            }
+
+            render(tree) {
+                if (!tree) { 
+                    this.svg.innerHTML = '<text x="50%" y="50%" text-anchor="middle" fill="#666">No tree to display</text>'; 
+                    return; 
+                }
+                
+                // Calculate tree depth and adjust node size for deep trees
+                const getDepth = (n) => n && n.type !== 'leaf' ? 1 + Math.max(getDepth(n.left), getDepth(n.right)) : 1;
+                const depth = getDepth(tree);
+                
+                // Compact layout for deeper trees
+                if (depth > 6) {
+                    this.nodeW = 120;
+                    this.nodeH = 42;
+                    this.gapH = 8;
+                    this.gapV = 22;
+                } else if (depth > 4) {
+                    this.nodeW = 140;
+                    this.nodeH = 46;
+                    this.gapH = 10;
+                    this.gapV = 24;
+                } else {
+                    this.nodeW = 160;
+                    this.nodeH = 52;
+                    this.gapH = 12;
+                    this.gapV = 28;
+                }
+                
+                const { nodes, links } = this.layout(tree);
+                const maxX = Math.max(...nodes.map(n => n.x + this.nodeW)) + 40;
+                const maxY = Math.max(...nodes.map(n => n.y)) * (this.nodeH + this.gapV) + this.nodeH + 40;
+                
+                this.treeWidth = maxX;
+                this.treeHeight = maxY;
+
+                this.svg.setAttribute('width', maxX);
+                this.svg.setAttribute('height', maxY);
+                this.svg.style.width = maxX + 'px';
+                this.svg.style.height = maxY + 'px';
+
+                let html = '<g transform="translate(20,20)">';
+                links.forEach(l => {
+                    const y1 = l.y1 * (this.nodeH + this.gapV) + this.nodeH;
+                    const y2 = l.y2 * (this.nodeH + this.gapV);
+                    html += `<path class="tree-link" d="M${l.x1},${y1} C${l.x1},${(y1+y2)/2} ${l.x2},${(y1+y2)/2} ${l.x2},${y2}"/>`;
+                });
+
+                const fontSize = depth > 6 ? 9 : (depth > 4 ? 10 : 11);
+                const subFontSize = depth > 6 ? 8 : (depth > 4 ? 9 : 10);
+                
+                // Assign unique IDs to nodes for click handling
+                let nodeIdx = 0;
+                nodes.forEach(n => {
+                    n.nodeIdx = nodeIdx++;
+                    const x = n.x, y = n.y * (this.nodeH + this.gapV);
+                    const isLeaf = n.type === 'leaf';
+                    const cls = isLeaf ? `tree-node leaf ${n.prediction === 1 ? 'positive' : 'negative'}` : 'tree-node';
+                    html += `<g class="${cls}" data-node-idx="${n.nodeIdx}" data-node-id="${n.nodeId || ''}" transform="translate(${x},${y})">`;
+                    html += `<rect width="${this.nodeW}" height="${this.nodeH}" rx="4"/>`;
+                    if (isLeaf) {
+                        html += `<text x="${this.nodeW/2}" y="${this.nodeH/2 - 2}" text-anchor="middle" style="font-size:${fontSize}px">${n.prediction === 1 ? '>50K' : '≤50K'}</text>`;
+                        html += `<text class="sub" x="${this.nodeW/2}" y="${this.nodeH/2 + 10}" text-anchor="middle" style="font-size:${subFontSize}px">n=${n.samples}</text>`;
+                    } else {
+                        // Show full feature name and rule
+                        html += `<text x="${this.nodeW/2}" y="16" text-anchor="middle" style="font-size:${fontSize}px">${n.feature}</text>`;
+                        const split = n.splitType === 'continuous' ? `≤ ${n.threshold?.toFixed(1)}` : `= ${n.category||''}`;
+                        html += `<text class="sub" x="${this.nodeW/2}" y="${16 + fontSize + 2}" text-anchor="middle" style="font-size:${subFontSize}px">${split}</text>`;
+                        html += `<text class="sub" x="${this.nodeW/2}" y="${this.nodeH - 5}" text-anchor="middle" style="font-size:${subFontSize}px">n=${n.samples}</text>`;
+                    }
+                    html += '</g>';
+                });
+                html += '</g>';
+                this.svg.innerHTML = html;
+                
+                // Add click handlers to nodes
+                if (this.onNodeClick) {
+                    this.svg.querySelectorAll('.tree-node').forEach(g => {
+                        g.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            const nodeId = g.dataset.nodeId;
+                            this.svg.querySelectorAll('.tree-node').forEach(n => n.classList.remove('selected'));
+                            g.classList.add('selected');
+                            this.onNodeClick(nodeId);
+                        });
+                    });
+                }
+                
+                // Auto-fit on first render
+                if (this.viewport) {
+                    this.fitToView();
+                }
+            }
+
+            setZoom(z) {
+                this.zoom = Math.max(0.1, Math.min(3, z));
+                this.updateTransform();
+            }
+
+            zoomIn() { this.setZoom(this.zoom * 1.25); }
+            zoomOut() { this.setZoom(this.zoom / 1.25); }
+            
+            fitToView() {
+                if (!this.viewport || !this.treeWidth) return;
+                const vw = this.viewport.clientWidth;
+                const vh = this.viewport.clientHeight;
+                const scaleX = vw / this.treeWidth;
+                const scaleY = vh / this.treeHeight;
+                this.zoom = Math.min(scaleX, scaleY, 1) * 0.95;
+                this.panX = (vw - this.treeWidth * this.zoom) / 2;
+                this.panY = 10;
+                this.updateTransform();
+            }
+            
+            reset() { 
+                this.zoom = 1; 
+                this.panX = 0;
+                this.panY = 0;
+                this.updateTransform();
+            }
+            
+            highlightNode(nodeId) {
+                this.svg.querySelectorAll('.tree-node').forEach(n => n.classList.remove('selected'));
+                if (nodeId) {
+                    const node = this.svg.querySelector(`.tree-node[data-node-id="${nodeId}"]`);
+                    if (node) node.classList.add('selected');
+                }
+            }
+        }
+
+        const state = { data: [], train: [], test: [], tree: null, selectedFeatures: [...AVAILABLE_FEATURES], manualTree: null, selectedNodeId: null };
+        
+        // Initialize visualizers after DOM ready
+        let viz, manualViz;
+
+        function initTabs() {
+            document.querySelectorAll('.main-tab').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    document.querySelectorAll('.main-tab').forEach(t => t.classList.remove('active'));
+                    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+                    tab.classList.add('active');
+                    document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+                });
+            });
+        }
+
+        function initCheckboxes() {
+            const container = document.getElementById('feature-checkboxes');
+            container.innerHTML = AVAILABLE_FEATURES.map(f => `
+                <label class="checkbox-item"><input type="checkbox" value="${f}" checked> ${f}</label>
+            `).join('');
+            container.querySelectorAll('input').forEach(cb => {
+                cb.addEventListener('change', () => {
+                    state.selectedFeatures = [...container.querySelectorAll('input:checked')].map(c => c.value);
+                });
+            });
+        }
+
+        function initSliders() {
+            [['max-depth', 'max-depth-val', ''], ['min-samples', 'min-samples-val', ''], ['min-leaf', 'min-leaf-val', '']].forEach(([id, valId, suf]) => {
+                const slider = document.getElementById(id);
+                const display = document.getElementById(valId);
+                if (slider && display) {
+                    slider.addEventListener('input', () => display.textContent = slider.value + suf);
+                }
+            });
+            // Special handling for min impurity (scale 0-10 to 0-0.1)
+            const impSlider = document.getElementById('min-impurity');
+            const impDisplay = document.getElementById('min-impurity-val');
+            if (impSlider && impDisplay) {
+                impSlider.addEventListener('input', () => impDisplay.textContent = (impSlider.value / 100).toFixed(2));
+            }
+        }
+
+        function updateMetrics(m, prefix = '') {
+            document.getElementById(prefix + 'accuracy').textContent = (m.accuracy * 100).toFixed(1) + '%';
+            document.getElementById(prefix + 'precision').textContent = (m.precision * 100).toFixed(1) + '%';
+            document.getElementById(prefix + 'recall').textContent = (m.recall * 100).toFixed(1) + '%';
+            document.getElementById(prefix + 'f1').textContent = (m.f1 * 100).toFixed(1) + '%';
+        }
+
+        function updateImportance(imp) {
+            const container = document.getElementById('feature-importance');
+            const sorted = Object.entries(imp).sort((a,b) => b[1] - a[1]);
+            if (!sorted.length) { container.innerHTML = '<p class="info-text">No data</p>'; return; }
+            const max = Math.max(...sorted.map(s => s[1]));
+            container.innerHTML = sorted.map(([name, val]) => `
+                <div class="imp-row">
+                    <span class="fname">${name}</span>
+                    <div class="bar-bg"><div class="bar-fill" style="width:${(val/max)*100}%"></div></div>
+                    <span class="pct">${(val*100).toFixed(0)}%</span>
+                </div>
+            `).join('');
+        }
+
+        function buildTree() {
+            document.getElementById('train-info').textContent = state.train.length.toLocaleString();
+            document.getElementById('test-info').textContent = state.test.length.toLocaleString();
+
+            const tree = new DecisionTree({
+                maxDepth: parseInt(document.getElementById('max-depth').value),
+                minSamplesSplit: parseInt(document.getElementById('min-samples').value),
+                minSamplesLeaf: parseInt(document.getElementById('min-leaf').value),
+                minImpurityDecrease: parseInt(document.getElementById('min-impurity').value) / 100,
+                criterion: document.getElementById('criterion').value,
+                features: state.selectedFeatures
+            });
+            tree.fit(state.train);
+            state.tree = tree;
+
+            const preds = tree.predict(state.test);
+            const metrics = calcMetrics(state.test.map(d => d.label), preds);
+            updateMetrics(metrics);
+            updateImportance(tree.featureImportance);
+            viz.render(tree.tree);
+        }
+
+        let manualNodeId = 0;
+
+        function createNodeEditor(parentEl, depth = 0) {
+            const nodeId = manualNodeId++;
+            const div = document.createElement('div');
+            div.className = 'node-editor';
+            div.dataset.nodeId = nodeId;
+            div.dataset.depth = depth;
+            
+            const featureOpts = AVAILABLE_FEATURES.map(f => `<option value="${f}">${f}</option>`).join('');
+            
+            div.innerHTML = `
+                <h4>Node ${nodeId} ${depth > 0 ? '<button class="remove-btn" title="Remove">×</button>' : ''}</h4>
+                <div class="node-row">
+                    <select class="node-type">
+                        <option value="split">Split Node</option>
+                        <option value="leaf">Leaf Node</option>
+                    </select>
+                </div>
+                <div class="split-config">
+                    <div class="node-row">
+                        <select class="feature-select">${featureOpts}</select>
+                    </div>
+                    <div class="node-row threshold-row">
+                        <input type="number" class="threshold-input" placeholder="Threshold" value="30">
+                    </div>
+                    <div class="node-row category-row" style="display:none;">
+                        <select class="category-select"></select>
+                    </div>
+                </div>
+                <div class="leaf-config" style="display:none;">
+                    <div class="node-row">
+                        <select class="prediction-select">
+                            <option value="0">≤50K</option>
+                            <option value="1">>50K</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="node-children"></div>
+            `;
+
+            const typeSelect = div.querySelector('.node-type');
+            const splitConfig = div.querySelector('.split-config');
+            const leafConfig = div.querySelector('.leaf-config');
+            const featureSelect = div.querySelector('.feature-select');
+            const thresholdRow = div.querySelector('.threshold-row');
+            const categoryRow = div.querySelector('.category-row');
+            const categorySelect = div.querySelector('.category-select');
+            const childrenContainer = div.querySelector('.node-children');
+
+            typeSelect.addEventListener('change', () => {
+                const isLeaf = typeSelect.value === 'leaf';
+                splitConfig.style.display = isLeaf ? 'none' : 'block';
+                leafConfig.style.display = isLeaf ? 'block' : 'none';
+                div.classList.toggle('leaf-node', isLeaf);
+                childrenContainer.innerHTML = '';
+                if (!isLeaf) addChildButtons(childrenContainer, depth);
+                renderManualTree();
+            });
+
+            featureSelect.addEventListener('change', () => {
+                const f = featureSelect.value;
+                const isCont = CONTINUOUS_FEATURES.includes(f);
+                thresholdRow.style.display = isCont ? 'flex' : 'none';
+                categoryRow.style.display = isCont ? 'none' : 'flex';
+                if (!isCont) {
+                    categorySelect.innerHTML = (CATEGORICAL_VALUES[f] || []).map(v => `<option value="${v}">${v}</option>`).join('');
+                }
+                renderManualTree();
+            });
+            
+            // Add focus/click handler to highlight this node
+            div.addEventListener('click', (e) => {
+                e.stopPropagation();
+                selectNodeEditor(div);
+            });
+            div.addEventListener('focusin', () => {
+                selectNodeEditor(div);
+            });
+
+            div.querySelector('.threshold-input')?.addEventListener('change', renderManualTree);
+            div.querySelector('.threshold-input')?.addEventListener('input', renderManualTree);
+            div.querySelector('.category-select')?.addEventListener('change', renderManualTree);
+            div.querySelector('.prediction-select')?.addEventListener('change', renderManualTree);
+
+            const removeBtn = div.querySelector('.remove-btn');
+            if (removeBtn) {
+                removeBtn.addEventListener('click', () => {
+                    div.remove();
+                    renderManualTree();
+                });
+            }
+
+            addChildButtons(childrenContainer, depth);
+            parentEl.appendChild(div);
+            return div;
+        }
+
+        function addChildButtons(container, depth) {
+            if (depth >= 4) return;
+            const addBtn = document.createElement('button');
+            addBtn.className = 'add-node-btn';
+            addBtn.textContent = '+ Add Child Node';
+            addBtn.addEventListener('click', () => {
+                if (container.querySelectorAll(':scope > .node-editor').length < 2) {
+                    createNodeEditor(container, depth + 1);
+                    if (container.querySelectorAll(':scope > .node-editor').length >= 2) {
+                        addBtn.style.display = 'none';
+                    }
+                }
+                renderManualTree();
+            });
+            container.appendChild(addBtn);
+        }
+
+        function parseManualNode(el) {
+            if (!el) return null;
+            const nodeId = el.dataset.nodeId;
+            const type = el.querySelector('.node-type').value;
+            
+            if (type === 'leaf') {
+                return {
+                    type: 'leaf',
+                    nodeId,
+                    prediction: parseInt(el.querySelector('.prediction-select').value),
+                    samples: 0,
+                    distribution: {},
+                    depth: parseInt(el.dataset.depth)
+                };
+            }
+
+            const feature = el.querySelector('.feature-select').value;
+            const isCont = CONTINUOUS_FEATURES.includes(feature);
+            const children = el.querySelectorAll(':scope > .node-children > .node-editor');
+            const threshold = isCont ? parseFloat(el.querySelector('.threshold-input').value) : null;
+            const category = !isCont ? el.querySelector('.category-select').value : null;
+            
+            const leftNode = children[0] ? parseManualNode(children[0]) : { type: 'leaf', nodeId: nodeId + '_L', prediction: 0, samples: 0, distribution: {}, depth: parseInt(el.dataset.depth) + 1 };
+            const rightNode = children[1] ? parseManualNode(children[1]) : { type: 'leaf', nodeId: nodeId + '_R', prediction: 1, samples: 0, distribution: {}, depth: parseInt(el.dataset.depth) + 1 };
+            
+            return {
+                type: 'node',
+                nodeId,
+                feature,
+                splitType: isCont ? 'continuous' : 'categorical',
+                threshold,
+                category,
+                samples: 0,
+                distribution: {},
+                depth: parseInt(el.dataset.depth),
+                left: leftNode,
+                right: rightNode
+            };
+        }
+        
+        // Calculate sample counts for manual tree based on training data
+        function calculateManualTreeStats(node, data) {
+            if (!node || !data.length) return;
+            
+            node.samples = data.length;
+            const labels = data.map(d => d.label);
+            node.distribution = { 0: labels.filter(l => l === 0).length, 1: labels.filter(l => l === 1).length };
+            
+            if (node.type === 'leaf') return;
+            
+            let leftData, rightData;
+            if (node.splitType === 'continuous') {
+                leftData = data.filter(d => d.features[node.feature] <= node.threshold);
+                rightData = data.filter(d => d.features[node.feature] > node.threshold);
+            } else {
+                leftData = data.filter(d => d.features[node.feature] === node.category);
+                rightData = data.filter(d => d.features[node.feature] !== node.category);
+            }
+            
+            calculateManualTreeStats(node.left, leftData);
+            calculateManualTreeStats(node.right, rightData);
+        }
+        
+        function highlightNodeEditor(nodeId) {
+            // Remove highlight from all node editors
+            document.querySelectorAll('.node-editor.highlighted').forEach(el => {
+                el.classList.remove('highlighted');
+            });
+            
+            if (!nodeId) {
+                state.selectedNodeId = null;
+                updateFeatureDistribution();
+                return;
+            }
+            
+            state.selectedNodeId = nodeId;
+            
+            // Find and highlight the matching node editor
+            const nodeEl = document.querySelector(`.node-editor[data-node-id="${nodeId}"]`);
+            if (nodeEl) {
+                nodeEl.classList.add('highlighted');
+                nodeEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+            
+            // Also highlight in tree viz
+            if (manualViz) {
+                manualViz.highlightNode(nodeId);
+            }
+            
+            updateFeatureDistribution();
+        }
+        
+        function selectNodeEditor(div) {
+            const nodeId = div.dataset.nodeId;
+            
+            // Remove highlight from all
+            document.querySelectorAll('.node-editor.highlighted').forEach(el => {
+                el.classList.remove('highlighted');
+            });
+            
+            // Highlight this one
+            div.classList.add('highlighted');
+            state.selectedNodeId = nodeId;
+            
+            // Highlight in tree viz
+            if (manualViz) {
+                manualViz.highlightNode(nodeId);
+            }
+            
+            updateFeatureDistribution();
+        }
+
+        function renderManualTree() {
+            const rootEl = document.querySelector('#manual-tree-editor > .node-editor');
+            if (!rootEl) return;
+            state.manualTree = parseManualNode(rootEl);
+            
+            // Calculate sample stats based on training data
+            if (state.train.length) {
+                calculateManualTreeStats(state.manualTree, state.train);
+            }
+            
+            manualViz.render(state.manualTree);
+            updateFeatureDistribution();
+        }
+
+        function getSelectedNodeInfo() {
+            // Get info about the currently selected node in the manual tree builder
+            const nodeId = state.selectedNodeId;
+            if (!nodeId) {
+                // Default to root node
+                const rootEl = document.querySelector('#manual-tree-editor > .node-editor');
+                if (!rootEl) return null;
+                return getNodeInfoFromElement(rootEl);
+            }
+            
+            const nodeEl = document.querySelector(`.node-editor[data-node-id="${nodeId}"]`);
+            if (!nodeEl) return null;
+            return getNodeInfoFromElement(nodeEl);
+        }
+        
+        function getNodeInfoFromElement(el) {
+            const typeSelect = el.querySelector('.node-type');
+            if (!typeSelect || typeSelect.value !== 'split') return null;
+            
+            const feature = el.querySelector('.feature-select')?.value;
+            const isCont = CONTINUOUS_FEATURES.includes(feature);
+            const threshold = isCont ? parseFloat(el.querySelector('.threshold-input')?.value) : null;
+            const category = !isCont ? el.querySelector('.category-select')?.value : null;
+            
+            return { feature, isContinuous: isCont, threshold, category };
+        }
+        
+        // Get the data that flows to a specific node by traversing the tree path
+        function getDataForNode(nodeId) {
+            if (!state.manualTree || !state.train.length) return state.train;
+            
+            // Find path to node and filter data accordingly
+            function findAndFilter(node, data) {
+                if (!node) return null;
+                if (node.nodeId === nodeId) return data;
+                if (node.type === 'leaf') return null;
+                
+                let leftData, rightData;
+                if (node.splitType === 'continuous') {
+                    leftData = data.filter(d => d.features[node.feature] <= node.threshold);
+                    rightData = data.filter(d => d.features[node.feature] > node.threshold);
+                } else {
+                    leftData = data.filter(d => d.features[node.feature] === node.category);
+                    rightData = data.filter(d => d.features[node.feature] !== node.category);
+                }
+                
+                const leftResult = findAndFilter(node.left, leftData);
+                if (leftResult) return leftResult;
+                return findAndFilter(node.right, rightData);
+            }
+            
+            const result = findAndFilter(state.manualTree, state.train);
+            return result || state.train;
+        }
+
+        function updateFeatureDistribution() {
+            const container = document.getElementById('distribution-content');
+            const titleEl = document.querySelector('#feature-distribution h4');
+            const nodeInfo = getSelectedNodeInfo();
+            
+            if (!nodeInfo || !nodeInfo.feature || !state.train.length) {
+                if (titleEl) titleEl.textContent = 'Feature Distribution (select a split node)';
+                container.innerHTML = '<p class="info-text">Select a split node to see distribution</p>';
+                return;
+            }
+            
+            const feature = nodeInfo.feature;
+            const isContinuous = nodeInfo.isContinuous;
+            const threshold = nodeInfo.threshold;
+            const category = nodeInfo.category;
+            
+            // Get data that flows to the selected node
+            const nodeId = state.selectedNodeId || document.querySelector('#manual-tree-editor > .node-editor')?.dataset.nodeId;
+            const data = getDataForNode(nodeId);
+            
+            if (titleEl) {
+                titleEl.textContent = `Distribution: ${feature} (n=${data.length})`;
+            }
+            
+            if (isContinuous) {
+                // Create histogram bins
+                const values = data.map(d => d.features[feature]);
+                if (values.length === 0) {
+                    container.innerHTML = '<p class="info-text">No data at this node</p>';
+                    return;
+                }
+                
+                // Sort values for quantile-based binning
+                const sorted = [...values].sort((a, b) => a - b);
+                const min = sorted[0];
+                const max = sorted[sorted.length - 1];
+                
+                // Check if data is highly skewed (e.g., capital-gain has many zeros)
+                const uniqueValues = [...new Set(sorted)];
+                const binCount = Math.min(10, uniqueValues.length);
+                
+                // Use quantile-based bins for skewed data, uniform bins otherwise
+                let binEdges = [];
+                const skewRatio = sorted.filter(v => v === min).length / sorted.length;
+                
+                if (skewRatio > 0.3 && uniqueValues.length > binCount) {
+                    // Quantile-based binning for skewed data
+                    for (let i = 0; i <= binCount; i++) {
+                        const idx = Math.floor((i / binCount) * (sorted.length - 1));
+                        binEdges.push(sorted[idx]);
+                    }
+                    // Remove duplicate edges
+                    binEdges = [...new Set(binEdges)];
+                } else {
+                    // Uniform binning
+                    const binSize = (max - min) / binCount || 1;
+                    for (let i = 0; i <= binCount; i++) {
+                        binEdges.push(min + i * binSize);
+                    }
+                }
+                
+                const actualBinCount = binEdges.length - 1;
+                const bins = Array(actualBinCount).fill(null).map(() => ({ high: 0, low: 0 }));
+                
+                data.forEach(d => {
+                    const val = d.features[feature];
+                    let binIdx = binEdges.findIndex((edge, i) => i < actualBinCount && val >= edge && val <= binEdges[i + 1]);
+                    if (binIdx === -1) binIdx = actualBinCount - 1;
+                    if (binIdx < 0) binIdx = 0;
+                    if (d.label === 1) bins[binIdx].high++;
+                    else bins[binIdx].low++;
+                });
+                
+                const maxCount = Math.max(...bins.map(b => b.high + b.low), 1);
+                let html = '';
+                
+                // Show threshold line indicator
+                if (threshold !== null && !isNaN(threshold)) {
+                    const belowCount = sorted.filter(v => v <= threshold).length;
+                    const belowPct = (belowCount / sorted.length) * 100;
+                    html += `<div style="margin-bottom: 8px; font-size: 0.75rem; color: var(--text-secondary);">Threshold: <strong style="color: var(--warning);">${threshold.toFixed(1)}</strong> (${Math.round(belowPct)}% of samples ≤ threshold)</div>`;
+                }
+                
+                html += bins.map((bin, i) => {
+                    const rangeStart = binEdges[i];
+                    const rangeEnd = binEdges[i + 1];
+                    const total = bin.high + bin.low;
+                    const highPct = total > 0 ? (bin.high / total) * 100 : 0;
+                    const lowPct = total > 0 ? (bin.low / total) * 100 : 0;
+                    // Highlight bin containing threshold
+                    const containsThreshold = threshold !== null && rangeStart <= threshold && threshold <= rangeEnd;
+                    const style = containsThreshold ? 'border-left: 3px solid var(--warning); padding-left: 4px;' : '';
+                    // Format numbers nicely
+                    const formatNum = (n) => n >= 1000 ? (n/1000).toFixed(1) + 'k' : n.toFixed(0);
+                    return `<div class="dist-bar-row" style="${style}">
+                        <span class="dist-label">${formatNum(rangeStart)}-${formatNum(rangeEnd)}</span>
+                        <div class="dist-bar-bg" style="width: ${(total/maxCount)*100}%">
+                            <div class="dist-bar-low" style="width: ${lowPct}%"></div>
+                            <div class="dist-bar-high" style="width: ${highPct}%"></div>
+                        </div>
+                        <span class="dist-count">${total}</span>
+                    </div>`;
+                }).join('');
+                container.innerHTML = html;
+            } else {
+                // Categorical distribution
+                const counts = {};
+                data.forEach(d => {
+                    const val = d.features[feature];
+                    if (!counts[val]) counts[val] = { high: 0, low: 0 };
+                    if (d.label === 1) counts[val].high++;
+                    else counts[val].low++;
+                });
+                
+                if (Object.keys(counts).length === 0) {
+                    container.innerHTML = '<p class="info-text">No data at this node</p>';
+                    return;
+                }
+                
+                const sorted = Object.entries(counts).sort((a, b) => (b[1].high + b[1].low) - (a[1].high + a[1].low));
+                const maxCount = Math.max(...sorted.map(([_, c]) => c.high + c.low), 1);
+                
+                let html = '';
+                if (category) {
+                    html += `<div style="margin-bottom: 8px; font-size: 0.75rem; color: var(--text-secondary);">Split on: <strong style="color: var(--warning);">${category}</strong></div>`;
+                }
+                
+                html += sorted.map(([name, cnt]) => {
+                    const total = cnt.high + cnt.low;
+                    const highPct = total > 0 ? (cnt.high / total) * 100 : 0;
+                    const lowPct = total > 0 ? (cnt.low / total) * 100 : 0;
+                    // Highlight the selected category
+                    const isSelected = name === category;
+                    const style = isSelected ? 'border-left: 3px solid var(--warning); padding-left: 4px;' : '';
+                    return `<div class="dist-bar-row" style="${style}">
+                        <span class="dist-label" title="${name}">${name}</span>
+                        <div class="dist-bar-bg" style="width: ${(total/maxCount)*100}%">
+                            <div class="dist-bar-low" style="width: ${lowPct}%"></div>
+                            <div class="dist-bar-high" style="width: ${highPct}%"></div>
+                        </div>
+                        <span class="dist-count">${total}</span>
+                    </div>`;
+                }).join('');
+                container.innerHTML = html;
+            }
+        }
+
+        function predictManual(sample, node) {
+            if (!node || node.type === 'leaf') return node ? node.prediction : 0;
+            const val = sample[node.feature];
+            const goLeft = node.splitType === 'continuous' ? val <= node.threshold : val === node.category;
+            return goLeft ? predictManual(sample, node.left) : predictManual(sample, node.right);
+        }
+
+        function testManualTree() {
+            if (!state.manualTree || !state.test.length) {
+                alert('Build a tree and ensure test data exists');
+                return;
+            }
+            const preds = state.test.map(d => predictManual(d.features, state.manualTree));
+            const metrics = calcMetrics(state.test.map(d => d.label), preds);
+            updateMetrics(metrics, 'manual-');
+        }
+
+        async function init() {
+            // Initialize tree visualizers with pan/zoom support
+            viz = new TreeViz(
+                document.getElementById('tree-svg'),
+                document.getElementById('tree-viewport'),
+                document.getElementById('tree-inner'),
+                document.getElementById('zoom-level'),
+                null  // No click handler for ML tree
+            );
+            manualViz = new TreeViz(
+                document.getElementById('manual-tree-svg'),
+                document.getElementById('manual-tree-viewport'),
+                document.getElementById('manual-tree-inner'),
+                document.getElementById('manual-zoom-level'),
+                highlightNodeEditor  // Click handler to highlight node in builder
+            );
+            
+            // Load real data from JSON
+            const { train, test } = await loadDataset();
+            state.train = train;
+            state.test = test;
+            state.data = [...train, ...test];
+            document.getElementById('train-info').textContent = train.length.toLocaleString();
+            document.getElementById('test-info').textContent = test.length.toLocaleString();
+
+            initTabs();
+            initCheckboxes();
+            initSliders();
+
+            document.getElementById('train-btn').addEventListener('click', buildTree);
+            document.getElementById('zoom-in').addEventListener('click', () => viz.zoomIn());
+            document.getElementById('zoom-out').addEventListener('click', () => viz.zoomOut());
+            document.getElementById('fit-view').addEventListener('click', () => viz.fitToView());
+            document.getElementById('reset-view').addEventListener('click', () => viz.reset());
+
+            document.getElementById('manual-zoom-in').addEventListener('click', () => manualViz.zoomIn());
+            document.getElementById('manual-zoom-out').addEventListener('click', () => manualViz.zoomOut());
+            document.getElementById('manual-fit-view').addEventListener('click', () => manualViz.fitToView());
+            document.getElementById('manual-reset-view').addEventListener('click', () => manualViz.reset());
+            document.getElementById('test-manual-btn').addEventListener('click', testManualTree);
+
+            createNodeEditor(document.getElementById('manual-tree-editor'), 0);
+            
+            buildTree();
+            renderManualTree();
+        }
+
+        init();
+    </script>
+</body>
+</html>
