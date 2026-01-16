@@ -1,0 +1,637 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Image Feature Extraction Demo</title>
+  <style>
+    :root{
+      --bg:#f8fafc;
+      --text:#0f172a;
+      --muted:#475569;
+      --border:#e5e7eb;
+      --card:#ffffff;
+      --shadow:0 6px 20px rgba(15,23,42,0.06);
+      --accent:#3b82f6;
+    }
+    *{ box-sizing:border-box; }
+    body{ margin:0; background:var(--bg); color:var(--text);
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; }
+    header{ max-width:1200px; margin:24px auto 16px; padding:0 16px; }
+    header h1{ margin:0; font-size:24px; font-weight:700; letter-spacing:0.2px; }
+    header p{ margin:10px 0 0; color:var(--muted); line-height:1.45; }
+
+    .wrap{ max-width:1200px; margin:0 auto; padding:0 16px 24px; display:grid; grid-template-columns: 380px 1fr; gap:16px; }
+    @media (max-width: 1024px){ .wrap{ grid-template-columns:1fr; } }
+
+    .card{ background:var(--card); border:1px solid var(--border); border-radius:14px; box-shadow:var(--shadow); padding:14px; }
+    .card h2{ margin:0 0 10px; font-size:16px; font-weight:700; }
+    .tiny{ font-size:12px; color:var(--muted); }
+    .divider{ height:1px; background:var(--border); margin:12px 0; }
+
+    button{
+      background: linear-gradient(180deg, #3b82f6, #2563eb);
+      color:#fff; border:none; border-radius:10px;
+      padding:10px 16px; font-size:13px; font-weight:600; cursor:pointer;
+    }
+    button:hover{ filter:brightness(1.08); }
+    button:active{ transform: translateY(1px); }
+
+    .filters{ display:flex; flex-direction:column; gap:12px; }
+    .filterBox{ border:1px solid var(--border); border-radius:12px; padding:10px; background:#fafafa; }
+    .filterHead{ display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+
+    .grid3{ display:grid; grid-template-columns:repeat(3, 1fr); gap:6px; width:210px; }
+    .grid3 input{
+      width:66px; text-align:center; padding:8px 6px; border-radius:8px;
+      border:1px solid var(--border); background:#fff; color:var(--text); outline:none; font-size:13px;
+    }
+    .grid3 input:focus{ border-color:var(--accent); }
+
+    .kpiRow{ display:flex; gap:12px; flex-wrap:wrap; }
+    .kpi{
+      background:#fff; border:1px solid var(--border); border-radius:12px; padding:10px 12px;
+      min-width: 180px;
+    }
+    .kpi .label{ color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.04em; }
+    .kpi .big{ font-size:22px; font-weight:700; margin-top:3px; }
+    .kpi .sub{ color:var(--muted); font-size:11px; margin-top:4px; }
+    .kpi.accent{ background:#fff7ed; border-color:#fed7aa; }
+    .kpi.accent .big{ color:#b45309; }
+
+    .vizGrid{
+      display:grid;
+      grid-template-columns: auto repeat(4, 1fr);
+      gap:4px;
+      align-items:start;
+    }
+    .vizGrid .colHeader{
+      font-size:12px; font-weight:700; text-align:center; padding:6px 4px;
+      align-self:center;
+    }
+    .vizGrid .rowHeader{
+      font-size:11px; font-weight:600; color:var(--muted); text-align:right; padding-right:10px;
+      white-space:nowrap;
+      align-self:center;
+    }
+    .vizGrid .cell{
+      display:flex; flex-direction:column; align-items:center; gap:4px;
+    }
+    .vizGrid .cellValue{
+      font-size:10px; color:var(--muted);
+    }
+    canvas{
+      image-rendering: pixelated; border-radius:8px; border:1px solid var(--border); background:#fff;
+    }
+    .ok{ color:#16a34a; }
+    .warn{ color:#d97706; }
+
+    table{ width:100%; border-collapse: collapse; font-size:12px; }
+    th, td{ border-bottom:1px solid var(--border); padding:6px 8px; text-align:left; }
+    th{ font-weight:600; }
+    .muted{ color:var(--muted); }
+
+    footer{ text-align:center; padding:24px 16px; color:var(--muted); font-size:13px; }
+  </style>
+</head>
+<body>
+<header>
+  <h1>Image Feature Extraction Demo</h1>
+  <p>
+    This page generates a toy dataset of <b>16x16</b> images: circles (class 0) vs squares (class 1), with varying size/position/noise.
+    You design <b>three 3x3 filters</b>. Each filter slides across the image, computing the dot product at each position to produce a response map.
+    After applying ReLU (clipping negatives to 0), we compute the <b>average</b> of all values in each response map, giving us <b>one number per filter</b>.
+    These 3 numbers become the <b>feature vector</b> for that image - a single row in our dataset with 3 columns.
+    A logistic regression model is then trained on all 600 feature vectors to predict whether each image is a circle or square.
+  </p>
+</header>
+
+<div class="wrap">
+  <!-- Left: Filters -->
+  <div class="card">
+    <h2>Filter Design</h2>
+    <div class="tiny">
+      Edit the 3x3 weight grids below and press <b>Run</b>. Each filter produces one feature value per image.
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="filters" id="filters"></div>
+
+    <div class="divider"></div>
+
+    <button id="btnRun">Run</button>
+    <button id="btnRandomize" style="margin-left:8px;">Randomize Weights</button>
+
+    <div class="divider"></div>
+
+    <div class="tiny">
+      Hints:
+      <br/>* Good filters often have weights that <b>sum to zero</b> - this makes them detect differences/edges rather than overall brightness.
+      <br/>* Try filters that respond to horizontal vs vertical edges, or center vs surround patterns.
+      <br/>* The response maps show ReLU(conv), so negative responses are clipped to 0.
+    </div>
+  </div>
+
+  <!-- Right: Results -->
+  <div class="card">
+    <h2>Results</h2>
+
+    <div class="kpiRow">
+      <div class="kpi">
+        <div class="label">Logistic regression accuracy</div>
+        <div class="big" id="accLabel">-</div>
+        <div class="sub" id="accNote">-</div>
+      </div>
+      <div class="kpi" style="flex:1;">
+        <div class="label">Learned weights (standardized features)</div>
+        <div id="coefWrap"></div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <h2>Filter outputs on 2 circles + 2 squares</h2>
+    <div class="tiny muted" style="margin-bottom:8px;">
+      For each example: the input image, then each filter's <b>ReLU(conv)</b> map, and the pooled scalar feature (<b>global mean</b>).
+    </div>
+    <div id="examples" class="vizGrid"></div>
+  </div>
+</div>
+
+<script>
+/* ------------------------- Deterministic RNG ------------------------- */
+function mulberry32(seed){
+  let t = seed >>> 0;
+  return function() {
+    t += 0x6D2B79F5;
+    let r = Math.imul(t ^ (t >>> 15), 1 | t);
+    r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
+    return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const RNG = mulberry32(1337);
+
+function rand() { return RNG(); }
+function randn() { // Box-Muller using seeded uniform
+  let u = 0, v = 0;
+  while (u === 0) u = rand();
+  while (v === 0) v = rand();
+  return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+}
+const clamp = (x,a,b)=>Math.max(a,Math.min(b,x));
+
+/* ------------------------- Image + Conv ------------------------- */
+const IMG = 16;
+
+function zeros2d(h,w){
+  const a = new Array(h);
+  for (let y=0;y<h;y++) a[y] = new Float32Array(w);
+  return a;
+}
+
+function convolveSame(img, k3){
+  const out = zeros2d(IMG, IMG);
+  for (let y=0;y<IMG;y++){
+    for (let x=0;x<IMG;x++){
+      let s=0;
+      for (let ky=0;ky<3;ky++){
+        for (let kx=0;kx<3;kx++){
+          const iy = y + ky - 1;
+          const ix = x + kx - 1;
+          const v = (iy<0||iy>=IMG||ix<0||ix>=IMG) ? 0 : img[iy][ix];
+          s += v * k3[ky][kx];
+        }
+      }
+      out[y][x]=s;
+    }
+  }
+  return out;
+}
+
+function relu2d(a){
+  const b = zeros2d(a.length, a[0].length);
+  for (let y=0;y<a.length;y++) for (let x=0;x<a[0].length;x++) b[y][x]=Math.max(0,a[y][x]);
+  return b;
+}
+
+function mean2d(a){
+  let s=0;
+  for (let y=0;y<a.length;y++) for (let x=0;x<a[0].length;x++) s += a[y][x];
+  return s/(a.length*a[0].length);
+}
+
+/* ------------------------- Dataset (fixed on load) ------------------------- */
+function makeShape(label){
+  // label 0=circle, 1=square
+  const img = zeros2d(IMG, IMG);
+
+  // fixed distribution (but random draws are seeded)
+  const noiseSigma = 0.12;
+  const margin = 3.5;
+
+  // size and position vary across samples
+  const size = 3.2 + rand()*3.4; // roughly radius or half-side in [3.2, 6.6]
+  const cx = margin + rand()*(IMG-2*margin);
+  const cy = margin + rand()*(IMG-2*margin);
+
+  for (let y=0;y<IMG;y++){
+    for (let x=0;x<IMG;x++){
+      const dx = x - cx;
+      const dy = y - cy;
+      let val = 0;
+
+      if (label===0){
+        // filled circle
+        val = (dx*dx + dy*dy <= size*size) ? 1 : 0;
+      } else {
+        // filled square
+        val = (Math.abs(dx) <= size && Math.abs(dy) <= size) ? 1 : 0;
+      }
+
+      val = clamp(val + noiseSigma*randn(), 0, 1);
+      img[y][x] = val;
+    }
+  }
+  return img;
+}
+
+function makeDataset(n){
+  const Ximg = [];
+  const y = [];
+  const n0 = Math.floor(n/2);
+  const n1 = n - n0;
+  for (let i=0;i<n0;i++){ Ximg.push(makeShape(0)); y.push(0); }
+  for (let i=0;i<n1;i++){ Ximg.push(makeShape(1)); y.push(1); }
+  // no shuffle needed; keep stable ordering
+  return {Ximg, y};
+}
+
+const DATASET = makeDataset(600); // static
+
+/* ------------------------- Feature extraction ------------------------- */
+function extractFeaturesAndMaps(Ximg, filters){
+  const n = Ximg.length;
+  const f = filters.length; // should be 3
+  const X = new Array(n);
+  const maps = new Array(n); // maps[i][j] is 16x16
+  for (let i=0;i<n;i++){
+    const row = new Float32Array(f);
+    const mrow = new Array(f);
+    for (let j=0;j<f;j++){
+      let m = convolveSame(Ximg[i], filters[j]);
+      m = relu2d(m);                 // fixed nonlinearity
+      mrow[j] = m;
+      row[j] = mean2d(m);            // fixed global average pooling
+    }
+    X[i] = row;
+    maps[i] = mrow;
+  }
+  return {X, maps};
+}
+
+/* ------------------------- Logistic regression via IRLS ------------------------- */
+function sigmoid(z){
+  if (z>=0){ const ez=Math.exp(-z); return 1/(1+ez); }
+  const ez=Math.exp(z); return ez/(1+ez);
+}
+
+function standardize3(X){
+  const n = X.length;
+  const mu = new Float32Array(3);
+  const sig = new Float32Array(3);
+
+  for (let j=0;j<3;j++){
+    let s=0;
+    for (let i=0;i<n;i++) s += X[i][j];
+    mu[j] = s/n;
+
+    let v=0;
+    for (let i=0;i<n;i++){
+      const d = X[i][j]-mu[j];
+      v += d*d;
+    }
+    sig[j] = Math.sqrt(v/n);
+    if (sig[j] < 1e-8) sig[j] = 1.0;
+  }
+
+  const Z = new Array(n);
+  for (let i=0;i<n;i++){
+    const z = new Float32Array(3);
+    for (let j=0;j<3;j++) z[j] = (X[i][j]-mu[j])/sig[j];
+    Z[i]=z;
+  }
+  return {Z, mu, sig};
+}
+
+function solve4x4(A, b){
+  // Gaussian elimination for 4x4
+  const M = A.map(r => r.slice());
+  const x = b.slice();
+
+  for (let i=0;i<4;i++){
+    // pivot
+    let piv=i;
+    for (let r=i+1;r<4;r++) if (Math.abs(M[r][i]) > Math.abs(M[piv][i])) piv=r;
+    if (piv!==i){ [M[i],M[piv]]=[M[piv],M[i]]; [x[i],x[piv]]=[x[piv],x[i]]; }
+
+    const d = M[i][i] || 1e-12;
+    for (let c=i;c<4;c++) M[i][c] /= d;
+    x[i] /= d;
+
+    for (let r=0;r<4;r++){
+      if (r===i) continue;
+      const f = M[r][i];
+      for (let c=i;c<4;c++) M[r][c] -= f*M[i][c];
+      x[r] -= f*x[i];
+    }
+  }
+  return x;
+}
+
+function fitLogRegIRLS(Z, y){
+  // Z: standardized features, n x 3
+  // Model: p = sigmoid(b + w*z)
+  // IRLS / Newton with small L2 on weights (not intercept) for stability
+  const n = Z.length;
+  let w = [0,0,0];
+  let b = 0;
+  const lambda = 1e-2; // internal; not exposed
+
+  for (let it=0; it<25; it++){
+    // Build gradient and Hessian for 4 params [b,w0,w1,w2]
+    let gb = 0;
+    let gw = [0,0,0];
+    let H = [
+      [0,0,0,0],
+      [0,0,0,0],
+      [0,0,0,0],
+      [0,0,0,0],
+    ];
+
+    for (let i=0;i<n;i++){
+      const zi = Z[i];
+      const z = b + w[0]*zi[0] + w[1]*zi[1] + w[2]*zi[2];
+      const p = sigmoid(z);
+      const r = p - y[i];
+      const s = p*(1-p);
+
+      gb += r;
+      gw[0] += r*zi[0];
+      gw[1] += r*zi[1];
+      gw[2] += r*zi[2];
+
+      // Hessian accumulation: s * [1,zi]^T [1,zi]
+      const v = [1, zi[0], zi[1], zi[2]];
+      for (let a=0;a<4;a++){
+        for (let c=0;c<4;c++){
+          H[a][c] += s * v[a] * v[c];
+        }
+      }
+    }
+
+    // Add L2 (weights only)
+    gw[0] += lambda*w[0];
+    gw[1] += lambda*w[1];
+    gw[2] += lambda*w[2];
+    H[1][1] += lambda;
+    H[2][2] += lambda;
+    H[3][3] += lambda;
+
+    // Solve for Newton step: H * delta = grad
+    const grad = [gb, gw[0], gw[1], gw[2]];
+    const delta = solve4x4(H, grad);
+
+    // Update (note: Newton step subtract)
+    b -= delta[0];
+    w[0] -= delta[1];
+    w[1] -= delta[2];
+    w[2] -= delta[3];
+
+    // Convergence check
+    const stepNorm = Math.sqrt(delta.reduce((s,x)=>s+x*x,0));
+    if (stepNorm < 1e-6) break;
+  }
+
+  return {b, w};
+}
+
+function predict(Z, model){
+  const n = Z.length;
+  const p = new Float32Array(n);
+  for (let i=0;i<n;i++){
+    const zi = Z[i];
+    const z = model.b + model.w[0]*zi[0] + model.w[1]*zi[1] + model.w[2]*zi[2];
+    p[i] = sigmoid(z);
+  }
+  return p;
+}
+
+function accuracy(p, y){
+  let correct=0;
+  for (let i=0;i<y.length;i++){
+    const pred = p[i] >= 0.5 ? 1 : 0;
+    if (pred === y[i]) correct++;
+  }
+  return correct / y.length;
+}
+
+/* ------------------------- Rendering ------------------------- */
+function drawGrayscale(canvas, img2d, scale=10, vmin=null, vmax=null){
+  const h = img2d.length, w = img2d[0].length;
+  canvas.width = w*scale;
+  canvas.height = h*scale;
+  const ctx = canvas.getContext("2d");
+  const im = ctx.createImageData(w*scale, h*scale);
+
+  if (vmin===null || vmax===null){
+    vmin = Infinity; vmax=-Infinity;
+    for (let y=0;y<h;y++) for (let x=0;x<w;x++){
+      const v=img2d[y][x]; if (v<vmin) vmin=v; if (v>vmax) vmax=v;
+    }
+    if (Math.abs(vmax-vmin) < 1e-8) vmax = vmin + 1e-8;
+  }
+
+  for (let y=0;y<h;y++){
+    for (let x=0;x<w;x++){
+      const t = clamp((img2d[y][x]-vmin)/(vmax-vmin), 0, 1);
+      const g = Math.round(t*255);
+      for (let dy=0;dy<scale;dy++) for (let dx=0;dx<scale;dx++){
+        const yy=y*scale+dy, xx=x*scale+dx;
+        const idx=(yy*(w*scale)+xx)*4;
+        im.data[idx+0]=g; im.data[idx+1]=g; im.data[idx+2]=g; im.data[idx+3]=255;
+      }
+    }
+  }
+  ctx.putImageData(im,0,0);
+}
+
+function renderCoefTable(model, mu, sig){
+  const wrap = document.getElementById("coefWrap");
+  wrap.innerHTML = "";
+
+  const table = document.createElement("table");
+  table.innerHTML = `
+    <thead>
+      <tr>
+        <th>Param</th>
+        <th>Value</th>
+        <th class="muted">Meaning</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td><b>b</b></td><td>${model.b.toFixed(4)}</td><td class="muted">intercept</td></tr>
+      <tr><td><b>w1</b></td><td class="${model.w[0]>=0 ? "ok":"warn"}">${model.w[0].toFixed(4)}</td><td class="muted">weight for Filter 1 feature</td></tr>
+      <tr><td><b>w2</b></td><td class="${model.w[1]>=0 ? "ok":"warn"}">${model.w[1].toFixed(4)}</td><td class="muted">weight for Filter 2 feature</td></tr>
+      <tr><td><b>w3</b></td><td class="${model.w[2]>=0 ? "ok":"warn"}">${model.w[2].toFixed(4)}</td><td class="muted">weight for Filter 3 feature</td></tr>
+    </tbody>
+  `;
+  wrap.appendChild(table);
+}
+
+function renderExamples(examples, filters, maps, X){
+  const exWrap = document.getElementById("examples");
+  exWrap.innerHTML = "";
+
+  // Column headers: empty corner + Input + Filter 1-3
+  const corner = document.createElement("div");
+  exWrap.appendChild(corner);
+
+  const colHeaders = ["Input", "Filter 1", "Filter 2", "Filter 3"];
+  for (const h of colHeaders){
+    const hd = document.createElement("div");
+    hd.className = "colHeader";
+    hd.textContent = h;
+    exWrap.appendChild(hd);
+  }
+
+  // Rows: one per example
+  for (const ex of examples){
+    // Row header
+    const rowHd = document.createElement("div");
+    rowHd.className = "rowHeader";
+    rowHd.textContent = ex.label;
+    exWrap.appendChild(rowHd);
+
+    // Input cell
+    const inputCell = document.createElement("div");
+    inputCell.className = "cell";
+    const can0 = document.createElement("canvas");
+    drawGrayscale(can0, DATASET.Ximg[ex.i], 10, 0, 1);
+    inputCell.appendChild(can0);
+    exWrap.appendChild(inputCell);
+
+    // Filter output cells
+    for (let j=0; j<filters.length; j++){
+      const cell = document.createElement("div");
+      cell.className = "cell";
+      const can = document.createElement("canvas");
+      drawGrayscale(can, maps[ex.i][j], 10);
+      const val = document.createElement("div");
+      val.className = "cellValue";
+      val.textContent = `mean=${X[ex.i][j].toFixed(3)}`;
+      cell.appendChild(can);
+      cell.appendChild(val);
+      exWrap.appendChild(cell);
+    }
+  }
+}
+
+/* ------------------------- Filters UI (exactly 3 filters) ------------------------- */
+let filters = [
+  [[-1,0,1],[-1,0,1],[-1,0,1]],     // vertical edge-ish
+  [[-1,-1,-1],[0,0,0],[1,1,1]],     // horizontal edge-ish
+  [[0,-1,0],[-1,4,-1],[0,-1,0]],    // center blob / laplacian-ish
+].map(k => k.map(r => r.slice()));
+
+function renderFiltersUI(){
+  const wrap = document.getElementById("filters");
+  wrap.innerHTML = "";
+
+  for (let idx=0; idx<3; idx++){
+    const fb = document.createElement("div");
+    fb.className = "filterBox";
+
+    const head = document.createElement("div");
+    head.className = "filterHead";
+    head.innerHTML = `<div><b>Filter ${idx+1}</b></div>`;
+    fb.appendChild(head);
+
+    const grid = document.createElement("div");
+    grid.className = "grid3";
+    for (let y=0;y<3;y++) for (let x=0;x<3;x++){
+      const inp = document.createElement("input");
+      inp.type = "number";
+      inp.step = "0.1";
+      inp.value = String(filters[idx][y][x]);
+      inp.oninput = () => { filters[idx][y][x] = parseFloat(inp.value); };
+      grid.appendChild(inp);
+    }
+    fb.appendChild(grid);
+    wrap.appendChild(fb);
+  }
+}
+
+/* ------------------------- Run pipeline ------------------------- */
+function pickTwoPerClass(){
+  const circles = [];
+  const squares = [];
+  for (let i=0;i<DATASET.y.length;i++){
+    if (DATASET.y[i]===0 && circles.length<2) circles.push(i);
+    if (DATASET.y[i]===1 && squares.length<2) squares.push(i);
+    if (circles.length===2 && squares.length===2) break;
+  }
+  return [
+    {i: circles[0], label:"Circle Example #1"},
+    {i: circles[1], label:"Circle Example #2"},
+    {i: squares[0], label:"Square Example #1"},
+    {i: squares[1], label:"Square Example #2"},
+  ];
+}
+
+function run(){
+  // 1) Extract features (3 scalars/sample) + maps for visualization
+  const {X, maps} = extractFeaturesAndMaps(DATASET.Ximg, filters);
+
+  // 2) Fit logistic regression on the entire dataset (using standardized features)
+  const {Z, mu, sig} = standardize3(X);
+  const model = fitLogRegIRLS(Z, DATASET.y);
+
+  // 3) Accuracy on the same dataset
+  const p = predict(Z, model);
+  const acc = accuracy(p, DATASET.y);
+
+  document.getElementById("accLabel").textContent = (acc*100).toFixed(1) + "%";
+  document.getElementById("accNote").textContent = "Measured on the same dataset used for fitting (training accuracy).";
+
+  // 4) Show weights (still not exposing any fitting knobs)
+  renderCoefTable(model, mu, sig);
+
+  // 5) Update example visualizations
+  const examples = pickTwoPerClass();
+  renderExamples(examples, filters, maps, X);
+}
+
+document.getElementById("btnRun").onclick = run;
+
+document.getElementById("btnRandomize").onclick = function(){
+  for (let idx=0; idx<3; idx++){
+    for (let y=0; y<3; y++){
+      for (let x=0; x<3; x++){
+        filters[idx][y][x] = -2 + rand()*4; // uniform [-2, 2]
+      }
+    }
+  }
+  renderFiltersUI();
+  run();
+};
+
+/* init */
+renderFiltersUI();
+run();
+</script>
+
+<footer>By: Caleb Robinson, 2026</footer>
+
+</body>
+</html>
