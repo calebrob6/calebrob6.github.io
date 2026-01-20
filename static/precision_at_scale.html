@@ -1,0 +1,805 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Precision / Recall / Prevalence @ Scale Playground</title>
+
+  <!-- MathJax (for equations in the explanation) -->
+  <script>
+    window.MathJax = {
+      tex: { inlineMath: [['\\(','\\)'], ['$', '$']] },
+      options: { skipHtmlTags: ['script','noscript','style','textarea','pre','code'] }
+    };
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+
+  <style>
+    :root{
+      --bg: #f6f7f9;
+      --card: #ffffff;
+      --ink: #111827;
+      --muted:#6b7280;
+      --border:#e5e7eb;
+      --shadow: 0 10px 30px rgba(0,0,0,.06);
+      --accent:#6d28d9;
+      --accent2:#2563eb;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+    }
+    html,body{height:100%}
+    body{ margin:0; background:var(--bg); color:var(--ink); font-family:var(--sans); }
+    .wrap{max-width:1150px; margin:24px auto; padding:0 16px;}
+    h1{font-size:22px; margin:0 0 8px;}
+    p{margin:8px 0; color:var(--muted); line-height:1.5}
+    .grid{ display:grid; grid-template-columns: 360px 1fr; gap:16px; align-items:start; }
+    @media (max-width: 980px){ .grid{grid-template-columns:1fr;} }
+
+    .card{
+      background:var(--card);
+      border:1px solid var(--border);
+      border-radius:14px;
+      box-shadow:var(--shadow);
+      padding:14px 14px 12px;
+      overflow:hidden;
+    }
+    .section-title{
+      font-size:12px;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+      color:var(--muted);
+      margin:0 0 10px;
+    }
+    .row{display:flex; gap:10px; align-items:center; margin:10px 0;}
+    .row label{flex: 1 1 auto; font-size:13px;}
+    .row .val{
+      width:98px; text-align:right; font-family:var(--mono);
+      font-size:12px; color:var(--ink);
+      background:#f9fafb; border:1px solid var(--border);
+      border-radius:10px; padding:6px 8px;
+    }
+    input[type="range"]{width:100%;}
+    input[type="number"]{
+      width:140px; font-family:var(--mono);
+      border:1px solid var(--border); border-radius:10px;
+      padding:6px 8px; background:#fff;
+    }
+    .small{font-size:12px; color:var(--muted)}
+    .pills{display:flex; gap:8px; flex-wrap:wrap; margin:8px 0 0;}
+    .pill{
+      display:inline-flex; align-items:center; gap:8px;
+      background:#f9fafb; border:1px solid var(--border);
+      border-radius:999px; padding:7px 10px;
+      font-size:12px; color:var(--muted);
+    }
+    .pill b{color:var(--ink); font-family:var(--mono); font-weight:800;}
+
+    .metrics{
+      display:grid; grid-template-columns: repeat(3, 1fr);
+      gap:10px;
+      margin-top:10px;
+    }
+    @media (max-width: 700px){ .metrics{grid-template-columns:1fr;} }
+    .metric{
+      border:1px solid var(--border); border-radius:14px;
+      padding:10px 10px 9px; background:#fff;
+    }
+    .metric .k{font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.08em;}
+    .metric .v{font-size:20px; margin-top:5px; font-family:var(--mono); font-weight:900;}
+    .metric .sub{font-size:12px; color:var(--muted); margin-top:2px; font-family:var(--mono);}
+
+    .two{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    @media (max-width: 980px){ .two{grid-template-columns:1fr;} }
+
+    .metrics-panel{
+      padding:12px; border-radius:12px;
+    }
+    .metrics-panel.validation{
+      background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+      border:1px solid #bae6fd;
+    }
+    .metrics-panel.deployment{
+      background: linear-gradient(135deg, #fefce8 0%, #fef3c7 100%);
+      border:1px solid #fde68a;
+    }
+    .area-comparison{
+      font-size:12px; color:var(--muted); margin-top:8px;
+      padding:8px 10px; background:#f9fafb; border-radius:8px;
+      border-left:3px solid var(--accent);
+    }
+
+    .plot-container{
+      position:relative;
+      width:100%;
+      max-width:100%;
+      height:240px;
+      border:1px solid var(--border);
+      border-radius:14px;
+      background:#fff;
+      overflow:hidden;
+    }
+    .plot-container canvas{
+      display:block;
+    }
+
+    .radio{
+      display:flex; flex-direction:column; gap:8px; margin-top:10px;
+    }
+    .radio label{
+      display:flex; gap:10px; align-items:flex-start;
+      font-size:13px; color:var(--ink);
+      padding:10px; border:1px solid var(--border); border-radius:14px;
+      background:#fff;
+      cursor:pointer;
+    }
+    .radio small{display:block; color:var(--muted); margin-top:2px;}
+    .radio input{margin-top:2px;}
+
+    .note{
+      margin-top:10px;
+      border-left:3px solid var(--border);
+      padding-left:10px;
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.55;
+    }
+
+    .mono{font-family:var(--mono);}
+    .eq{font-family:var(--mono); color:var(--ink); background:#f9fafb; border:1px solid var(--border); padding:2px 6px; border-radius:8px;}
+    hr{border:none;border-top:1px solid var(--border); margin:14px 0;}
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <h1>Precision / Recall / Prevalence @ Scale Playground</h1>
+    <p>
+      Fix a model threshold via <span class="mono">TPR</span> and <span class="mono">FPR</span>, then see how precision and false positives change when you
+      deploy to larger areas and/or regions where the positive class is rarer.
+    </p>
+
+    <h2 style="font-size:16px; margin:20px 0 12px;">What's going on when "precision looks great" on a balanced set, but you see many false positives when you run your model at scale?</h2>
+
+    <p>
+      Let \(\pi = P(Y=1)\) be the true prevalence of a class you care about in the region you <i>evaluate on</i>, and let
+      \(\text{TPR} = P(\hat Y=1 \mid Y=1)\) and \(\text{FPR} = P(\hat Y=1 \mid Y=0)\) be properties of the model you trained for detecting this class at a fixed threshold.
+      Precision is \(\text{Prec}=P(Y=1\mid \hat Y=1)\). By Bayes' rule:
+    </p>
+
+    <p>
+      \[
+        \text{Prec}(\pi) = \frac{\text{TPR}\,\pi}{\text{TPR}\,\pi + \text{FPR}\,(1-\pi)}.
+      \]
+    </p>
+
+    <p>
+      Two different "scale" effects get mixed together:
+    </p>
+
+    <p>
+      <b>(A) Base-rate (prevalence) effect:</b>
+      Precision depends on \(\pi\). If you move from a balanced evaluation (\(\pi=0.5\)) to a deployment region where \(\pi\) is tiny,
+      precision can drop sharply unless \(\text{FPR}\) is extremely small.
+    </p>
+
+    <p>
+      <b>(B) Volume (area) effect:</b>
+      The <i>count</i> of false positives depends on how many negatives you scan. If you deploy to an area \(k\) times larger than your validation set, expected false positives scale by \(k\):
+    </p>
+
+    <p>
+      \[
+        \mathbb{E}[\text{FP}] \approx \text{FPR}\,(1-\pi)\,k \cdot N_0.
+      \]
+    </p>
+
+    <p>
+      Notice that \(\mathbb{E}[\text{FP}]\) grows linearly with deployment area, even if precision stays unchanged.
+      So you can have a model that "looks good" on balanced tests but still produces a painful number of false alarms when deployment is huge and the landscape is mostly negative.
+    </p>
+
+    <p style="margin-bottom:16px;">
+      In this playground, the validation set is fixed at prevalence \(\pi_0=0.5\) and size.
+      You can pick a TPR and FPR, then simulate scaling the model over a larger deployment area and optionally change the deployment prevalence \(\pi\) to see how precision and false positives change.
+    </p>
+
+    <div class="grid">
+      <!-- Controls -->
+      <div class="card">
+        <div class="section-title">Model (threshold-fixed)</div>
+
+        <div class="row">
+          <label for="tpr">TPR (Recall / Sensitivity)</label>
+          <div class="val" id="tprVal">0.90</div>
+        </div>
+        <input id="tpr" type="range" min="0" max="1" step="0.001" value="0.90" />
+
+        <div class="row">
+          <label for="fpr">FPR (False Positive Rate)</label>
+          <div class="val" id="fprVal">0.0010</div>
+        </div>
+        <input id="fpr" type="range" min="0" max="0.05" step="0.0001" value="0.0010" />
+        <div class="small">When positives are rare, precision is often dominated by <span class="mono">FPR</span>.</div>
+
+        <hr />
+
+        <div class="section-title">Deployment scale</div>
+
+        <div class="row">
+          <label for="scaleLog">Deployment size (multiple of validation)</label>
+          <div class="val" id="scaleVal">1000x</div>
+        </div>
+        <input id="scaleLog" type="range" min="0" max="4" step="0.01" value="3" />
+        <div class="small">How many times larger is deployment vs validation? (1x to 10000x)</div>
+        <div class="area-comparison" id="areaComparison">
+          Validation: ~1,750 km<sup>2</sup> (1.3x Phoenix, AZ). Deployment: loading...
+        </div>
+
+        <hr />
+
+        <div class="section-title">Deployment prevalence</div>
+
+        <div class="radio" role="radiogroup" aria-label="Prevalence scenario">
+          <label>
+            <input type="radio" name="piScenario" value="same" checked />
+            <div>
+              <div>Same prevalence as validation (<span class="mono">pi = 0.5</span>)</div>
+              <small>Precision stays the same; false positives grow due to more samples.</small>
+            </div>
+          </label>
+          <label>
+            <input type="radio" name="piScenario" value="different" />
+            <div>
+              <div>Different deployment prevalence (choose pi)</div>
+              <small>Precision changes because \(\text{Prec}(\pi)\) depends on prevalence.</small>
+            </div>
+          </label>
+        </div>
+
+        <div id="piBlock" style="margin-top:10px; opacity:.55; pointer-events:none;">
+          <div class="row" style="align-items:flex-start">
+            <div style="flex:1 1 auto">
+              <label for="piTest" style="font-size:13px;">Deployment prevalence pi</label>
+              <div class="small">Fraction of true positives in deployment region.</div>
+            </div>
+            <div class="val" id="piTestVal">0.0100</div>
+          </div>
+          <input id="piTest" type="range" min="-6" max="0" step="0.01" value="-2" />
+          <div class="small">Log scale: -2 = 0.01, -3 = 0.001, -4 = 0.0001</div>
+        </div>
+      </div>
+
+      <!-- Output + Viz -->
+      <div class="card">
+        <div class="two">
+          <div class="metrics-panel validation">
+            <div class="section-title">Validation (pi=0.5, N=1000)</div>
+            <div class="metrics">
+              <div class="metric">
+                <div class="k">Precision</div>
+                <div class="v" id="prec0">-</div>
+                <div class="sub" id="prec0sub">-</div>
+              </div>
+              <div class="metric">
+                <div class="k">Recall</div>
+                <div class="v" id="rec0">-</div>
+                <div class="sub">= TPR</div>
+              </div>
+              <div class="metric">
+                <div class="k">False Positives</div>
+                <div class="v" id="fp0">-</div>
+                <div class="sub" id="fp0sub">-</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="metrics-panel deployment">
+            <div class="section-title">Deployment (pi, N x scale)</div>
+            <div class="metrics">
+              <div class="metric">
+                <div class="k">Precision</div>
+                <div class="v" id="precN">-</div>
+                <div class="sub" id="precNsub">-</div>
+              </div>
+              <div class="metric">
+                <div class="k">Recall</div>
+                <div class="v" id="recN">-</div>
+                <div class="sub">= TPR</div>
+              </div>
+              <div class="metric">
+                <div class="k">False Positives</div>
+                <div class="v" id="fpN">-</div>
+                <div class="sub" id="fpNsub">-</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <hr />
+
+        <div class="section-title">Precision vs prevalence</div>
+        <div class="plot-container" id="plotContainer1">
+          <canvas id="plot1"></canvas>
+        </div>
+        <div class="small" id="plotCaption1" style="margin-top:8px;"></div>
+
+        <div style="margin-top:16px;">
+          <div class="section-title">False positives vs deployment scale</div>
+          <div class="plot-container" id="plotContainer2">
+            <canvas id="plot2"></canvas>
+          </div>
+          <div class="small" id="plotCaption2" style="margin-top:8px;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+(function(){
+  const el = (id)=>document.getElementById(id);
+
+  // Fixed validation set
+  const PI0 = 0.5;
+  const N0  = 1000; // samples
+
+  // Controls
+  const tpr = el("tpr"), fpr = el("fpr"), scaleLog = el("scaleLog");
+  const piTest = el("piTest");
+  const piBlock = el("piBlock");
+
+  // Readouts
+  const tprVal = el("tprVal"), fprVal = el("fprVal"), scaleVal = el("scaleVal"), piTestVal = el("piTestVal");
+
+  // Outputs
+  const prec0 = el("prec0"), rec0 = el("rec0"), fp0 = el("fp0");
+  const precN = el("precN"), recN = el("recN"), fpN = el("fpN");
+  const prec0sub = el("prec0sub"), fp0sub = el("fp0sub"), precNsub = el("precNsub"), fpNsub = el("fpNsub");
+
+  // Plots
+  const plotContainer1 = el("plotContainer1");
+  const plotContainer2 = el("plotContainer2");
+  const canvas1 = el("plot1");
+  const canvas2 = el("plot2");
+  const plotCaption1 = el("plotCaption1");
+  const plotCaption2 = el("plotCaption2");
+  const areaComparison = el("areaComparison");
+
+  // Area constants (km^2)
+  const VALIDATION_AREA_KM2 = 1750; // Approximate area for validation set
+  const PHOENIX_AREA_KM2 = 1341;    // Phoenix, AZ city area
+  
+  // Area benchmarks for comparison (km^2)
+  const areaBenchmarks = [
+    {name: "Phoenix, AZ", area: 1341},
+    {name: "Rhode Island", area: 4001},
+    {name: "Los Angeles metro", area: 12562},
+    {name: "New Jersey", area: 22591},
+    {name: "West Virginia", area: 62755},
+    {name: "Florida", area: 170312},
+    {name: "California", area: 423970},
+    {name: "Texas", area: 695662},
+    {name: "Alaska", area: 1723337},
+    {name: "India", area: 3287263},
+    {name: "continental US", area: 8080464},
+    {name: "Earth's land area", area: 150000000}
+  ];
+
+  function getAreaComparison(areaKm2){
+    // Find best benchmark (one that's close but not larger)
+    for(let i = areaBenchmarks.length - 1; i >= 0; i--){
+      if(areaKm2 >= areaBenchmarks[i].area * 0.5){
+        const ratio = areaKm2 / areaBenchmarks[i].area;
+        if(ratio < 1.05){
+          return "roughly the size of " + areaBenchmarks[i].name;
+        } else if(ratio < 10){
+          return "~" + ratio.toFixed(1) + "x " + areaBenchmarks[i].name;
+        } else {
+          // Look for next larger benchmark
+          if(i < areaBenchmarks.length - 1){
+            const nextRatio = areaKm2 / areaBenchmarks[i+1].area;
+            if(nextRatio >= 0.1){
+              return "~" + nextRatio.toFixed(1) + "x " + areaBenchmarks[i+1].name;
+            }
+          }
+          return "~" + ratio.toFixed(0) + "x " + areaBenchmarks[i].name;
+        }
+      }
+    }
+    return "smaller than " + areaBenchmarks[0].name;
+  }
+
+  function updateAreaComparison(scale){
+    const deployArea = VALIDATION_AREA_KM2 * scale;
+    const deployComparison = getAreaComparison(deployArea);
+    
+    const validationRatio = (VALIDATION_AREA_KM2 / PHOENIX_AREA_KM2).toFixed(1);
+    const deployAreaFmt = deployArea >= 1000000 
+      ? (deployArea / 1000000).toFixed(1) + "M" 
+      : deployArea >= 1000 
+        ? Math.round(deployArea).toLocaleString()
+        : deployArea.toFixed(0);
+    
+    areaComparison.innerHTML = 
+      "<b>Validation:</b> ~" + VALIDATION_AREA_KM2.toLocaleString() + " km<sup>2</sup> (" + 
+      validationRatio + "x Phoenix, AZ)<br>" +
+      "<b>Deployment:</b> ~" + deployAreaFmt + " km<sup>2</sup> (" + deployComparison + ")";
+  }
+
+  function clamp(x,a,b){ return Math.max(a, Math.min(b, x)); }
+  function fmtPct(x){ return (100*x).toFixed(2) + "%"; }
+  function fmtFloat(x){
+    if (x === 0) return "0";
+    return (x >= 0.01) ? x.toFixed(4) : x.toExponential(2);
+  }
+  function fmtInt(x){ return Math.round(x).toLocaleString(); }
+  function pow10(x){ return Math.pow(10, x); }
+
+  function scenario(){
+    return document.querySelector('input[name="piScenario"]:checked')?.value || "same";
+  }
+
+  function precisionFromRates(TPR, FPR, pi){
+    const denom = (TPR*pi + FPR*(1-pi));
+    return (denom <= 0) ? 1.0 : (TPR*pi)/denom;
+  }
+
+  function expectedCounts(TPR, FPR, pi, numSamples){
+    const P = pi * numSamples;
+    const N = (1 - pi) * numSamples;
+
+    const TP = TPR * P;
+    const FN = (1 - TPR) * P;
+    const FP = FPR * N;
+    const TN = (1 - FPR) * N;
+
+    const predPos = TP + FP;
+    const precision = (predPos <= 0) ? 1.0 : TP / predPos;
+    const recall = TPR;
+
+    return {numSamples, P, N, TP, FN, FP, TN, predPos, precision, recall};
+  }
+
+  function setupCanvas(canvas, container, lastWidthRef){
+    const rect = container.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    const w = Math.floor(rect.width);
+    const h = Math.floor(rect.height);
+    
+    // Only resize if width changed significantly (avoid jitter)
+    if (Math.abs(w - lastWidthRef.value) > 1) {
+      canvas.width = w * dpr;
+      canvas.height = h * dpr;
+      canvas.style.width = w + "px";
+      canvas.style.height = h + "px";
+      lastWidthRef.value = w;
+    }
+    
+    const ctx = canvas.getContext("2d");
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    return {w, h, ctx};
+  }
+
+  // Plot 1: Precision vs prevalence
+  const lastWidth1Ref = {value: 0};
+  function drawPlot1(params){
+    const {TPR, FPR, piN} = params;
+    const {w, h, ctx} = setupCanvas(canvas1, plotContainer1, lastWidth1Ref);
+    
+    ctx.clearRect(0,0,w,h);
+    
+    const mL=50, mR=20, mT=20, mB=40;
+    const x0=mL, x1=w-mR, y0=h-mB, y1=mT;
+    const plotW = x1-x0, plotH = y0-y1;
+
+    // Background
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, w, h);
+
+    // Axes
+    ctx.strokeStyle = "#e5e7eb";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x0, y1);
+    ctx.lineTo(x0, y0);
+    ctx.lineTo(x1, y0);
+    ctx.stroke();
+
+    // Labels
+    ctx.fillStyle = "#6b7280";
+    ctx.font = "11px -apple-system, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("prevalence (log scale)", (x0+x1)/2, h-8);
+    
+    ctx.save();
+    ctx.translate(12, (y0+y1)/2);
+    ctx.rotate(-Math.PI/2);
+    ctx.textAlign = "center";
+    ctx.fillText("precision", 0, 0);
+    ctx.restore();
+
+    const xmin = -5, xmax = 0; // log10(pi)
+    const ymin = 0, ymax = 1;
+
+    function Xp(logpi){ return x0 + (logpi - xmin) * plotW/(xmax-xmin); }
+    function Yp(p){ return y0 - (p - ymin) * plotH/(ymax-ymin); }
+
+    // Grid
+    ctx.strokeStyle = "#f3f4f6";
+    ctx.fillStyle = "#9ca3af";
+    ctx.font = "10px -apple-system, sans-serif";
+    ctx.textAlign = "center";
+    
+    for(let k=xmin; k<=xmax; k++){
+      const xx = Xp(k);
+      ctx.beginPath();
+      ctx.moveTo(xx, y1);
+      ctx.lineTo(xx, y0);
+      ctx.stroke();
+      const lab = k === 0 ? "1" : "10^" + k;
+      ctx.fillText(lab, xx, y0+14);
+    }
+    
+    ctx.textAlign = "right";
+    for(let p=0; p<=10; p+=2){
+      const yy = Yp(p/10);
+      ctx.beginPath();
+      ctx.moveTo(x0, yy);
+      ctx.lineTo(x1, yy);
+      ctx.stroke();
+      ctx.fillText((p/10).toFixed(1), x0-4, yy+3);
+    }
+
+    // Curve
+    ctx.strokeStyle = "#2563eb";
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    const steps = 100;
+    for(let i=0; i<=steps; i++){
+      const logpi = xmin + (xmax-xmin)*(i/steps);
+      const pi = Math.pow(10, logpi);
+      const pr = precisionFromRates(TPR, FPR, clamp(pi, 1e-12, 1));
+      const xx = Xp(logpi);
+      const yy = Yp(pr);
+      if(i===0) ctx.moveTo(xx, yy);
+      else ctx.lineTo(xx, yy);
+    }
+    ctx.stroke();
+
+    // Markers
+    function marker(pi, label, color, offsetY){
+      const logpi = Math.log10(Math.max(pi, 1e-6));
+      const pr = precisionFromRates(TPR, FPR, pi);
+      const xx = Xp(clamp(logpi, xmin, xmax));
+      const yy = Yp(pr);
+
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(xx, yy, 6, 0, Math.PI*2);
+      ctx.fill();
+      
+      ctx.strokeStyle = "#fff";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      ctx.fillStyle = "#111827";
+      ctx.font = "bold 10px -apple-system, sans-serif";
+      ctx.textAlign = "left";
+      ctx.fillText(label, xx+10, yy+3+offsetY);
+    }
+    
+    marker(PI0, "Validation: " + fmtPct(precisionFromRates(TPR, FPR, PI0)), "#111827", -8);
+    if(piN !== PI0){
+      marker(piN, "Deployment: " + fmtPct(precisionFromRates(TPR, FPR, piN)), "#6d28d9", 8);
+    }
+
+    plotCaption1.textContent = "Precision drops as prevalence decreases (more negatives to produce false positives).";
+  }
+
+  // Plot 2: FP vs scale
+  const lastWidth2Ref = {value: 0};
+  function drawPlot2(params){
+    const {TPR, FPR, piN, scale} = params;
+    const {w, h, ctx} = setupCanvas(canvas2, plotContainer2, lastWidth2Ref);
+    
+    ctx.clearRect(0,0,w,h);
+    
+    const mL=50, mR=20, mT=20, mB=40;
+    const x0=mL, x1=w-mR, y0=h-mB, y1=mT;
+    const plotW = x1-x0, plotH = y0-y1;
+
+    // Background
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, w, h);
+
+    // Axes
+    ctx.strokeStyle = "#e5e7eb";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x0, y1);
+    ctx.lineTo(x0, y0);
+    ctx.lineTo(x1, y0);
+    ctx.stroke();
+
+    // Labels
+    ctx.fillStyle = "#6b7280";
+    ctx.font = "11px -apple-system, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("deployment scale (x times validation)", (x0+x1)/2, h-8);
+    
+    ctx.save();
+    ctx.translate(12, (y0+y1)/2);
+    ctx.rotate(-Math.PI/2);
+    ctx.textAlign = "center";
+    ctx.fillText("false positives (log)", 0, 0);
+    ctx.restore();
+
+    const xmin = 0, xmax = 4; // log10(scale): 1x to 10000x
+    
+    // Compute y range
+    function fpFor(s, pi){
+      return FPR * (1 - pi) * N0 * s;
+    }
+    
+    const fpMin = Math.max(0.1, fpFor(1, PI0));
+    const fpMax0 = fpFor(pow10(xmax), PI0);
+    const fpMaxN = fpFor(pow10(xmax), piN);
+    const fpMax = Math.max(fpMax0, fpMaxN);
+    
+    const yLogMin = Math.floor(Math.log10(Math.max(0.1, fpMin)));
+    const yLogMax = Math.ceil(Math.log10(fpMax + 1));
+
+    function Xn(logS){ return x0 + (logS - xmin) * plotW/(xmax-xmin); }
+    function Yn(logFP){ return y0 - (logFP - yLogMin) * plotH/(yLogMax-yLogMin); }
+
+    // Grid
+    ctx.strokeStyle = "#f3f4f6";
+    ctx.fillStyle = "#9ca3af";
+    ctx.font = "10px -apple-system, sans-serif";
+    ctx.textAlign = "center";
+    
+    for(let k=xmin; k<=xmax; k++){
+      const xx = Xn(k);
+      ctx.beginPath();
+      ctx.moveTo(xx, y1);
+      ctx.lineTo(xx, y0);
+      ctx.stroke();
+      const lab = k === 0 ? "1x" : Math.pow(10, k) + "x";
+      ctx.fillText(lab, xx, y0+14);
+    }
+    
+    ctx.textAlign = "right";
+    for(let y=yLogMin; y<=yLogMax; y++){
+      const yy = Yn(y);
+      if(yy >= y1 && yy <= y0){
+        ctx.beginPath();
+        ctx.moveTo(x0, yy);
+        ctx.lineTo(x1, yy);
+        ctx.stroke();
+        ctx.fillText("10^" + y, x0-4, yy+3);
+      }
+    }
+
+    // Draw FP curves
+    function drawFPCurve(pi, color, label){
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      const steps = 100;
+      for(let i=0; i<=steps; i++){
+        const logS = xmin + (xmax-xmin)*(i/steps);
+        const s = Math.pow(10, logS);
+        const fp = fpFor(s, pi);
+        const logFP = Math.log10(Math.max(0.1, fp));
+        const xx = Xn(logS);
+        const yy = Yn(clamp(logFP, yLogMin, yLogMax));
+        if(i===0) ctx.moveTo(xx, yy);
+        else ctx.lineTo(xx, yy);
+      }
+      ctx.stroke();
+
+      // Label at end
+      const fpEnd = fpFor(pow10(xmax), pi);
+      const logFPEnd = Math.log10(Math.max(0.1, fpEnd));
+      ctx.fillStyle = color;
+      ctx.font = "bold 10px -apple-system, sans-serif";
+      ctx.textAlign = "right";
+      ctx.fillText(label, x1-4, Yn(clamp(logFPEnd, yLogMin, yLogMax))-6);
+    }
+
+    drawFPCurve(PI0, "#111827", "pi=0.5 (validation)");
+    if(piN !== PI0){
+      drawFPCurve(piN, "#6d28d9", "pi=" + fmtFloat(piN));
+    }
+
+    // Current scale marker
+    const logScale = Math.log10(scale);
+    const xline = Xn(clamp(logScale, xmin, xmax));
+    ctx.strokeStyle = "#ef4444";
+    ctx.lineWidth = 2;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.moveTo(xline, y1);
+    ctx.lineTo(xline, y0);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    
+    ctx.fillStyle = "#ef4444";
+    ctx.font = "bold 10px -apple-system, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("current: " + fmtInt(scale) + "x", xline, y1+12);
+
+    plotCaption2.textContent = "False positives grow linearly with deployment scale. Lower prevalence means more negatives to produce false alarms.";
+  }
+
+  function update(){
+    const TPR = parseFloat(tpr.value);
+    const FPR = parseFloat(fpr.value);
+
+    const logScale = parseFloat(scaleLog.value);
+    const scale = Math.max(1, pow10(logScale));
+
+    const scen = scenario();
+    const piN = (scen === "same")
+      ? PI0
+      : clamp(pow10(parseFloat(piTest.value)), 1e-6, 1);
+
+    // enable/disable pi slider
+    if (scen === "different"){
+      piBlock.style.opacity = "1";
+      piBlock.style.pointerEvents = "auto";
+    } else {
+      piBlock.style.opacity = ".55";
+      piBlock.style.pointerEvents = "none";
+    }
+
+    // readouts
+    tprVal.textContent = (TPR >= 0.01 || TPR===0) ? TPR.toFixed(3) : TPR.toExponential(2);
+    fprVal.textContent = (FPR >= 0.01 || FPR===0) ? FPR.toFixed(4) : FPR.toExponential(2);
+    scaleVal.textContent = fmtInt(scale) + "x";
+    piTestVal.textContent = fmtFloat(piN);
+
+    // update area comparison text
+    updateAreaComparison(scale);
+
+    // compute counts
+    const numDeploySamples = N0 * scale;
+    const base = expectedCounts(TPR, FPR, PI0, N0);
+    const dep  = expectedCounts(TPR, FPR, piN, numDeploySamples);
+
+    // validation outputs
+    prec0.textContent = fmtPct(base.precision);
+    rec0.textContent  = fmtPct(base.recall);
+    fp0.textContent   = fmtInt(base.FP);
+    prec0sub.textContent = "TP=" + fmtInt(base.TP) + " | pred+=" + fmtInt(base.predPos);
+    fp0sub.textContent   = fmtInt(N0) + " samples";
+
+    // deployment outputs
+    precN.textContent = fmtPct(dep.precision);
+    recN.textContent  = fmtPct(dep.recall);
+    fpN.textContent   = fmtInt(dep.FP);
+    precNsub.textContent = "TP=" + fmtInt(dep.TP) + " | pred+=" + fmtInt(dep.predPos);
+    fpNsub.textContent   = fmtInt(numDeploySamples) + " samples";
+
+    // plots
+    drawPlot1({TPR, FPR, piN});
+    drawPlot2({TPR, FPR, piN, scale});
+  }
+
+  // Wire events
+  [tpr, fpr, scaleLog, piTest].forEach(x=>x.addEventListener("input", update));
+  document.querySelectorAll('input[name="piScenario"]').forEach(r=>r.addEventListener("change", update));
+
+  // Handle resize
+  window.addEventListener("resize", update);
+
+  // init
+  update();
+})();
+</script>
+
+  <footer style="text-align:center; padding:24px 16px; color:#6b7280; font-size:13px;">
+    By: Caleb Robinson, 2026
+  </footer>
+
+</body>
+</html>
