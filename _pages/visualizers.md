@@ -21,6 +21,21 @@ Explore the concept of receptive fields and effective receptive fields in convol
 ### [Morphology Playground](/static/morphology_playground.html)
 Interactive demonstration of morphological operations (erosion, dilation, opening, closing) commonly used in image processing. Draw shapes and apply operations to see their effects in real-time.
 
+### [Polygon Comparison Playground (PoLiS)](/static/polygon_difference_playground.html)
+Interactive playground for comparing polygons using the PoLiS metric, useful for evaluating building footprint predictions in remote sensing applications.
+
+### [Image Feature Extraction Demo](/static/feature_design_playground.html)
+Explore image feature extraction techniques and filters interactively. Apply various convolution kernels to understand how feature detectors work in computer vision.
+
+### [Grid Artifact FFT Playground](/static/fft_playground.html)
+Visualize grid artifacts and analyze them using Fast Fourier Transform. Useful for understanding periodic patterns and artifacts in satellite imagery.
+
+### [Decision Tree Explorer](/static/decision_tree_explorer.html)
+Interactive demo for exploring decision tree algorithms using the UCI Adult Income Dataset. Build manual trees or use automated algorithms to understand how decision trees classify data.
+
+### [Precision / Recall / Prevalence @ Scale](/static/precision_at_scale.html)
+Explore how precision, recall, and false positive counts behave when deploying models at scale with varying prevalence. Understand why a model that looks great on balanced validation sets can produce many false positives in deployment.
+
 ### [Monty Hall Explorer](/static/monty_hall_playground.html)
 Interactive playground that lets you play and simulate generalized Monty Hall games with N doors, K host openings, and optional uninformed host behavior to see how switching amplifies your odds.
 
