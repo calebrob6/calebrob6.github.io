@@ -490,20 +490,10 @@
 
 <script>
 (() => {
-  // --- Toy dataset (from the provided image) ---
-  // Columns: label, Feature 1, Feature 2
-  // Rows (10):
-  // 1: a,1,0
-  // 2: a,0,1
-  // 3: b,0,1
-  // 4: b,0,1
-  // 5: a,0,0
-  // 6: b,0,1
-  // 7: b,0,1
-  // 8: a,1,0
-  // 9: b,0,1
-  // 10:a,0,1
-  const DATA = [
+  // --- Dataset ---
+  // Default: random 10-row toy dataset (binary features, labels a/b)
+  // Use the fixed example dataset when URL has an example flag
+  const EXAMPLE_DATA = [
     {id: 1, y: "a", f1: 1, f2: 0},
     {id: 2, y: "a", f1: 0, f2: 1},
     {id: 3, y: "b", f1: 0, f2: 1},
@@ -515,6 +505,19 @@
     {id: 9, y: "b", f1: 0, f2: 1},
     {id:10, y: "a", f1: 0, f2: 1},
   ];
+
+  const randomLabel = () => (Math.random() < 0.5 ? "a" : "b");
+  const randomBit = () => (Math.random() < 0.5 ? 0 : 1);
+  const makeRandomData = (n=10) => {
+    const rows = [];
+    for (let i = 1; i <= n; i += 1) {
+      rows.push({ id: i, y: randomLabel(), f1: randomBit(), f2: randomBit() });
+    }
+    return rows;
+  };
+
+  const urlHasExample = new URLSearchParams(window.location.search).has("example");
+  const DATA = urlHasExample ? EXAMPLE_DATA : makeRandomData(10);
   const FEATURES = [
     {key: "f1", name: "Feature 1"},
     {key: "f2", name: "Feature 2"},
@@ -625,21 +628,94 @@
   };
 
   // --- Step state ---
-  const STEPS = [
-    { key:"intro", title:"Setup", },
-    { key:"root_gini", title:"Compute root impurity", },
-    { key:"choose_root", title:"Score each root split", },
-    { key:"apply_root", title:"Apply the chosen root split", },
-    { key:"choose_leaf", title:"Find the next node to split", },
-    { key:"choose_leaf_split", title:"Score splits for that node", },
-    { key:"apply_leaf_split", title:"Apply the chosen split (or stop)", },
-    { key:"summary", title:"Summary", },
+  // Base steps that always exist
+  const BASE_STEPS = [
+    { key:"intro", title:"Setup" },
+    { key:"root_gini", title:"Compute root impurity" },
   ];
+  const ROOT_SPLIT_STEPS = [
+    { key:"choose_root", title:"Score each root split" },
+    { key:"apply_root", title:"Apply the chosen root split" },
+  ];
+  // These repeat for each leaf split
+  const LEAF_SPLIT_STEPS = [
+    { key:"choose_leaf", title:"Find the next node to split" },
+    { key:"choose_leaf_split", title:"Score splits for that node" },
+    { key:"apply_leaf_split", title:"Apply the chosen split" },
+  ];
+  const SUMMARY_STEP = { key:"summary", title:"Summary" };
 
   const state = {
     step: 0,
-    selectedRootFeature: "f2", // default: the best one (computed later too)
-    selectedLeafFeature: "f1",
+    selectedRootFeature: null, // will be set to best split
+    // Map from node path (e.g. "L" or "R" or "LL") to selected feature key
+    leafSplitChoices: {},
+  };
+
+  // Simulate building the tree with current choices to determine max splits
+  // Returns both split info and the paths of each leaf that gets split
+  const simulateTreeBuild = () => {
+    const savedCounter = nodeCounter;
+    nodeCounter = 0;
+
+    const allIndices = DATA.map((_,i)=>i);
+    const root = makeNode(allIndices, []);
+    const rootSplits = bestSplit(root.indices, []);
+    const hasRootSplit = !!rootSplits.best;
+
+    const leafSplitPaths = []; // Track path of each leaf split in order
+
+    if (hasRootSplit) {
+      // Use selected root feature or best
+      const rootFeature = state.selectedRootFeature || rootSplits.best.featureKey;
+      applySplit(root, rootFeature);
+
+      // Count how many leaf splits are possible (BFS order)
+      const queue = [
+        { node: root.left, path: "L" },
+        { node: root.right, path: "R" }
+      ];
+
+      while (queue.length > 0) {
+        const { node, path } = queue.shift();
+        if (!node || node.gini <= 1e-12) continue;
+
+        const splits = bestSplit(node.indices, node.pathFeatures);
+        if (splits.best) {
+          leafSplitPaths.push(path);
+          // Simulate applying this split to see if children can split further
+          const chosenFeature = state.leafSplitChoices[path] || splits.best.featureKey;
+          applySplit(node, chosenFeature);
+          queue.push(
+            { node: node.left, path: path + "L" },
+            { node: node.right, path: path + "R" }
+          );
+        }
+      }
+    }
+
+    nodeCounter = savedCounter;
+    return { hasRootSplit, leafSplitPaths };
+  };
+
+  const getSteps = () => {
+    const { hasRootSplit, leafSplitPaths } = simulateTreeBuild();
+
+    const steps = [...BASE_STEPS];
+    if (hasRootSplit) {
+      steps.push(...ROOT_SPLIT_STEPS);
+      for (let i = 0; i < leafSplitPaths.length; i++) {
+        const path = leafSplitPaths[i];
+        // Clone with unique keys for each iteration, include the path
+        steps.push(
+          { key: `choose_leaf_${i}`, title: `Find the next node to split`, leafIndex: i, leafPath: path },
+          { key: `choose_leaf_split_${i}`, title: `Score splits for that node`, leafIndex: i, leafPath: path },
+          { key: `apply_leaf_split_${i}`, title: `Apply the chosen split`, leafIndex: i, leafPath: path },
+        );
+      }
+    }
+    steps.push(SUMMARY_STEP);
+    return steps;
   };
 
   // --- DOM ---
@@ -664,24 +740,51 @@
     nodeCounter = 0;
     const root = makeNode(DATA.map((_,i)=>i), []);
 
+    const steps = getSteps();
+    const currentStepKey = steps[state.step]?.key || "";
+
+    // Find indices for key steps
+    const applyRootIdx = steps.findIndex(s => s.key === "apply_root");
+
     // root selection defaults to best at root
     const rootSplits = bestSplit(root.indices, []);
-    if (rootSplits.best) state.selectedRootFeature ??= rootSplits.best.featureKey;
-
-    // Apply root split at step >= apply_root
-    if (state.step >= 3) {
-      applySplit(root, state.selectedRootFeature);
+    if (rootSplits.best && !state.selectedRootFeature) {
+      state.selectedRootFeature = rootSplits.best.featureKey;
     }
 
-    // Potential second split at step >= apply_leaf_split
-    if (state.step >= 6) {
-      const leaf = findFirstSplittableLeaf(root);
-      if (leaf) {
-        const leafSplits = bestSplit(leaf.indices, leaf.pathFeatures);
-        if (leafSplits.best) {
-          // default selection at leaf
-          state.selectedLeafFeature ??= leafSplits.best.featureKey;
-          applySplit(leaf, state.selectedLeafFeature);
+    // Apply root split if we're past that step
+    if (applyRootIdx !== -1 && state.step >= applyRootIdx && state.selectedRootFeature) {
+      applySplit(root, state.selectedRootFeature);
+
+      // Determine how many leaf splits to apply based on current step
+      // Find all apply_leaf_split steps before or at current step
+      const leafSplitSteps = steps
+        .map((s, i) => ({ ...s, idx: i }))
+        .filter(s => s.key.startsWith("apply_leaf_split_") && s.idx <= state.step);
+
+      // Apply leaf splits in order (BFS through the tree)
+      const queue = [
+        { node: root.left, path: "L" },
+        { node: root.right, path: "R" }
+      ];
+      let appliedCount = 0;
+
+      while (queue.length > 0 && appliedCount < leafSplitSteps.length) {
+        const { node, path } = queue.shift();
+        if (!node || node.gini <= 1e-12) continue;
+
+        const splits = bestSplit(node.indices, node.pathFeatures);
+        if (splits.best) {
+          // This node can be split - apply it if we've reached that step
+          const chosenFeature = state.leafSplitChoices[path] || splits.best.featureKey;
+          applySplit(node, chosenFeature);
+          appliedCount++;
+
+          // Add children to queue for potential further splits
+          queue.push(
+            { node: node.left, path: path + "L" },
+            { node: node.right, path: path + "R" }
+          );
         }
       }
     }
@@ -934,9 +1037,12 @@
 
   // --- Step rendering ---
   const renderStep = () => {
-    const total = STEPS.length;
+    const steps = getSteps();
+    const total = steps.length;
+    if (state.step >= total) state.step = total - 1;
+    if (state.step < 0) state.step = 0;
     stepCounterEl.textContent = `Step ${state.step+1} / ${total}`;
-    stepNameEl.textContent = STEPS[state.step].title;
+    stepNameEl.textContent = steps[state.step].title;
 
     // Build current tree
     const root = buildTreeForStep();
@@ -956,7 +1062,7 @@
     choiceBadgeEl.style.display = "none";
     choiceBadgeEl.innerHTML = "";
 
-    if (STEPS[state.step].key === "intro") {
+    if (steps[state.step].key === "intro") {
       highlightNodeId = root.id;
       focusSet = new Set(root.indices);
       focusLabel = "All rows (root node)";
@@ -972,6 +1078,9 @@
             At each node, we consider splits of the form <span class="mono">Feature j = 0</span> vs <span class="mono">Feature j = 1</span>,
             compute the <span class="mono">weighted Gini</span> for each split, and choose the lowest one (greedy).
           </p>
+          <p>
+            This dataset is generated at page load, so the best split and tree shape will vary from run to run.
+          </p>
           <p class="muted">
             Use <span class="mono">Next</span> to compute the root impurity and then score each candidate split.
           </p>
@@ -979,7 +1088,7 @@
       `;
     }
 
-    if (STEPS[state.step].key === "root_gini") {
+    if (steps[state.step].key === "root_gini") {
       highlightNodeId = root.id;
       focusSet = new Set(root.indices);
       focusLabel = "All rows (root node)";
@@ -1009,7 +1118,7 @@
       `;
     }
 
-    if (STEPS[state.step].key === "choose_root") {
+    if (steps[state.step].key === "choose_root") {
       highlightNodeId = root.id;
       focusSet = new Set(root.indices);
       focusLabel = "All rows (scoring root split)";
@@ -1043,7 +1152,7 @@
       choiceBadgeEl.innerHTML = `<strong>Selected root split</strong>&nbsp;<span class="mono">${featureName(state.selectedRootFeature)}</span>`;
     }
 
-    if (STEPS[state.step].key === "apply_root") {
+    if (steps[state.step].key === "apply_root") {
       // Root split is applied in buildTreeForStep
       highlightNodeId = root.id;
       focusLabel = `Root split applied: ${featureName(root.splitFeatureKey)}`;
@@ -1075,191 +1184,170 @@
       choiceBadgeEl.innerHTML = `<strong>Root split</strong>&nbsp;<span class="mono">${featureName(root.splitFeatureKey)}</span>`;
     }
 
-    if (STEPS[state.step].key === "choose_leaf") {
-      // Root split is applied in buildTreeForStep (step>=3)
-      const leaf = findFirstSplittableLeaf(root);
-      // If no splittable leaf exists, we'll explain why.
-      // We also want to highlight the "next" impure leaf (even if not splittable), for teaching.
-      let nextLeaf = null;
-      // Find first impure leaf, even if not splittable
-      const q = [root];
-      while(q.length){
-        const cur = q.shift();
-        if (isLeaf(cur) && cur.gini > 1e-12) { nextLeaf = cur; break; }
-        if (!isLeaf(cur)) q.push(cur.left, cur.right);
-      }
+    // Handle dynamic leaf split steps (choose_leaf_N, choose_leaf_split_N, apply_leaf_split_N)
+    const currentStepKey = steps[state.step].key;
+    const leafIndexMatch = currentStepKey.match(/^(choose_leaf|choose_leaf_split|apply_leaf_split)_(\d+)$/);
 
-      highlightNodeId = (leaf ? leaf.id : (nextLeaf ? nextLeaf.id : null));
-      focusSet = new Set((leaf ?? nextLeaf ?? root).indices);
-      focusLabel = leaf ? "Focus: next splittable leaf" : (nextLeaf ? "Focus: next impure leaf (not splittable)" : "All leaves are pure");
-      kpiBestWGEl.textContent = "--";
+    if (leafIndexMatch) {
+      const stepType = leafIndexMatch[1];
+      const leafIndex = parseInt(leafIndexMatch[2], 10);
+      // Get the path from the step object (computed during getSteps)
+      const leafPath = steps[state.step].leafPath;
 
-      if (!nextLeaf) {
-        contentHTML = `
-          <div class="stepTitle">No more work to do</div>
-          <div class="stepBody">
-            <p>All leaves are already pure (Gini = 0). The tree stops.</p>
-          </div>
-        `;
-      } else if (!leaf) {
-        // There is an impure leaf, but no feature can split it
-        const banned = nextLeaf.pathFeatures;
-        const {all} = bestSplit(nextLeaf.indices, banned);
+      // Helper to find a node by its path
+      const findNodeByPath = (node, path) => {
+        if (!path || path.length === 0) return node;
+        const dir = path[0];
+        const rest = path.slice(1);
+        if (dir === "L" && node.left) return findNodeByPath(node.left, rest);
+        if (dir === "R" && node.right) return findNodeByPath(node.right, rest);
+        return null;
+      };
 
-        contentHTML = `
-          <div class="stepTitle">Next leaf is impure, but might not be splittable</div>
-          <div class="stepBody">
-            <p>
-              The highlighted leaf has <span class="mono">n=${nextLeaf.indices.length}</span> samples with
-              counts <span class="mono">a:${nextLeaf.counts.a}</span>, <span class="mono">b:${nextLeaf.counts.b}</span> and
-              Gini <span class="mono">${fmt(nextLeaf.gini)}</span>.
-            </p>
-            <p class="muted">
-              We can only split if at least one remaining feature takes <em>both</em> values (0 and 1) inside this node.
-            </p>
-          </div>
-          <div class="note">
-            Remaining features along this path: <span class="mono">${FEATURES.map(f=>f.key).filter(k=>!banned.includes(k)).map(featureName).join(", ") || "none"}</span>.
-          </div>
-          ${renderSplitOptions(all, null, ()=>{}, null, "none")}
-          <div class="note">
-            Since there is no valid split, the algorithm stops and predicts the majority class at this leaf.
-          </div>
-        `;
-      } else {
-        // There is a splittable leaf
-        contentHTML = `
-          <div class="stepTitle">Choose which leaf to split next</div>
-          <div class="stepBody">
-            <p>
-              A standard greedy tree keeps splitting while there is an impure leaf that has a valid split.
-              Here, the next splittable leaf has <span class="mono">n=${leaf.indices.length}</span> samples with counts
-              <span class="mono">a:${leaf.counts.a}</span>, <span class="mono">b:${leaf.counts.b}</span>, so
-              Gini <span class="mono">${fmt(leaf.gini)}</span>.
-            </p>
-            <p class="muted">Next we will score splits at this leaf.</p>
-          </div>
-        `;
-      }
-    }
+      // For choose_leaf and choose_leaf_split, the split hasn't been applied yet
+      // For apply_leaf_split, the split HAS been applied, so the node is no longer a leaf
+      const targetNode = findNodeByPath(root, leafPath);
 
-    if (STEPS[state.step].key === "choose_leaf_split") {
-      const leaf = findFirstSplittableLeaf(root);
+      if (stepType === "choose_leaf") {
+        if (!targetNode) {
+          highlightNodeId = null;
+          focusSet = new Set(root.indices);
+          focusLabel = "No more splittable leaves";
+          kpiBestWGEl.textContent = "--";
+          contentHTML = `
+            <div class="stepTitle">No more work to do</div>
+            <div class="stepBody">
+              <p>All remaining leaves are either pure (Gini = 0) or cannot be split further.</p>
+            </div>
+          `;
+        } else {
+          highlightNodeId = targetNode.id;
+          focusSet = new Set(targetNode.indices);
+          focusLabel = `Focus: leaf #${leafIndex + 1} to split`;
+          kpiBestWGEl.textContent = "--";
 
-      if (!leaf) {
-        highlightNodeId = null;
-        focusSet = new Set(root.indices);
-        focusLabel = "No splittable leaf";
-        contentHTML = `
-          <div class="stepTitle">No valid split remains</div>
-          <div class="stepBody">
-            <p>
-              There is no leaf with both (1) non-zero impurity and (2) a feature that can split it.
-              The tree will stop growing.
-            </p>
-            <p class="muted">Press Next to see the final summary.</p>
-          </div>
-        `;
-      } else {
-        highlightNodeId = leaf.id;
-        focusSet = new Set(leaf.indices);
-        focusLabel = "Rows in the current leaf";
-
-        const banned = leaf.pathFeatures;
-        const {best, all} = bestSplit(leaf.indices, banned);
-        const bestKey = best ? best.featureKey : null;
-        if (bestKey && !state.selectedLeafFeature) state.selectedLeafFeature = bestKey;
-
-        kpiBestWGEl.textContent = best ? fmt(best.weightedGini) : "--";
-
-        contentHTML = `
-          <div class="stepTitle">Score splits for the highlighted leaf</div>
-          <div class="stepBody">
-            <p>
-              We only consider features that are not already used on the path to this leaf.
-              We again choose the split with the lowest weighted Gini.
-            </p>
-          </div>
-          <div class="note">
-            Features used on path: <span class="mono">${banned.map(featureName).join(", ") || "none"}</span>.
-            Remaining: <span class="mono">${FEATURES.map(f=>f.key).filter(k=>!banned.includes(k)).map(featureName).join(", ") || "none"}</span>.
-          </div>
-          ${renderSplitOptions(all, state.selectedLeafFeature, (k)=>{ state.selectedLeafFeature=k; renderStep(); }, bestKey, "leafSplit")}
-          <div class="note">
-            Current selection: <span class="mono">${featureName(state.selectedLeafFeature)}</span>.
-            ${bestKey && state.selectedLeafFeature !== bestKey ? `<span class="badgeb tagNote" style="margin-left:8px;"><strong>not the best</strong></span>` : bestKey ? `<span class="badgeb tagBest" style="margin-left:8px;"><strong>best</strong></span>` : ``}
-          </div>
-        `;
-
-        choiceBadgeEl.style.display = "inline-flex";
-        choiceBadgeEl.innerHTML = `<strong>Selected next split</strong>&nbsp;<span class="mono">${featureName(state.selectedLeafFeature)}</span>`;
-      }
-    }
-
-    if (STEPS[state.step].key === "apply_leaf_split") {
-      // If step>=6, buildTreeForStep already tries to apply the next split (if any)
-      // We'll rebuild to check what happened:
-      const root2 = buildTreeForStep();
-      // Determine whether we actually did a second split by checking existence of a non-root internal node
-      const hasSecondSplit = (() => {
-        if (!root2.left || !root2.right) return false;
-        const internal = (n) => n && !isLeaf(n);
-        return internal(root2.left) || internal(root2.right);
-      })();
-
-      if (!root2.left || !root2.right) {
-        highlightNodeId = root2.id;
-      } else if (hasSecondSplit) {
-        // highlight the node that got split (the first non-root internal)
-        highlightNodeId = (!isLeaf(root2.left) ? root2.left.id : root2.right.id);
-      } else {
-        // highlight the first impure leaf
-        let imp = null;
-        const q = [root2];
-        while(q.length){
-          const cur = q.shift();
-          if (isLeaf(cur) && cur.gini > 1e-12) { imp = cur; break; }
-          if (!isLeaf(cur)) q.push(cur.left, cur.right);
+          contentHTML = `
+            <div class="stepTitle">Choose which leaf to split next (leaf #${leafIndex + 1})</div>
+            <div class="stepBody">
+              <p>
+                A standard greedy tree keeps splitting while there is an impure leaf that has a valid split.
+                The next splittable leaf has <span class="mono">n=${targetNode.indices.length}</span> samples with counts
+                <span class="mono">a:${targetNode.counts.a}</span>, <span class="mono">b:${targetNode.counts.b}</span>, so
+                Gini <span class="mono">${fmt(targetNode.gini)}</span>.
+              </p>
+              <p class="muted">Next we will score splits at this leaf.</p>
+            </div>
+          `;
         }
-        highlightNodeId = imp ? imp.id : null;
       }
 
-      focusSet = new Set(DATA.map((_,i)=>i));
-      focusLabel = hasSecondSplit ? "Second split applied" : "No second split possible";
+      if (stepType === "choose_leaf_split") {
+        if (!targetNode) {
+          highlightNodeId = null;
+          focusSet = new Set(root.indices);
+          focusLabel = "No splittable leaf";
+          contentHTML = `
+            <div class="stepTitle">No valid split remains</div>
+            <div class="stepBody">
+              <p>
+                There is no leaf with both (1) non-zero impurity and (2) a feature that can split it.
+                The tree will stop growing.
+              </p>
+              <p class="muted">Press Next to see the final summary.</p>
+            </div>
+          `;
+        } else {
+          const banned = targetNode.pathFeatures;
+          const { best, all } = bestSplit(targetNode.indices, banned);
 
-      if (hasSecondSplit) {
-        // Identify which node got split and show its split feature.
-        const splitNode = (!isLeaf(root2.left) ? root2.left : root2.right);
-        const m = splitMetrics(splitNode.indices, splitNode.splitFeatureKey);
-        kpiBestWGEl.textContent = fmt(m.weightedGini);
+          highlightNodeId = targetNode.id;
+          focusSet = new Set(targetNode.indices);
+          focusLabel = "Rows in the current leaf";
 
-        contentHTML = `
-          <div class="stepTitle">Apply the next split</div>
-          <div class="stepBody">
-            <p>
-              We split the highlighted leaf on <span class="mono">${featureName(splitNode.splitFeatureKey)}</span>.
-              The weighted Gini for this split is <span class="mono">${fmt(m.weightedGini)}</span>
-              (gain <span class="mono">${fmt(m.gain)}</span> relative to that node).
-            </p>
-            <p class="muted">Next we will summarize what the final tree learned on this toy dataset.</p>
-          </div>
-        `;
-      } else {
-        kpiBestWGEl.textContent = "--";
-        contentHTML = `
-          <div class="stepTitle">Stop condition: no valid split remains</div>
-          <div class="stepBody">
-            <p>
-              There is no remaining feature that can split an impure leaf into two non-empty groups.
-              The greedy algorithm stops and returns the current tree.
-            </p>
-            <p class="muted">Press Next to see the final summary.</p>
-          </div>
-        `;
+          const bestKey = best ? best.featureKey : null;
+
+          // Initialize selection for this leaf if not set
+          if (bestKey && !state.leafSplitChoices[leafPath]) {
+            state.leafSplitChoices[leafPath] = bestKey;
+          }
+          const selectedKey = state.leafSplitChoices[leafPath] || bestKey;
+
+          kpiBestWGEl.textContent = best ? fmt(best.weightedGini) : "--";
+
+          const radioName = `leafSplit_${leafPath}`;
+          contentHTML = `
+            <div class="stepTitle">Score splits for the highlighted leaf (leaf #${leafIndex + 1})</div>
+            <div class="stepBody">
+              <p>
+                We only consider features that are not already used on the path to this leaf.
+                We again choose the split with the lowest weighted Gini.
+              </p>
+            </div>
+            <div class="note">
+              Features used on path: <span class="mono">${banned.map(featureName).join(", ") || "none"}</span>.
+              Remaining: <span class="mono">${FEATURES.map(f=>f.key).filter(k=>!banned.includes(k)).map(featureName).join(", ") || "none"}</span>.
+            </div>
+            ${renderSplitOptions(all, selectedKey, (k)=>{ state.leafSplitChoices[leafPath]=k; renderStep(); }, bestKey, radioName)}
+            <div class="note">
+              Current selection: <span class="mono">${featureName(selectedKey)}</span>.
+              ${bestKey && selectedKey !== bestKey ? `<span class="badgeb tagNote" style="margin-left:8px;"><strong>not the best</strong></span>` : bestKey ? `<span class="badgeb tagBest" style="margin-left:8px;"><strong>best</strong></span>` : ``}
+            </div>
+          `;
+
+          choiceBadgeEl.style.display = "inline-flex";
+          choiceBadgeEl.innerHTML = `<strong>Selected split for leaf #${leafIndex + 1}</strong>&nbsp;<span class="mono">${featureName(selectedKey)}</span>`;
+        }
+      }
+
+      if (stepType === "apply_leaf_split") {
+        // The split has already been applied by buildTreeForStep
+        // targetNode should now be an internal node (not a leaf)
+        const splitNode = targetNode;
+
+        if (splitNode && splitNode.splitFeatureKey) {
+          highlightNodeId = splitNode.id;
+          focusSet = new Set(splitNode.indices);
+          focusLabel = `Split #${leafIndex + 2} applied`; // +2 because root is split #1
+
+          const m = splitMetrics(splitNode.indices, splitNode.splitFeatureKey);
+          kpiBestWGEl.textContent = fmt(m.weightedGini);
+
+          // Check if there are more splits coming
+          const nextLeafStepIdx = steps.findIndex((s, i) => i > state.step && s.key.startsWith("choose_leaf_"));
+          const moreToGo = nextLeafStepIdx !== -1;
+
+          contentHTML = `
+            <div class="stepTitle">Apply the split (leaf #${leafIndex + 1})</div>
+            <div class="stepBody">
+              <p>
+                We split the highlighted leaf on <span class="mono">${featureName(splitNode.splitFeatureKey)}</span>.
+                The weighted Gini for this split is <span class="mono">${fmt(m.weightedGini)}</span>
+                (gain <span class="mono">${fmt(m.gain)}</span> relative to that node).
+              </p>
+              <p class="muted">${moreToGo ? "Next we will check for more leaves to split." : "Next we will summarize what the final tree learned."}</p>
+            </div>
+          `;
+        } else {
+          highlightNodeId = null;
+          focusSet = new Set(root.indices);
+          focusLabel = "Split could not be applied";
+          kpiBestWGEl.textContent = "--";
+
+          contentHTML = `
+            <div class="stepTitle">Stop condition: no valid split remains</div>
+            <div class="stepBody">
+              <p>
+                There is no remaining feature that can split an impure leaf into two non-empty groups.
+                The greedy algorithm stops and returns the current tree.
+              </p>
+              <p class="muted">Press Next to see the final summary.</p>
+            </div>
+          `;
+        }
       }
     }
 
-    if (STEPS[state.step].key === "summary") {
+    if (steps[state.step].key === "summary") {
       const root2 = buildTreeForStep();
       const rootSplit = root2.splitFeatureKey ? featureName(root2.splitFeatureKey) : "none";
       let depth = 1;
@@ -1277,15 +1365,15 @@
       walk(root2);
 
       contentHTML = `
-        <div class="stepTitle">What this toy tree learned</div>
+        <div class="stepTitle">What this tree learned</div>
         <div class="stepBody">
           <p>
             Final root split: <span class="mono">${rootSplit}</span>.
             Tree depth: <span class="mono">${depth}</span>. Leaves: <span class="mono">${leaves}</span> (pure: <span class="mono">${pureLeaves}</span>).
           </p>
           <p>
-            With this dataset, <span class="mono">Feature 2</span> is especially informative because all rows with
-            <span class="mono">Feature 2 = 0</span> have label <span class="mono">a</span> (a pure leaf).
+            On this run, the best root split (lowest weighted Gini) was <span class="mono">${rootSplit}</span>.
+            Try a different root split to see how the tree shape and purity change.
           </p>
           <p class="muted">
             Go back and choose a different root split to see how the tree shape (and purity) changes.
@@ -1317,12 +1405,13 @@
 
     // Update navigation buttons
     prevBtn.disabled = (state.step === 0);
-    nextBtn.disabled = (state.step === STEPS.length - 1);
+    nextBtn.disabled = (state.step === total - 1);
 
     // Tree status label
+    const stepKey = steps[state.step].key;
     treeStatusEl.textContent = (() => {
-      if (state.step < 3) return "Not split yet";
-      if (state.step < 6) return "After root split";
+      if (stepKey === "intro" || stepKey === "root_gini" || stepKey === "choose_root") return "Not split yet";
+      if (stepKey === "apply_root" || stepKey === "choose_leaf" || stepKey === "choose_leaf_split") return "After root split";
       return "Final / stopping";
     })();
   };
@@ -1333,13 +1422,14 @@
     renderStep();
   });
   nextBtn.addEventListener("click", () => {
-    if (state.step < STEPS.length - 1) state.step += 1;
+    const total = getSteps().length;
+    if (state.step < total - 1) state.step += 1;
     renderStep();
   });
   resetBtn.addEventListener("click", () => {
     state.step = 0;
-    state.selectedRootFeature = "f2";
-    state.selectedLeafFeature = "f1";
+    state.selectedRootFeature = null;
+    state.leafSplitChoices = {};
     renderStep();
   });
 
