@@ -1,0 +1,1357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Decision Tree Walkthrough (Gini Impurity)</title>
+  <style>
+    :root{
+      --bg:#f6f7fb;
+      --card:#ffffff;
+      --ink:#111827;
+      --muted:#6b7280;
+      --border:#e5e7eb;
+      --accent:#2563eb;
+      --accent2:#0ea5e9;
+      --good:#16a34a;
+      --warn:#f59e0b;
+      --bad:#dc2626;
+      --shadow: 0 10px 30px rgba(17,24,39,0.08);
+      --radius:16px;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+    }
+
+    html, body { height: 100%; }
+    body{
+      margin:0;
+      background: var(--bg);
+      color:var(--ink);
+      font-family:var(--sans);
+      line-height:1.35;
+    }
+
+    .wrap{
+      max-width: 1400px;
+      margin: 26px auto 56px;
+      padding: 0 18px;
+    }
+
+    header{
+      display:flex;
+      align-items:flex-end;
+      justify-content:space-between;
+      gap:16px;
+      margin-bottom: 16px;
+    }
+
+    .title{
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+    }
+
+    h1{
+      margin:0;
+      font-size: 22px;
+      letter-spacing:-0.02em;
+    }
+
+    .subtitle{
+      color:var(--muted);
+      font-size: 13px;
+      max-width: 720px;
+    }
+
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding: 8px 10px;
+      border:1px solid var(--border);
+      background: rgba(255,255,255,0.7);
+      backdrop-filter: blur(8px);
+      border-radius: 999px;
+      box-shadow: 0 10px 20px rgba(17,24,39,0.06);
+      font-size: 12px;
+      color: var(--muted);
+      user-select:none;
+    }
+    .dot{
+      width:10px;height:10px;border-radius:999px;
+      background: linear-gradient(135deg,var(--accent),var(--accent2));
+      box-shadow: 0 0 0 3px rgba(37,99,235,0.12);
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 16px;
+    }
+    @media (max-width: 980px){
+      .grid{ grid-template-columns: 1fr; }
+    }
+
+    .card{
+      background: rgba(255,255,255,0.86);
+      border:1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+    }
+    .card .hd{
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.9), rgba(255,255,255,0.72));
+    }
+    .card .hd h2{
+      margin:0;
+      font-size: 14px;
+      letter-spacing:-0.01em;
+    }
+    .card .bd{
+      padding: 14px 16px 16px;
+    }
+
+    .nav{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap: 12px;
+      margin-top: 12px;
+      flex-wrap:wrap;
+    }
+
+    button{
+      font-family:var(--sans);
+      font-size: 0.9rem;
+      border-radius: 8px;
+      border:1px solid var(--border);
+      background: var(--card);
+      padding: 10px 16px;
+      cursor:pointer;
+      transition: all 0.2s;
+      user-select:none;
+    }
+    button:hover{
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    button:active{ transform: translateY(1px); }
+    button.primary{
+      background: var(--accent);
+      color: white;
+      border: none;
+      font-weight: 500;
+    }
+    button.primary:hover{
+      background: var(--accent2);
+      color: white;
+    }
+    button:disabled{
+      opacity: 0.45;
+      cursor:not-allowed;
+      transform:none !important;
+      box-shadow:none !important;
+    }
+
+    .kpiRow{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:stretch;
+    }
+    .kpi{
+      flex: 1 1 160px;
+      border:1px solid var(--border);
+      border-radius: 14px;
+      padding: 10px 12px;
+      background: rgba(255,255,255,0.75);
+    }
+    .kpi .k{
+      color: var(--muted);
+      font-size: 11px;
+    }
+    .kpi .v{
+      font-family: var(--mono);
+      font-size: 14px;
+      margin-top: 4px;
+    }
+
+    .formula{
+      border:1px dashed rgba(37,99,235,0.35);
+      border-radius: 14px;
+      background: rgba(37,99,235,0.06);
+      padding: 10px 12px;
+      font-family: var(--mono);
+      font-size: 12px;
+      color: #0f172a;
+    }
+    .formula .small{
+      color: var(--muted);
+      font-family: var(--sans);
+      font-size: 12px;
+      margin-top: 6px;
+    }
+
+    table{
+      width:100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      overflow:hidden;
+      border-radius: 12px;
+      border:1px solid var(--border);
+      background: rgba(255,255,255,0.7);
+    }
+    th, td{
+      padding: 8px 8px;
+      border-bottom:1px solid var(--border);
+      text-align:left;
+    }
+    th{
+      font-size: 12px;
+      color:#0f172a;
+      background: rgba(17,24,39,0.03);
+    }
+    tr:last-child td{ border-bottom:none; }
+    .mono{ font-family: var(--mono); }
+
+    .rowInactive{
+      opacity: 0.35;
+      filter: grayscale(0.2);
+    }
+    .rowActive{
+      background: rgba(14,165,233,0.08);
+    }
+
+    .badgeb{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      border:1px solid var(--border);
+      background: rgba(255,255,255,0.8);
+      font-size: 11px;
+      color: var(--muted);
+      white-space:nowrap;
+    }
+    .badgeb strong{
+      color:#0f172a;
+      font-weight:600;
+    }
+    .tagBest{
+      border-color: rgba(22,163,74,0.35);
+      background: rgba(22,163,74,0.08);
+      color:#14532d;
+    }
+    .tagNote{
+      border-color: rgba(245,158,11,0.35);
+      background: rgba(245,158,11,0.10);
+      color:#7c2d12;
+    }
+
+    .splitList{
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+      margin-top: 10px;
+    }
+    .splitItem{
+      border:1px solid var(--border);
+      border-radius: 14px;
+      padding: 10px 12px;
+      background: rgba(255,255,255,0.78);
+      display:flex;
+      gap:12px;
+      align-items:flex-start;
+    }
+    .splitItem input{ margin-top: 3px; }
+    .splitItem .content{ flex:1; }
+    .splitItem .head{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
+    }
+    .splitItem .name{
+      font-weight:600;
+      letter-spacing:-0.01em;
+    }
+    .splitItem .details{
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .splitItem .grid2{
+      margin-top: 8px;
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .mini{
+      border:1px solid var(--border);
+      border-radius: 12px;
+      padding: 8px 10px;
+      background: rgba(17,24,39,0.02);
+      font-size: 12px;
+    }
+    .mini .tt{
+      color:#0f172a;
+      font-weight:600;
+      font-size: 11px;
+      margin-bottom: 4px;
+    }
+    .mini .kv{
+      display:flex;
+      justify-content:space-between;
+      gap: 10px;
+      font-family: var(--mono);
+      font-size: 12px;
+      color:#0f172a;
+    }
+
+    .note{
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    /* Tree SVG styling */
+    .treeWrap{
+      width:100%;
+      overflow:hidden;
+      border-radius: 14px;
+      border:1px solid var(--border);
+      background: rgba(255,255,255,0.7);
+    }
+    svg{ width:100%; height:auto; display:block; }
+    .edge{
+      stroke: rgba(17,24,39,0.35);
+      stroke-width: 1.5;
+    }
+    .edgeLabel{
+      font-family: var(--mono);
+      font-size: 20px;
+      fill: rgba(17,24,39,0.85);
+    }
+    .nodeRect{
+      fill: rgba(255,255,255,0.95);
+      stroke: rgba(17,24,39,0.16);
+      stroke-width: 1.2;
+      rx: 12;
+    }
+    .nodeRect.highlight{
+      stroke: rgba(37,99,235,0.55);
+      stroke-width: 2;
+      filter: drop-shadow(0 10px 18px rgba(37,99,235,0.18));
+    }
+    .nodeTitle{
+      font-family: var(--sans);
+      font-weight: 650;
+      font-size: 26px;
+      fill: #0f172a;
+    }
+    .nodeText{
+      font-family: var(--mono);
+      font-size: 22px;
+      fill: rgba(17,24,39,0.80);
+    }
+    .nodePred{
+      font-family: var(--sans);
+      font-size: 21px;
+      fill: rgba(17,24,39,0.78);
+    }
+    .leafBadge{
+      fill: rgba(22,163,74,0.10);
+      stroke: rgba(22,163,74,0.30);
+    }
+    .leafBadgeText{
+      font-family: var(--mono);
+      font-size: 18px;
+      fill: #14532d;
+    }
+
+    .stepTitle{
+      font-size: 13px;
+      font-weight: 650;
+      margin: 0 0 8px 0;
+      letter-spacing:-0.01em;
+    }
+    .stepBody{
+      color:#0f172a;
+      font-size: 13px;
+    }
+    .stepBody p{ margin: 0 0 10px 0; }
+    .stepBody p:last-child{ margin-bottom: 0; }
+
+    .muted{ color: var(--muted); }
+
+    .footerTiny{
+      margin-top: 10px;
+      font-size: 11px;
+      color: var(--muted);
+    }
+    a{ color: var(--accent); text-decoration:none; }
+    a:hover{ text-decoration:underline; }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <header>
+      <div class="title">
+        <h1>Decision Tree Walkthrough: Greedy Splits with Gini Impurity</h1>
+        <div class="subtitle">
+          A single-page, dependency-free toy app: step through how a CART-style decision tree chooses splits by minimizing the <span class="mono">weighted Gini</span>.
+          You can override the split choice to see how the tree changes.
+        </div>
+      </div>
+    </header>
+
+    <div class="grid">
+      <!-- Left: Walkthrough + dataset -->
+      <section class="card">
+        <div class="hd">
+          <h2>Walkthrough</h2>
+          <div class="badgeb"><strong id="stepCounter">Step 1 / 8</strong><span id="stepName" class="mono"></span></div>
+        </div>
+        <div class="bd">
+          <div id="stepContent"></div>
+
+          <div class="nav">
+            <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+              <button id="prevBtn">&lt;- Previous</button>
+              <button id="nextBtn" class="primary">Next -&gt;</button>
+              <button id="resetBtn" title="Reset choices & go back to the start">Reset</button>
+            </div>
+            <div class="badgeb" id="choiceBadge" style="display:none;"></div>
+          </div>
+
+          <div class="footerTiny">
+            Tip: use <span class="mono">Previous</span> to go back and pick a different split.
+          </div>
+        </div>
+
+        <div class="hd">
+          <h2>Dataset</h2>
+          <div class="badgeb"><strong id="focusBadge">All rows</strong></div>
+        </div>
+        <div class="bd">
+          <div id="datasetTable"></div>
+        </div>
+      </section>
+
+      <!-- Right: Tree + metrics -->
+      <aside class="card">
+        <div class="hd">
+          <h2>Tree being built</h2>
+          <div class="badgeb"><strong id="treeStatus">Not split yet</strong></div>
+        </div>
+        <div class="bd">
+          <div class="treeWrap">
+            <svg id="treeSvg" viewBox="0 0 1300 720" role="img" aria-label="Decision tree diagram"></svg>
+          </div>
+
+          <div style="height:12px"></div>
+
+          <div class="kpiRow">
+            <div class="kpi">
+              <div class="k">Root counts</div>
+              <div class="v" id="kpiCounts">a: 0, b: 0</div>
+            </div>
+            <div class="kpi">
+              <div class="k">Root Gini</div>
+              <div class="v" id="kpiRootGini">0.0000</div>
+            </div>
+            <div class="kpi">
+              <div class="k">Best weighted Gini (current node)</div>
+              <div class="v" id="kpiBestWG">--</div>
+            </div>
+          </div>
+
+          <div style="height:12px"></div>
+
+          <div class="formula" id="formulaBox">
+            Gini(S) = 1 - Sum<sub>k</sub> p<sub>k</sub><sup>2</sup>  =  1 - (p<sub>a</sub><sup>2</sup> + p<sub>b</sub><sup>2</sup>)<br/>
+            WeightedGini(S, split) = (|S<sub>0</sub>|/|S|)*Gini(S<sub>0</sub>) + (|S<sub>1</sub>|/|S|)*Gini(S<sub>1</sub>)
+            <div class="small">Here S<sub>0</sub> is the subset where the chosen feature = 0, and S<sub>1</sub> is where the feature = 1.</div>
+          </div>
+
+        </div>
+      </aside>
+    </div>
+  </div>
+
+<script>
+(() => {
+  // --- Toy dataset (from the provided image) ---
+  // Columns: label, Feature 1, Feature 2
+  // Rows (10):
+  // 1: a,1,0
+  // 2: a,0,1
+  // 3: b,0,1
+  // 4: b,0,1
+  // 5: a,0,0
+  // 6: b,0,1
+  // 7: b,0,1
+  // 8: a,1,0
+  // 9: b,0,1
+  // 10:a,0,1
+  const DATA = [
+    {id: 1, y: "a", f1: 1, f2: 0},
+    {id: 2, y: "a", f1: 0, f2: 1},
+    {id: 3, y: "b", f1: 0, f2: 1},
+    {id: 4, y: "b", f1: 0, f2: 1},
+    {id: 5, y: "a", f1: 0, f2: 0},
+    {id: 6, y: "b", f1: 0, f2: 1},
+    {id: 7, y: "b", f1: 0, f2: 1},
+    {id: 8, y: "a", f1: 1, f2: 0},
+    {id: 9, y: "b", f1: 0, f2: 1},
+    {id:10, y: "a", f1: 0, f2: 1},
+  ];
+  const FEATURES = [
+    {key: "f1", name: "Feature 1"},
+    {key: "f2", name: "Feature 2"},
+  ];
+  const CLASSES = ["a","b"];
+
+  // --- Utils ---
+  const fmt = (x, digits=4) => {
+    if (x === null || x === undefined || Number.isNaN(x)) return "--";
+    return (Math.round(x * 10**digits) / 10**digits).toFixed(digits);
+  };
+  const countsOf = (indices) => {
+    const c = {a:0, b:0};
+    for (const i of indices) c[DATA[i].y] += 1;
+    return c;
+  };
+  const gini = (indices) => {
+    const n = indices.length;
+    if (n === 0) return 0;
+    const c = countsOf(indices);
+    let sumSq = 0;
+    for (const k of CLASSES) {
+      const p = c[k]/n;
+      sumSq += p*p;
+    }
+    return 1 - sumSq;
+  };
+  const uniqueVals = (indices, featureKey) => {
+    const s = new Set(indices.map(i => DATA[i][featureKey]));
+    return Array.from(s).sort();
+  };
+  const splitMetrics = (indices, featureKey) => {
+    const left = indices.filter(i => DATA[i][featureKey] === 0);
+    const right = indices.filter(i => DATA[i][featureKey] === 1);
+    const n = indices.length;
+    const gL = gini(left);
+    const gR = gini(right);
+    const w = (left.length/n)*gL + (right.length/n)*gR;
+    const parent = gini(indices);
+    return {
+      featureKey,
+      left, right,
+      parentGini: parent,
+      giniLeft: gL,
+      giniRight: gR,
+      weightedGini: w,
+      gain: parent - w,
+      countsParent: countsOf(indices),
+      countsLeft: countsOf(left),
+      countsRight: countsOf(right),
+    };
+  };
+
+  const bestSplit = (indices, bannedFeatures=[]) => {
+    const candidates = [];
+    for (const f of FEATURES) {
+      if (bannedFeatures.includes(f.key)) continue;
+      const u = uniqueVals(indices, f.key);
+      if (u.length < 2) continue; // can't split
+      candidates.push(splitMetrics(indices, f.key));
+    }
+    candidates.sort((a,b) => a.weightedGini - b.weightedGini);
+    return candidates.length ? {best: candidates[0], all: candidates} : {best: null, all: []};
+  };
+
+  // --- Tree representation ---
+  // Node: { id, indices, gini, counts, splitFeatureKey|null, left|null, right|null, pathFeatures[] }
+  let nodeCounter = 0;
+  const makeNode = (indices, pathFeatures=[]) => {
+    const c = countsOf(indices);
+    const pred = (c.a >= c.b) ? "a" : "b";
+    return {
+      id: `n${++nodeCounter}`,
+      indices: [...indices],
+      pathFeatures: [...pathFeatures],
+      counts: c,
+      gini: gini(indices),
+      pred,
+      splitFeatureKey: null,
+      left: null,
+      right: null,
+    };
+  };
+
+  const applySplit = (node, featureKey) => {
+    node.splitFeatureKey = featureKey;
+    const leftIdx = node.indices.filter(i => DATA[i][featureKey] === 0);
+    const rightIdx = node.indices.filter(i => DATA[i][featureKey] === 1);
+    node.left = makeNode(leftIdx, [...node.pathFeatures, featureKey]);
+    node.right = makeNode(rightIdx, [...node.pathFeatures, featureKey]);
+    return node;
+  };
+
+  const isLeaf = (node) => !node.left && !node.right;
+  const findFirstSplittableLeaf = (node) => {
+    const q = [node];
+    while (q.length) {
+      const cur = q.shift();
+      if (isLeaf(cur)) {
+        if (cur.gini <= 1e-12) continue;
+        const {best} = bestSplit(cur.indices, cur.pathFeatures);
+        if (best) return cur;
+      } else {
+        q.push(cur.left, cur.right);
+      }
+    }
+    return null;
+  };
+
+  // --- Step state ---
+  const STEPS = [
+    { key:"intro", title:"Setup", },
+    { key:"root_gini", title:"Compute root impurity", },
+    { key:"choose_root", title:"Score each root split", },
+    { key:"apply_root", title:"Apply the chosen root split", },
+    { key:"choose_leaf", title:"Find the next node to split", },
+    { key:"choose_leaf_split", title:"Score splits for that node", },
+    { key:"apply_leaf_split", title:"Apply the chosen split (or stop)", },
+    { key:"summary", title:"Summary", },
+  ];
+
+  const state = {
+    step: 0,
+    selectedRootFeature: "f2", // default: the best one (computed later too)
+    selectedLeafFeature: "f1",
+  };
+
+  // --- DOM ---
+  const stepCounterEl = document.getElementById("stepCounter");
+  const stepNameEl = document.getElementById("stepName");
+  const stepContentEl = document.getElementById("stepContent");
+  const prevBtn = document.getElementById("prevBtn");
+  const nextBtn = document.getElementById("nextBtn");
+  const resetBtn = document.getElementById("resetBtn");
+  const datasetTableEl = document.getElementById("datasetTable");
+  const focusBadgeEl = document.getElementById("focusBadge");
+  const choiceBadgeEl = document.getElementById("choiceBadge");
+
+  const treeSvg = document.getElementById("treeSvg");
+  const treeStatusEl = document.getElementById("treeStatus");
+  const kpiCountsEl = document.getElementById("kpiCounts");
+  const kpiRootGiniEl = document.getElementById("kpiRootGini");
+  const kpiBestWGEl = document.getElementById("kpiBestWG");
+
+  // --- Build a tree that matches the current step ---
+  const buildTreeForStep = () => {
+    nodeCounter = 0;
+    const root = makeNode(DATA.map((_,i)=>i), []);
+
+    // root selection defaults to best at root
+    const rootSplits = bestSplit(root.indices, []);
+    if (rootSplits.best) state.selectedRootFeature ??= rootSplits.best.featureKey;
+
+    // Apply root split at step >= apply_root
+    if (state.step >= 3) {
+      applySplit(root, state.selectedRootFeature);
+    }
+
+    // Potential second split at step >= apply_leaf_split
+    if (state.step >= 6) {
+      const leaf = findFirstSplittableLeaf(root);
+      if (leaf) {
+        const leafSplits = bestSplit(leaf.indices, leaf.pathFeatures);
+        if (leafSplits.best) {
+          // default selection at leaf
+          state.selectedLeafFeature ??= leafSplits.best.featureKey;
+          applySplit(leaf, state.selectedLeafFeature);
+        }
+      }
+    }
+
+    return root;
+  };
+
+  // --- Layout the tree for SVG (generic enough for depth <= 3) ---
+  const computeLeafWidths = (node) => {
+    if (isLeaf(node)) return 1;
+    return computeLeafWidths(node.left) + computeLeafWidths(node.right);
+  };
+
+  const assignPositions = (node, x0, x1, depth, positions) => {
+    const cx = (x0 + x1) / 2;
+    positions.set(node.id, {x: cx, y: depth});
+    if (!isLeaf(node)) {
+      const wL = computeLeafWidths(node.left);
+      const wR = computeLeafWidths(node.right);
+      const w = wL + wR;
+      const splitX = x0 + (x1 - x0) * (wL / w);
+      assignPositions(node.left, x0, splitX, depth+1, positions);
+      assignPositions(node.right, splitX, x1, depth+1, positions);
+    }
+  };
+
+  const nodeTitle = (node) => {
+    if (node.splitFeatureKey) {
+      const f = FEATURES.find(x=>x.key===node.splitFeatureKey);
+      return `Split on ${f ? f.name : node.splitFeatureKey}`;
+    }
+    return "Leaf";
+  };
+
+  const nodeSubtitle = (node) => {
+    const n = node.indices.length;
+    const c = node.counts;
+    return `n=${n}  a:${c.a}  b:${c.b}`;
+  };
+
+  const featureName = (k) => FEATURES.find(f=>f.key===k)?.name ?? k;
+
+  const renderTreeSvg = (root, highlightNodeId=null) => {
+    // Determine depth
+    const depth = (node) => isLeaf(node) ? 1 : 1 + Math.max(depth(node.left), depth(node.right));
+    const D = depth(root);
+
+    // SVG constants
+    const W = 1300;
+    const H = Math.max(620, 220 + (D-1)*240);
+    treeSvg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+    treeSvg.innerHTML = "";
+
+    const positions = new Map();
+    assignPositions(root, 170, W-170, 0, positions);
+
+    const yMap = (d) => 140 + d*240;
+
+    const drawEdge = (fromId, toId, label) => {
+      const p0 = positions.get(fromId);
+      const p1 = positions.get(toId);
+      const x0 = p0.x, y0 = yMap(p0.y);
+      const x1 = p1.x, y1 = yMap(p1.y);
+
+      const line = document.createElementNS("http://www.w3.org/2000/svg","path");
+      const midY = (y0 + y1)/2;
+      line.setAttribute("d", `M ${x0} ${y0+70} C ${x0} ${midY} ${x1} ${midY} ${x1} ${y1-70}`);
+      line.setAttribute("class","edge");
+      treeSvg.appendChild(line);
+
+      const tx = (x0 + x1)/2;
+      const ty = (midY - 6);
+      const text = document.createElementNS("http://www.w3.org/2000/svg","text");
+      text.setAttribute("x", tx);
+      text.setAttribute("y", ty);
+      text.setAttribute("text-anchor","middle");
+      text.setAttribute("class","edgeLabel");
+      text.textContent = label;
+      treeSvg.appendChild(text);
+    };
+
+    const drawNode = (node) => {
+      const p = positions.get(node.id);
+      const x = p.x, y = yMap(p.y);
+      const w = 420, h = 165;
+      const x0 = x - w/2, y0 = y - h/2;
+
+      const g = document.createElementNS("http://www.w3.org/2000/svg","g");
+
+      const rect = document.createElementNS("http://www.w3.org/2000/svg","rect");
+      rect.setAttribute("x", x0);
+      rect.setAttribute("y", y0);
+      rect.setAttribute("width", w);
+      rect.setAttribute("height", h);
+      rect.setAttribute("class", `nodeRect ${node.id===highlightNodeId ? "highlight" : ""}`);
+      g.appendChild(rect);
+
+      const t1 = document.createElementNS("http://www.w3.org/2000/svg","text");
+      t1.setAttribute("x", x0+22);
+      t1.setAttribute("y", y0+40);
+      t1.setAttribute("class","nodeTitle");
+      t1.textContent = nodeTitle(node);
+      g.appendChild(t1);
+
+      const t2 = document.createElementNS("http://www.w3.org/2000/svg","text");
+      t2.setAttribute("x", x0+22);
+      t2.setAttribute("y", y0+76);
+      t2.setAttribute("class","nodeText");
+      t2.textContent = nodeSubtitle(node);
+      g.appendChild(t2);
+
+      const t3 = document.createElementNS("http://www.w3.org/2000/svg","text");
+      t3.setAttribute("x", x0+22);
+      t3.setAttribute("y", y0+112);
+      t3.setAttribute("class","nodeText");
+      t3.textContent = `gini=${fmt(node.gini)}`;
+      g.appendChild(t3);
+
+      const t4 = document.createElementNS("http://www.w3.org/2000/svg","text");
+      t4.setAttribute("x", x0+22);
+      t4.setAttribute("y", y0+148);
+      t4.setAttribute("class","nodePred");
+      t4.textContent = `predict: ${node.pred}`;
+      g.appendChild(t4);
+
+      // Leaf badge if pure
+      if (isLeaf(node) && node.gini <= 1e-12) {
+        const badge = document.createElementNS("http://www.w3.org/2000/svg","rect");
+        badge.setAttribute("x", x0+w-110);
+        badge.setAttribute("y", y0+18);
+        badge.setAttribute("width", 90);
+        badge.setAttribute("height", 30);
+        badge.setAttribute("rx", 15);
+        badge.setAttribute("class","leafBadge");
+        g.appendChild(badge);
+
+        const bt = document.createElementNS("http://www.w3.org/2000/svg","text");
+        bt.setAttribute("x", x0+w-65);
+        bt.setAttribute("y", y0+40);
+        bt.setAttribute("text-anchor","middle");
+        bt.setAttribute("class","leafBadgeText");
+        bt.textContent = "PURE";
+        g.appendChild(bt);
+      }
+
+      treeSvg.appendChild(g);
+    };
+
+    // Draw edges first
+    const walkEdges = (node) => {
+      if (!isLeaf(node)) {
+        const f = featureName(node.splitFeatureKey);
+        drawEdge(node.id, node.left.id, `${f}=0`);
+        drawEdge(node.id, node.right.id, `${f}=1`);
+        walkEdges(node.left);
+        walkEdges(node.right);
+      }
+    };
+    walkEdges(root);
+
+    // Draw nodes
+    const walkNodes = (node) => {
+      drawNode(node);
+      if (!isLeaf(node)) {
+        walkNodes(node.left);
+        walkNodes(node.right);
+      }
+    };
+    walkNodes(root);
+  };
+
+  // --- Dataset table with row highlighting ---
+  const renderDatasetTable = (activeIndexSet) => {
+    const isActive = (i) => !activeIndexSet || activeIndexSet.has(i);
+    const html = [];
+    html.push('<table>');
+    html.push('<thead><tr><th class="mono">id</th><th>Label</th><th>Feature 1</th><th>Feature 2</th></tr></thead>');
+    html.push('<tbody>');
+    for (let i=0;i<DATA.length;i++){
+      const r = DATA[i];
+      const cls = isActive(i) ? "rowActive" : "rowInactive";
+      html.push(`<tr class="${cls}"><td class="mono">${r.id}</td><td class="mono">${r.y}</td><td class="mono">${r.f1}</td><td class="mono">${r.f2}</td></tr>`);
+    }
+    html.push('</tbody></table>');
+    datasetTableEl.innerHTML = html.join("");
+  };
+
+  // --- Split option list UI ---
+  const renderSplitOptions = (splits, selectedKey, onChange, bestKey, contextLabel) => {
+    if (!splits.length) {
+      return `<div class="note">
+        <span class="badgeb tagNote"><strong>No valid split</strong></span>
+        <div style="margin-top:8px">
+          Every remaining feature is constant for this node, so the tree cannot create a non-trivial split.
+        </div>
+      </div>`;
+    }
+
+    const items = splits.map(m => {
+      const fName = featureName(m.featureKey);
+      const isBest = (m.featureKey === bestKey);
+      const checked = (m.featureKey === selectedKey) ? "checked" : "";
+      const bestBadge = isBest ? '<span class="badgeb tagBest"><strong>best</strong></span>' : '';
+      const wLabel = `<span class="badgeb"><strong>weighted gini</strong>&nbsp;<span class="mono">${fmt(m.weightedGini)}</span></span>`;
+      const gainLabel = `<span class="badgeb"><strong>gain</strong>&nbsp;<span class="mono">${fmt(m.gain)}</span></span>`;
+
+      return `
+        <label class="splitItem">
+          <input type="radio" name="${contextLabel}" value="${m.featureKey}" ${checked}/>
+          <div class="content">
+            <div class="head">
+              <div class="name">${fName}</div>
+              <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                ${bestBadge}
+                ${wLabel}
+                ${gainLabel}
+              </div>
+            </div>
+            <div class="details">
+              Split rule: <span class="mono">${fName}=0</span> vs <span class="mono">${fName}=1</span>.
+              Parent gini: <span class="mono">${fmt(m.parentGini)}</span>.
+            </div>
+            <div class="grid2">
+              <div class="mini">
+                <div class="tt">${fName}=0 (S<sub>0</sub>)</div>
+                <div class="kv"><span>n</span><span>${m.left.length}</span></div>
+                <div class="kv"><span>a,b</span><span>${m.countsLeft.a}, ${m.countsLeft.b}</span></div>
+                <div class="kv"><span>gini</span><span>${fmt(m.giniLeft)}</span></div>
+              </div>
+              <div class="mini">
+                <div class="tt">${fName}=1 (S<sub>1</sub>)</div>
+                <div class="kv"><span>n</span><span>${m.right.length}</span></div>
+                <div class="kv"><span>a,b</span><span>${m.countsRight.a}, ${m.countsRight.b}</span></div>
+                <div class="kv"><span>gini</span><span>${fmt(m.giniRight)}</span></div>
+              </div>
+            </div>
+          </div>
+        </label>
+      `;
+    });
+
+    // Attach handler after injection
+    setTimeout(() => {
+      const radios = stepContentEl.querySelectorAll(`input[name="${contextLabel}"]`);
+      radios.forEach(r => r.addEventListener("change", (e) => onChange(e.target.value)));
+    }, 0);
+
+    return `<div class="splitList">${items.join("")}</div>`;
+  };
+
+  // --- Step rendering ---
+  const renderStep = () => {
+    const total = STEPS.length;
+    stepCounterEl.textContent = `Step ${state.step+1} / ${total}`;
+    stepNameEl.textContent = STEPS[state.step].title;
+
+    // Build current tree
+    const root = buildTreeForStep();
+
+    // KPIs
+    kpiCountsEl.textContent = `a: ${root.counts.a}, b: ${root.counts.b}`;
+    kpiRootGiniEl.textContent = fmt(root.gini);
+    treeStatusEl.textContent = root.splitFeatureKey ? "In progress" : "Not split yet";
+
+    // Highlight and focus set
+    let highlightNodeId = null;
+    let focusSet = null;
+    let focusLabel = "All rows";
+
+    // Prepare step content
+    let contentHTML = "";
+    choiceBadgeEl.style.display = "none";
+    choiceBadgeEl.innerHTML = "";
+
+    if (STEPS[state.step].key === "intro") {
+      highlightNodeId = root.id;
+      focusSet = new Set(root.indices);
+      focusLabel = "All rows (root node)";
+
+      contentHTML = `
+        <div class="stepTitle">What we are building</div>
+        <div class="stepBody">
+          <p>
+            We will build a small classification tree to predict the label (<span class="mono">a</span> or <span class="mono">b</span>)
+            from two binary features (<span class="mono">Feature 1</span> and <span class="mono">Feature 2</span>).
+          </p>
+          <p>
+            At each node, we consider splits of the form <span class="mono">Feature j = 0</span> vs <span class="mono">Feature j = 1</span>,
+            compute the <span class="mono">weighted Gini</span> for each split, and choose the lowest one (greedy).
+          </p>
+          <p class="muted">
+            Use <span class="mono">Next</span> to compute the root impurity and then score each candidate split.
+          </p>
+        </div>
+      `;
+    }
+
+    if (STEPS[state.step].key === "root_gini") {
+      highlightNodeId = root.id;
+      focusSet = new Set(root.indices);
+      focusLabel = "All rows (root node)";
+
+      const n = root.indices.length;
+      const pa = root.counts.a / n;
+      const pb = root.counts.b / n;
+      const sumSq = pa*pa + pb*pb;
+
+      contentHTML = `
+        <div class="stepTitle">Root impurity (before any split)</div>
+        <div class="stepBody">
+          <p>
+            The root contains all <span class="mono">${n}</span> samples.
+            The class counts are <span class="mono">a:${root.counts.a}</span>, <span class="mono">b:${root.counts.b}</span>.
+          </p>
+          <div class="kpiRow" style="margin-top:10px;">
+            <div class="kpi"><div class="k">Class probabilities</div><div class="v">p(a)=${fmt(pa)}, p(b)=${fmt(pb)}</div></div>
+            <div class="kpi"><div class="k">Sum p^2</div><div class="v">${fmt(sumSq)}</div></div>
+            <div class="kpi"><div class="k">Gini(root)</div><div class="v">${fmt(root.gini)}</div></div>
+          </div>
+          <p class="note">
+            Lower Gini means the node is “more pure”. A pure node (all <span class="mono">a</span> or all <span class="mono">b</span>)
+            has Gini = 0.
+          </p>
+        </div>
+      `;
+    }
+
+    if (STEPS[state.step].key === "choose_root") {
+      highlightNodeId = root.id;
+      focusSet = new Set(root.indices);
+      focusLabel = "All rows (scoring root split)";
+
+      const {best, all} = bestSplit(root.indices, []);
+      const bestKey = best ? best.featureKey : null;
+      if (bestKey && !state.selectedRootFeature) state.selectedRootFeature = bestKey;
+
+      kpiBestWGEl.textContent = best ? fmt(best.weightedGini) : "--";
+
+      contentHTML = `
+        <div class="stepTitle">Score each possible split at the root</div>
+        <div class="stepBody">
+          <p>
+            For each feature, we split the data into <span class="mono">S<sub>0</sub></span> (feature=0) and <span class="mono">S<sub>1</sub></span> (feature=1),
+            compute each child’s Gini, then take a size-weighted average.
+          </p>
+          <p class="muted">
+            The greedy algorithm chooses the split with the <strong>lowest</strong> weighted Gini.
+            You can pick a different split to see what happens.
+          </p>
+        </div>
+        ${renderSplitOptions(all, state.selectedRootFeature, (k)=>{ state.selectedRootFeature=k; renderStep(); }, bestKey, "rootSplit")}
+        <div class="note">
+          Current selection: <span class="mono">${featureName(state.selectedRootFeature)}</span>.
+          ${bestKey && state.selectedRootFeature !== bestKey ? `<span class="badgeb tagNote" style="margin-left:8px;"><strong>not the best</strong></span>` : bestKey ? `<span class="badgeb tagBest" style="margin-left:8px;"><strong>best</strong></span>` : ``}
+        </div>
+      `;
+
+      choiceBadgeEl.style.display = "inline-flex";
+      choiceBadgeEl.innerHTML = `<strong>Selected root split</strong>&nbsp;<span class="mono">${featureName(state.selectedRootFeature)}</span>`;
+    }
+
+    if (STEPS[state.step].key === "apply_root") {
+      // Root split is applied in buildTreeForStep
+      highlightNodeId = root.id;
+      focusLabel = `Root split applied: ${featureName(root.splitFeatureKey)}`;
+      focusSet = new Set(root.indices);
+
+      // Compute metrics for the chosen root split (for display)
+      const m = splitMetrics(root.indices, root.splitFeatureKey);
+      kpiBestWGEl.textContent = fmt(m.weightedGini);
+
+      contentHTML = `
+        <div class="stepTitle">Apply the root split</div>
+        <div class="stepBody">
+          <p>
+            We split on <span class="mono">${featureName(root.splitFeatureKey)}</span>.
+            The weighted Gini is <span class="mono">${fmt(m.weightedGini)}</span>, so the impurity reduction (“gain”) is
+            <span class="mono">${fmt(m.gain)}</span>.
+          </p>
+          <div class="kpiRow" style="margin-top:10px;">
+            <div class="kpi"><div class="k">Left child (${featureName(root.splitFeatureKey)}=0)</div><div class="v">n=${m.left.length}, a:${m.countsLeft.a}, b:${m.countsLeft.b}, gini=${fmt(m.giniLeft)}</div></div>
+            <div class="kpi"><div class="k">Right child (${featureName(root.splitFeatureKey)}=1)</div><div class="v">n=${m.right.length}, a:${m.countsRight.a}, b:${m.countsRight.b}, gini=${fmt(m.giniRight)}</div></div>
+          </div>
+          <p class="muted" style="margin-top:10px;">
+            Next, we look for the next leaf that is impure and still has a feature we can split on.
+          </p>
+        </div>
+      `;
+
+      choiceBadgeEl.style.display = "inline-flex";
+      choiceBadgeEl.innerHTML = `<strong>Root split</strong>&nbsp;<span class="mono">${featureName(root.splitFeatureKey)}</span>`;
+    }
+
+    if (STEPS[state.step].key === "choose_leaf") {
+      // Root split is applied in buildTreeForStep (step>=3)
+      const leaf = findFirstSplittableLeaf(root);
+      // If no splittable leaf exists, we'll explain why.
+      // We also want to highlight the "next" impure leaf (even if not splittable), for teaching.
+      let nextLeaf = null;
+      // Find first impure leaf, even if not splittable
+      const q = [root];
+      while(q.length){
+        const cur = q.shift();
+        if (isLeaf(cur) && cur.gini > 1e-12) { nextLeaf = cur; break; }
+        if (!isLeaf(cur)) q.push(cur.left, cur.right);
+      }
+
+      highlightNodeId = (leaf ? leaf.id : (nextLeaf ? nextLeaf.id : null));
+      focusSet = new Set((leaf ?? nextLeaf ?? root).indices);
+      focusLabel = leaf ? "Focus: next splittable leaf" : (nextLeaf ? "Focus: next impure leaf (not splittable)" : "All leaves are pure");
+      kpiBestWGEl.textContent = "--";
+
+      if (!nextLeaf) {
+        contentHTML = `
+          <div class="stepTitle">No more work to do</div>
+          <div class="stepBody">
+            <p>All leaves are already pure (Gini = 0). The tree stops.</p>
+          </div>
+        `;
+      } else if (!leaf) {
+        // There is an impure leaf, but no feature can split it
+        const banned = nextLeaf.pathFeatures;
+        const {all} = bestSplit(nextLeaf.indices, banned);
+
+        contentHTML = `
+          <div class="stepTitle">Next leaf is impure, but might not be splittable</div>
+          <div class="stepBody">
+            <p>
+              The highlighted leaf has <span class="mono">n=${nextLeaf.indices.length}</span> samples with
+              counts <span class="mono">a:${nextLeaf.counts.a}</span>, <span class="mono">b:${nextLeaf.counts.b}</span> and
+              Gini <span class="mono">${fmt(nextLeaf.gini)}</span>.
+            </p>
+            <p class="muted">
+              We can only split if at least one remaining feature takes <em>both</em> values (0 and 1) inside this node.
+            </p>
+          </div>
+          <div class="note">
+            Remaining features along this path: <span class="mono">${FEATURES.map(f=>f.key).filter(k=>!banned.includes(k)).map(featureName).join(", ") || "none"}</span>.
+          </div>
+          ${renderSplitOptions(all, null, ()=>{}, null, "none")}
+          <div class="note">
+            Since there is no valid split, the algorithm stops and predicts the majority class at this leaf.
+          </div>
+        `;
+      } else {
+        // There is a splittable leaf
+        contentHTML = `
+          <div class="stepTitle">Choose which leaf to split next</div>
+          <div class="stepBody">
+            <p>
+              A standard greedy tree keeps splitting while there is an impure leaf that has a valid split.
+              Here, the next splittable leaf has <span class="mono">n=${leaf.indices.length}</span> samples with counts
+              <span class="mono">a:${leaf.counts.a}</span>, <span class="mono">b:${leaf.counts.b}</span>, so
+              Gini <span class="mono">${fmt(leaf.gini)}</span>.
+            </p>
+            <p class="muted">Next we will score splits at this leaf.</p>
+          </div>
+        `;
+      }
+    }
+
+    if (STEPS[state.step].key === "choose_leaf_split") {
+      const leaf = findFirstSplittableLeaf(root);
+
+      if (!leaf) {
+        highlightNodeId = null;
+        focusSet = new Set(root.indices);
+        focusLabel = "No splittable leaf";
+        contentHTML = `
+          <div class="stepTitle">No valid split remains</div>
+          <div class="stepBody">
+            <p>
+              There is no leaf with both (1) non-zero impurity and (2) a feature that can split it.
+              The tree will stop growing.
+            </p>
+            <p class="muted">Press Next to see the final summary.</p>
+          </div>
+        `;
+      } else {
+        highlightNodeId = leaf.id;
+        focusSet = new Set(leaf.indices);
+        focusLabel = "Rows in the current leaf";
+
+        const banned = leaf.pathFeatures;
+        const {best, all} = bestSplit(leaf.indices, banned);
+        const bestKey = best ? best.featureKey : null;
+        if (bestKey && !state.selectedLeafFeature) state.selectedLeafFeature = bestKey;
+
+        kpiBestWGEl.textContent = best ? fmt(best.weightedGini) : "--";
+
+        contentHTML = `
+          <div class="stepTitle">Score splits for the highlighted leaf</div>
+          <div class="stepBody">
+            <p>
+              We only consider features that are not already used on the path to this leaf.
+              We again choose the split with the lowest weighted Gini.
+            </p>
+          </div>
+          <div class="note">
+            Features used on path: <span class="mono">${banned.map(featureName).join(", ") || "none"}</span>.
+            Remaining: <span class="mono">${FEATURES.map(f=>f.key).filter(k=>!banned.includes(k)).map(featureName).join(", ") || "none"}</span>.
+          </div>
+          ${renderSplitOptions(all, state.selectedLeafFeature, (k)=>{ state.selectedLeafFeature=k; renderStep(); }, bestKey, "leafSplit")}
+          <div class="note">
+            Current selection: <span class="mono">${featureName(state.selectedLeafFeature)}</span>.
+            ${bestKey && state.selectedLeafFeature !== bestKey ? `<span class="badgeb tagNote" style="margin-left:8px;"><strong>not the best</strong></span>` : bestKey ? `<span class="badgeb tagBest" style="margin-left:8px;"><strong>best</strong></span>` : ``}
+          </div>
+        `;
+
+        choiceBadgeEl.style.display = "inline-flex";
+        choiceBadgeEl.innerHTML = `<strong>Selected next split</strong>&nbsp;<span class="mono">${featureName(state.selectedLeafFeature)}</span>`;
+      }
+    }
+
+    if (STEPS[state.step].key === "apply_leaf_split") {
+      // If step>=6, buildTreeForStep already tries to apply the next split (if any)
+      // We'll rebuild to check what happened:
+      const root2 = buildTreeForStep();
+      // Determine whether we actually did a second split by checking existence of a non-root internal node
+      const hasSecondSplit = (() => {
+        if (!root2.left || !root2.right) return false;
+        const internal = (n) => n && !isLeaf(n);
+        return internal(root2.left) || internal(root2.right);
+      })();
+
+      if (!root2.left || !root2.right) {
+        highlightNodeId = root2.id;
+      } else if (hasSecondSplit) {
+        // highlight the node that got split (the first non-root internal)
+        highlightNodeId = (!isLeaf(root2.left) ? root2.left.id : root2.right.id);
+      } else {
+        // highlight the first impure leaf
+        let imp = null;
+        const q = [root2];
+        while(q.length){
+          const cur = q.shift();
+          if (isLeaf(cur) && cur.gini > 1e-12) { imp = cur; break; }
+          if (!isLeaf(cur)) q.push(cur.left, cur.right);
+        }
+        highlightNodeId = imp ? imp.id : null;
+      }
+
+      focusSet = new Set(DATA.map((_,i)=>i));
+      focusLabel = hasSecondSplit ? "Second split applied" : "No second split possible";
+
+      if (hasSecondSplit) {
+        // Identify which node got split and show its split feature.
+        const splitNode = (!isLeaf(root2.left) ? root2.left : root2.right);
+        const m = splitMetrics(splitNode.indices, splitNode.splitFeatureKey);
+        kpiBestWGEl.textContent = fmt(m.weightedGini);
+
+        contentHTML = `
+          <div class="stepTitle">Apply the next split</div>
+          <div class="stepBody">
+            <p>
+              We split the highlighted leaf on <span class="mono">${featureName(splitNode.splitFeatureKey)}</span>.
+              The weighted Gini for this split is <span class="mono">${fmt(m.weightedGini)}</span>
+              (gain <span class="mono">${fmt(m.gain)}</span> relative to that node).
+            </p>
+            <p class="muted">Next we will summarize what the final tree learned on this toy dataset.</p>
+          </div>
+        `;
+      } else {
+        kpiBestWGEl.textContent = "--";
+        contentHTML = `
+          <div class="stepTitle">Stop condition: no valid split remains</div>
+          <div class="stepBody">
+            <p>
+              There is no remaining feature that can split an impure leaf into two non-empty groups.
+              The greedy algorithm stops and returns the current tree.
+            </p>
+            <p class="muted">Press Next to see the final summary.</p>
+          </div>
+        `;
+      }
+    }
+
+    if (STEPS[state.step].key === "summary") {
+      const root2 = buildTreeForStep();
+      const rootSplit = root2.splitFeatureKey ? featureName(root2.splitFeatureKey) : "none";
+      let depth = 1;
+      const depthRec = (n) => isLeaf(n) ? 1 : 1 + Math.max(depthRec(n.left), depthRec(n.right));
+      depth = depthRec(root2);
+
+      // Count leaves and pure leaves
+      let leaves = 0, pureLeaves = 0;
+      const walk = (n) => {
+        if (isLeaf(n)) {
+          leaves += 1;
+          if (n.gini <= 1e-12) pureLeaves += 1;
+        } else { walk(n.left); walk(n.right); }
+      };
+      walk(root2);
+
+      contentHTML = `
+        <div class="stepTitle">What this toy tree learned</div>
+        <div class="stepBody">
+          <p>
+            Final root split: <span class="mono">${rootSplit}</span>.
+            Tree depth: <span class="mono">${depth}</span>. Leaves: <span class="mono">${leaves}</span> (pure: <span class="mono">${pureLeaves}</span>).
+          </p>
+          <p>
+            With this dataset, <span class="mono">Feature 2</span> is especially informative because all rows with
+            <span class="mono">Feature 2 = 0</span> have label <span class="mono">a</span> (a pure leaf).
+          </p>
+          <p class="muted">
+            Go back and choose a different root split to see how the tree shape (and purity) changes.
+          </p>
+        </div>
+      `;
+
+      highlightNodeId = root2.id;
+      focusSet = new Set(root2.indices);
+      focusLabel = "All rows (done)";
+      kpiBestWGEl.textContent = "--";
+    }
+
+    // Default best WG on steps where it isn't set
+    if (!kpiBestWGEl.textContent || kpiBestWGEl.textContent === "--") {
+      const rootSplits = bestSplit(root.indices, []);
+      kpiBestWGEl.textContent = rootSplits.best ? fmt(rootSplits.best.weightedGini) : "--";
+    }
+
+    // Render content
+    stepContentEl.innerHTML = contentHTML;
+
+    // Update focus & dataset
+    focusBadgeEl.textContent = focusLabel;
+    renderDatasetTable(focusSet);
+
+    // Render tree
+    renderTreeSvg(root, highlightNodeId);
+
+    // Update navigation buttons
+    prevBtn.disabled = (state.step === 0);
+    nextBtn.disabled = (state.step === STEPS.length - 1);
+
+    // Tree status label
+    treeStatusEl.textContent = (() => {
+      if (state.step < 3) return "Not split yet";
+      if (state.step < 6) return "After root split";
+      return "Final / stopping";
+    })();
+  };
+
+  // --- Navigation handlers ---
+  prevBtn.addEventListener("click", () => {
+    if (state.step > 0) state.step -= 1;
+    renderStep();
+  });
+  nextBtn.addEventListener("click", () => {
+    if (state.step < STEPS.length - 1) state.step += 1;
+    renderStep();
+  });
+  resetBtn.addEventListener("click", () => {
+    state.step = 0;
+    state.selectedRootFeature = "f2";
+    state.selectedLeafFeature = "f1";
+    renderStep();
+  });
+
+  // Initial render
+  renderStep();
+})();
+</script>
+
+<footer style="text-align:center; padding:24px 16px; color:#6b7280; font-size:13px;">
+By: Caleb Robinson, 2026
+</footer>
+
+</body>
+</html>
+
