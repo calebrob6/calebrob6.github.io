@@ -276,6 +276,14 @@
                                     <option value="entropy">Entropy (Info Gain)</option>
                                 </select>
                             </div>
+                            <div class="control-group">
+                                <label>Features per Split</label>
+                                <select id="max-features">
+                                    <option value="sqrt">sqrt(#features)</option>
+                                    <option value="log2">log2(#features)</option>
+                                    <option value="all">All features</option>
+                                </select>
+                            </div>
                         </div>
 
                         <div class="card" style="margin-top: 12px;">
@@ -486,8 +494,29 @@
                         this.minSamplesLeaf = opts.minSamplesLeaf || 1;
                         this.criterion = opts.criterion || 'gini';
                         this.features = opts.features || [];
+                        this.maxFeatures = opts.maxFeatures || 'all';
                         this.continuousFeatures = new Set(opts.continuousFeatures || []);
                         this.tree = null;
+                    }
+
+                    pickFeatureSubset() {
+                        const total = this.features.length;
+                        let k;
+                        if (this.maxFeatures === 'sqrt') {
+                            k = Math.max(1, Math.floor(Math.sqrt(total)));
+                        } else if (this.maxFeatures === 'log2') {
+                            k = Math.max(1, Math.floor(Math.log2(total)));
+                        } else {
+                            // Use all features without shuffling (deterministic)
+                            return this.features.slice();
+                        }
+                        // Fisher–Yates shuffle then take first k
+                        const arr = this.features.slice();
+                        for (let i = arr.length - 1; i > 0; i--) {
+                            const j = Math.floor(Math.random() * (i + 1));
+                            [arr[i], arr[j]] = [arr[j], arr[i]];
+                        }
+                        return arr.slice(0, k);
                     }
 
                     // Optimized impurity using pre-counted values
@@ -613,8 +642,9 @@
                         
                         const currentImp = this.impurityFromCounts(negCount, posCount, n);
                         let bestSplit = null;
-                        
-                        for (const feature of this.features) {
+
+                        const candidateFeatures = this.pickFeatureSubset();
+                        for (const feature of candidateFeatures) {
                             const split = this.continuousFeatures.has(feature)
                                 ? this.findBestSplitContinuous(indices, data, feature, labels, currentImp)
                                 : this.findBestSplitCategorical(indices, data, feature, labels, currentImp);
@@ -701,8 +731,8 @@
                     const testFeatures = test.map(d => d.features);
                     const trueLabels = test.map(d => d.label);
                     
-                    // Train single tree on full data
-                    const singleTree = new FastDecisionTree(opts);
+                    // Train single tree on full data (deterministic: use all features)
+                    const singleTree = new FastDecisionTree({ ...opts, maxFeatures: 'all' });
                     singleTree.fit(train);
                     const singlePreds = singleTree.predict(testFeatures);
                     const singleTreeAccuracy = accuracy(trueLabels, singlePreds);
@@ -760,6 +790,7 @@
                 minSamplesSplit: parseInt(document.getElementById('min-samples').value),
                 minSamplesLeaf: parseInt(document.getElementById('min-leaf').value),
                 criterion: document.getElementById('criterion').value,
+                maxFeatures: document.getElementById('max-features').value,
                 features: state.selectedFeatures,
                 continuousFeatures: CONTINUOUS_FEATURES
             };
@@ -976,6 +1007,24 @@
                     state.selectedFeatures = [...container.querySelectorAll('input:checked')].map(c => c.value);
                 });
             });
+
+            // Update feature count display for max-features control
+            const maxFeatSelect = document.getElementById('max-features');
+            const updatePlaceholder = () => {
+                const total = state.selectedFeatures.length;
+                if (maxFeatSelect.value === 'sqrt') {
+                    maxFeatSelect.title = `~${Math.max(1, Math.floor(Math.sqrt(total)))} of ${total} features per split`;
+                } else if (maxFeatSelect.value === 'log2') {
+                    maxFeatSelect.title = `~${Math.max(1, Math.floor(Math.log2(total)))} of ${total} features per split`;
+                } else {
+                    maxFeatSelect.title = `All ${total} features per split`;
+                }
+            };
+            if (maxFeatSelect) {
+                maxFeatSelect.addEventListener('change', updatePlaceholder);
+                container.addEventListener('change', updatePlaceholder);
+                updatePlaceholder();
+            }
         }
 
         // Main init
