@@ -33,6 +33,9 @@ Visualize grid artifacts and analyze them using Fast Fourier Transform. Useful f
 ### [Decision Tree Explorer](/static/decision_tree_explorer.html)
 Interactive demo for exploring decision tree algorithms using the UCI Adult Income Dataset. Build manual trees or use automated algorithms to understand how decision trees classify data.
 
+### [Random Forest Explorer](/static/random_forest_explorer.html)
+Interactive demo showing how random forests improve on single decision trees through ensemble learning. Train hundreds of bootstrapped trees and visualize how majority voting reduces variance and improves accuracy.
+
 ### [Precision / Recall / Prevalence @ Scale](/static/precision_at_scale.html)
 Explore how precision, recall, and false positive counts behave when deploying models at scale with varying prevalence. Understand why a model that looks great on balanced validation sets can produce many false positives in deployment.
 
