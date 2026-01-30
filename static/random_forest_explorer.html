@@ -1,0 +1,1014 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Random Forest Explorer - UCI Adult Income Dataset</title>
+
+    <!-- Open Graph metadata -->
+    <meta property="og:title" content="Random Forest Explorer - UCI Adult Income Dataset" />
+    <meta property="og:description" content="Interactive demo exploring how random forests improve on single decision trees using the UCI Adult Income Dataset." />
+    <meta property="og:author" content="Caleb Robinson" />
+    <meta property="og:image" content="https://calebrob.com/images/face.jpg" />
+    <meta property="og:type" content="website" />
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <link rel="stylesheet" href="decision-tree-explorer.css">
+    <style>
+        /* Additional styles for histogram visualization */
+        .histogram-container {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px;
+            min-height: 350px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .histogram-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .histogram-header h3 { margin: 0; }
+
+        .histogram-chart {
+            width: 100%;
+            height: 400px;
+            position: relative;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+        }
+
+        .histogram-svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        .histogram-bar {
+            fill: var(--accent);
+            opacity: 0.7;
+        }
+
+        .histogram-bar:hover {
+            opacity: 1;
+        }
+
+        .single-tree-line {
+            stroke: #1f2937;
+            stroke-width: 3px;
+            stroke-dasharray: 8, 4;
+        }
+
+        .ensemble-line {
+            stroke: var(--success);
+            stroke-width: 3px;
+        }
+
+        .axis-line {
+            stroke: var(--border);
+            stroke-width: 1px;
+        }
+
+        .axis-label {
+            fill: var(--muted);
+            font-size: 11px;
+        }
+
+        .tick-label {
+            fill: var(--muted);
+            font-size: 10px;
+        }
+
+        .histogram-legend {
+            display: flex;
+            justify-content: center;
+            gap: 24px;
+            margin-top: 12px;
+            font-size: 0.8rem;
+            color: var(--muted);
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .legend-line {
+            width: 24px;
+            height: 3px;
+            border-radius: 2px;
+        }
+
+        .legend-line.single {
+            background: #1f2937;
+            background: repeating-linear-gradient(
+                90deg,
+                #1f2937 0px,
+                #1f2937 8px,
+                transparent 8px,
+                transparent 12px
+            );
+        }
+
+        .legend-line.ensemble {
+            background: var(--success);
+        }
+
+        .legend-box {
+            width: 16px;
+            height: 16px;
+            border-radius: 3px;
+            background: var(--accent);
+            opacity: 0.7;
+        }
+
+        .progress-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.9);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-radius: 12px;
+            z-index: 10;
+        }
+
+        .progress-bar {
+            width: 200px;
+            height: 8px;
+            background: var(--border);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 12px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--accent);
+            transition: width 0.1s ease;
+        }
+
+        .progress-text {
+            color: var(--muted);
+            font-size: 0.9rem;
+            margin-top: 8px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        .stat-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            padding: 12px;
+            border-radius: 12px;
+            text-align: center;
+        }
+
+        .stat-card .value {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--accent);
+            white-space: nowrap;
+        }
+
+        .stat-card .label {
+            font-size: 0.65rem;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            margin-top: 4px;
+        }
+
+        .stat-card.highlight {
+            border-color: var(--success);
+            background: var(--success-bg);
+        }
+
+        .stat-card.highlight .value {
+            color: var(--success);
+        }
+
+        .stat-card.dark {
+            border-color: #374151;
+            background: #f3f4f6;
+        }
+
+        .stat-card.dark .value {
+            color: #1f2937;
+        }
+
+        .rf-grid {
+            display: grid;
+            grid-template-columns: 280px 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 900px) {
+            .rf-grid { grid-template-columns: 1fr; }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+
+        .tooltip {
+            position: absolute;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 0.8rem;
+            pointer-events: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            z-index: 100;
+            display: none;
+        }
+
+        .tooltip.visible {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🌲🌳 Random Forest Interactive Demo 🌳🌲</h1>
+            <div class="description">
+                <p>This demo uses the <a href="https://archive.ics.uci.edu/dataset/2/adult" target="_blank">UCI Adult Dataset</a> (also known as the "Census Income" dataset), extracted from the 1994 U.S. Census by Ronny Kohavi and Barry Becker. It is a classic <strong>binary classification</strong> benchmark where the goal is to predict whether an individual's annual income exceeds <span class="highlight">$50,000</span> based on demographic attributes.</p>
+                <p style="margin-top: 8px;">For this interactive demonstration, we use a subset of <strong><span id="train-info">2,000</span> training samples</strong> and <strong><span id="test-info">1,000</span> test samples</strong>. The histogram shows the test accuracy distribution of individual decision trees trained on different <strong>bootstrap samples</strong> (random samples drawn with replacement).</p>
+            </div>
+        </header>
+
+        <div class="tab-panel active" id="tab-rf">
+            <div class="panel-content">
+                <div class="rf-grid">
+                    <div class="sidebar-col">
+                        <div class="card">
+                            <h3>Tree Parameters</h3>
+                            <div class="control-group">
+                                <label>Max Depth <span class="val" id="max-depth-val">5</span></label>
+                                <input type="range" id="max-depth" min="1" max="15" value="5">
+                            </div>
+                            <div class="control-group">
+                                <label>Min Samples Split <span class="val" id="min-samples-val">10</span></label>
+                                <input type="range" id="min-samples" min="2" max="100" value="10">
+                            </div>
+                            <div class="control-group">
+                                <label>Min Samples Leaf <span class="val" id="min-leaf-val">5</span></label>
+                                <input type="range" id="min-leaf" min="1" max="50" value="5">
+                            </div>
+                            <div class="control-group">
+                                <label>Criterion</label>
+                                <select id="criterion">
+                                    <option value="gini">Gini Impurity</option>
+                                    <option value="entropy">Entropy (Info Gain)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="card" style="margin-top: 12px;">
+                            <h3>Forest Parameters</h3>
+                            <div class="control-group">
+                                <label>Number of Trees <span class="val" id="n-trees-val">100</span></label>
+                                <input type="range" id="n-trees" min="10" max="200" value="100" step="10">
+                            </div>
+                            <div class="control-group">
+                                <label>Bootstrap Sample Size <span class="val" id="bootstrap-size-val">100%</span></label>
+                                <input type="range" id="bootstrap-size" min="50" max="100" value="100" step="5">
+                            </div>
+                        </div>
+
+                        <div class="card" style="margin-top: 12px;">
+                            <h3>Features</h3>
+                            <div class="checkbox-list" id="feature-checkboxes"></div>
+                        </div>
+
+                        <button class="primary" id="train-btn">Build Forest</button>
+
+                        <div class="stats-grid">
+                            <div class="stat-card dark">
+                                <div class="value" id="single-accuracy">--</div>
+                                <div class="label">Single Tree</div>
+                            </div>
+                            <div class="stat-card highlight">
+                                <div class="value" id="ensemble-accuracy">--</div>
+                                <div class="label">Ensemble</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="value" id="improvement">--</div>
+                                <div class="label">Improvement</div>
+                            </div>
+                        </div>
+
+                        <div class="metrics-row" style="margin-top: 12px;">
+                            <div class="metric"><div class="value" id="mean-acc">--</div><div class="label">Mean Acc</div></div>
+                            <div class="metric"><div class="value" id="std-acc">--</div><div class="label">Std Dev</div></div>
+                            <div class="metric"><div class="value" id="min-acc">--</div><div class="label">Min Acc</div></div>
+                            <div class="metric"><div class="value" id="max-acc">--</div><div class="label">Max Acc</div></div>
+                        </div>
+                    </div>
+
+                    <div class="histogram-container">
+                        <div class="histogram-header">
+                            <h3 style="font-size: 0.85rem; color: var(--text-secondary);">TEST ACCURACY DISTRIBUTION</h3>
+                        </div>
+                        <div class="histogram-chart" id="histogram-chart">
+                            <svg class="histogram-svg" id="histogram-svg"></svg>
+                            <div class="progress-overlay" id="progress-overlay" style="display: none;">
+                                <div style="font-weight: 600; color: var(--text);">Training Trees...</div>
+                                <div class="progress-bar">
+                                    <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+                                </div>
+                                <div class="progress-text" id="progress-text">0 / 100</div>
+                            </div>
+                        </div>
+                        <div class="histogram-legend">
+                            <div class="legend-item">
+                                <div class="legend-box"></div>
+                                <span>Individual Tree Accuracies</span>
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-line single"></div>
+                                <span>Single Tree (no bootstrap)</span>
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-line ensemble"></div>
+                                <span>Random Forest Ensemble</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Educational Section -->
+        <section class="education-section">
+            <h2>Understanding Random Forests</h2>
+            <p class="intro">Random Forests are an ensemble learning method that combines multiple decision trees to produce more robust and accurate predictions. The key ideas are <strong>bagging</strong> (bootstrap aggregating) and <strong>feature randomization</strong>.</p>
+            
+            <div class="criteria-grid">
+                <div class="criterion-card">
+                    <h3>Bootstrap Sampling</h3>
+                    <p>Each tree in the forest is trained on a different bootstrap sample - a random sample drawn <em>with replacement</em> from the original training data. This means each tree sees a slightly different version of the data.</p>
+                    <div class="formula">
+                        $$P(\text{sample in bootstrap}) = 1 - \left(1 - \frac{1}{n}\right)^n \approx 1 - e^{-1} \approx 63.2\%$$
+                    </div>
+                    <p>On average, each bootstrap sample contains about 63.2% of the unique training examples, with some appearing multiple times.</p>
+                    <ul class="properties">
+                        <li>Creates diversity among trees</li>
+                        <li>Reduces overfitting to specific data points</li>
+                        <li>Out-of-bag samples can be used for validation</li>
+                    </ul>
+                </div>
+                
+                <div class="criterion-card">
+                    <h3>Ensemble Prediction</h3>
+                    <p>The final prediction is made by aggregating predictions from all trees. For classification, this is typically done through <strong>majority voting</strong>.</p>
+                    <div class="formula">
+                        $$\hat{y} = \text{mode}\left(\hat{y}_1, \hat{y}_2, \ldots, \hat{y}_T\right)$$
+                    </div>
+                    <p>Where \(\hat{y}_t\) is the prediction from tree \(t\) and \(T\) is the total number of trees.</p>
+                    <div class="example">
+                        <strong>Why it works:</strong> If individual trees have >50% accuracy and make independent errors, the ensemble error decreases exponentially with more trees (<a href="https://en.wikipedia.org/wiki/Condorcet%27s_jury_theorem" target="_blank">Condorcet's Jury Theorem</a>).
+                    </div>
+                    <ul class="properties">
+                        <li>Reduces variance without increasing bias</li>
+                        <li>More stable predictions than single trees</li>
+                        <li>Robust to outliers and noise</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="comparison-section">
+                <h3>Why Random Forests Outperform Single Trees</h3>
+                <p>The histogram above demonstrates a key insight: individual decision trees trained on bootstrap samples have varying performance, but their ensemble (the random forest) typically outperforms most individual trees. This happens because:</p>
+                <ul>
+                    <li><strong>Variance Reduction:</strong> Averaging predictions from many trees reduces the variance inherent in single decision trees</li>
+                    <li><strong>Error Cancellation:</strong> When trees make different errors, aggregation tends to cancel out individual mistakes</li>
+                    <li><strong>Robustness:</strong> The ensemble is less sensitive to the specific training data used</li>
+                </ul>
+                <p>The expected variance of the ensemble can be expressed as (<a href="https://link.springer.com/article/10.1023/A:1010933404324" target="_blank">Breiman, 2001</a>):</p>
+                <div class="formula">
+                    $$\text{Var}(\bar{X}) = \frac{\sigma^2}{T} + \frac{T-1}{T}\rho\sigma^2$$
+                </div>
+                <p>Where \(\sigma^2\) is the variance of individual trees, \(T\) is the number of trees, and \(\rho\) is the average correlation between trees. Bootstrap sampling and feature randomization help reduce \(\rho\), making the ensemble more effective.</p>
+            </div>
+        </section>
+    </div>
+
+    <div class="tooltip" id="tooltip"></div>
+
+    <script src="decision-tree-algo.js"></script>
+    <script>
+        // ===========================================
+        // CONFIGURATION
+        // ===========================================
+        const CONFIG = {
+            DEFAULT_DATASET: 'adult_subset.json',
+            FEATURES: ['age', 'workclass', 'education', 'education-num', 'marital-status', 'occupation', 'relationship', 'race', 'sex', 'hours-per-week', 'native-country'],
+        };
+
+        // Column mapping from JSON array index to feature name
+        const COLUMN_MAP = {
+            0: 'age', 1: 'workclass', 2: 'fnlwgt', 3: 'education', 4: 'education-num',
+            5: 'marital-status', 6: 'occupation', 7: 'relationship', 8: 'race', 9: 'sex',
+            10: 'capital-gain', 11: 'capital-loss', 12: 'hours-per-week', 13: 'native-country', 14: 'income'
+        };
+
+        const ALL_VALID_FEATURES = ['age', 'workclass', 'fnlwgt', 'education', 'education-num', 'marital-status', 'occupation', 'relationship', 'race', 'sex', 'capital-gain', 'capital-loss', 'hours-per-week', 'native-country'];
+        const ALL_CONTINUOUS_FEATURES = ['age', 'fnlwgt', 'education-num', 'capital-gain', 'capital-loss', 'hours-per-week'];
+
+        const AVAILABLE_FEATURES = CONFIG.FEATURES;
+        const CONTINUOUS_FEATURES = ALL_CONTINUOUS_FEATURES.filter(f => AVAILABLE_FEATURES.includes(f));
+        let CATEGORICAL_VALUES = {};
+
+        // State
+        const state = {
+            train: [],
+            test: [],
+            selectedFeatures: [...AVAILABLE_FEATURES],
+            treeAccuracies: [],
+            singleTreeAccuracy: null,
+            ensembleAccuracy: null,
+            trees: []
+        };
+
+        // Load dataset
+        async function loadDataset() {
+            const response = await fetch(CONFIG.DEFAULT_DATASET);
+            const json = await response.json();
+            
+            function parseRow(row) {
+                const income = row[14];
+                const label = income.includes('>50K') ? 1 : 0;
+                const features = {};
+                for (const [idx, name] of Object.entries(COLUMN_MAP)) {
+                    if (name !== 'income') {
+                        features[name] = row[parseInt(idx)];
+                    }
+                }
+                return { features, label };
+            }
+            
+            const trainData = json.train.map(parseRow);
+            const testData = json.test.map(parseRow);
+            
+            const allData = [...trainData, ...testData];
+            AVAILABLE_FEATURES.forEach(f => {
+                if (!CONTINUOUS_FEATURES.includes(f)) {
+                    CATEGORICAL_VALUES[f] = [...new Set(allData.map(d => d.features[f]).filter(v => v !== undefined && v !== null && v !== '?'))];
+                }
+            });
+            
+            return { train: trainData, test: testData };
+        }
+
+        // Create Web Worker for parallel tree training
+        function createForestWorker() {
+            const workerCode = `
+                // Optimized Decision Tree for Worker
+                class FastDecisionTree {
+                    constructor(opts = {}) {
+                        this.maxDepth = opts.maxDepth || 10;
+                        this.minSamplesSplit = opts.minSamplesSplit || 2;
+                        this.minSamplesLeaf = opts.minSamplesLeaf || 1;
+                        this.criterion = opts.criterion || 'gini';
+                        this.features = opts.features || [];
+                        this.continuousFeatures = new Set(opts.continuousFeatures || []);
+                        this.tree = null;
+                    }
+
+                    // Optimized impurity using pre-counted values
+                    impurityFromCounts(count0, count1, total) {
+                        if (total === 0) return 0;
+                        const p0 = count0 / total;
+                        const p1 = count1 / total;
+                        if (this.criterion === 'entropy') {
+                            let ent = 0;
+                            if (p0 > 0) ent -= p0 * Math.log2(p0);
+                            if (p1 > 0) ent -= p1 * Math.log2(p1);
+                            return ent;
+                        }
+                        return 1 - p0 * p0 - p1 * p1;
+                    }
+
+                    findBestSplitContinuous(indices, data, feature, labels, currentImp) {
+                        const n = indices.length;
+                        // Sort indices by feature value
+                        const sortedIndices = indices.slice().sort((a, b) => 
+                            data[a].features[feature] - data[b].features[feature]
+                        );
+                        
+                        // Count total positives
+                        let totalPos = 0;
+                        for (const idx of indices) {
+                            if (labels[idx] === 1) totalPos++;
+                        }
+                        const totalNeg = n - totalPos;
+                        
+                        let leftPos = 0, leftNeg = 0;
+                        let bestGain = 0, bestThreshold = null;
+                        
+                        for (let i = 0; i < sortedIndices.length - 1; i++) {
+                            const idx = sortedIndices[i];
+                            if (labels[idx] === 1) leftPos++;
+                            else leftNeg++;
+                            
+                            const leftN = i + 1;
+                            const rightN = n - leftN;
+                            
+                            // Skip if doesn't meet leaf size requirements
+                            if (leftN < this.minSamplesLeaf || rightN < this.minSamplesLeaf) continue;
+                            
+                            // Skip if same value as next (no valid split point)
+                            const currVal = data[sortedIndices[i]].features[feature];
+                            const nextVal = data[sortedIndices[i + 1]].features[feature];
+                            if (currVal === nextVal) continue;
+                            
+                            const rightPos = totalPos - leftPos;
+                            const rightNeg = totalNeg - leftNeg;
+                            
+                            const leftImp = this.impurityFromCounts(leftNeg, leftPos, leftN);
+                            const rightImp = this.impurityFromCounts(rightNeg, rightPos, rightN);
+                            const wImp = (leftN / n) * leftImp + (rightN / n) * rightImp;
+                            const gain = currentImp - wImp;
+                            
+                            if (gain > bestGain) {
+                                bestGain = gain;
+                                bestThreshold = (currVal + nextVal) / 2;
+                            }
+                        }
+                        
+                        return bestGain > 0 ? { feature, threshold: bestThreshold, type: 'continuous', gain: bestGain } : null;
+                    }
+
+                    findBestSplitCategorical(indices, data, feature, labels, currentImp) {
+                        const n = indices.length;
+                        const catCounts = new Map(); // category -> {pos, neg}
+                        let totalPos = 0;
+                        
+                        for (const idx of indices) {
+                            const cat = data[idx].features[feature];
+                            if (!catCounts.has(cat)) catCounts.set(cat, {pos: 0, neg: 0});
+                            if (labels[idx] === 1) {
+                                catCounts.get(cat).pos++;
+                                totalPos++;
+                            } else {
+                                catCounts.get(cat).neg++;
+                            }
+                        }
+                        
+                        let bestGain = 0, bestCategory = null;
+                        
+                        for (const [cat, counts] of catCounts) {
+                            const leftN = counts.pos + counts.neg;
+                            const rightN = n - leftN;
+                            
+                            if (leftN < this.minSamplesLeaf || rightN < this.minSamplesLeaf) continue;
+                            
+                            const rightPos = totalPos - counts.pos;
+                            const rightNeg = rightN - rightPos;
+                            
+                            const leftImp = this.impurityFromCounts(counts.neg, counts.pos, leftN);
+                            const rightImp = this.impurityFromCounts(rightNeg, rightPos, rightN);
+                            const wImp = (leftN / n) * leftImp + (rightN / n) * rightImp;
+                            const gain = currentImp - wImp;
+                            
+                            if (gain > bestGain) {
+                                bestGain = gain;
+                                bestCategory = cat;
+                            }
+                        }
+                        
+                        return bestGain > 0 ? { feature, category: bestCategory, type: 'categorical', gain: bestGain } : null;
+                    }
+
+                    buildTree(indices, data, labels, depth = 0) {
+                        const n = indices.length;
+                        
+                        // Count labels
+                        let posCount = 0;
+                        for (const idx of indices) {
+                            if (labels[idx] === 1) posCount++;
+                        }
+                        const negCount = n - posCount;
+                        const majority = posCount >= negCount ? 1 : 0;
+                        
+                        // Stopping conditions
+                        if (depth >= this.maxDepth || n < this.minSamplesSplit || posCount === 0 || negCount === 0) {
+                            return { type: 'leaf', prediction: majority, samples: n };
+                        }
+                        
+                        const currentImp = this.impurityFromCounts(negCount, posCount, n);
+                        let bestSplit = null;
+                        
+                        for (const feature of this.features) {
+                            const split = this.continuousFeatures.has(feature)
+                                ? this.findBestSplitContinuous(indices, data, feature, labels, currentImp)
+                                : this.findBestSplitCategorical(indices, data, feature, labels, currentImp);
+                            if (split && (!bestSplit || split.gain > bestSplit.gain)) {
+                                bestSplit = split;
+                            }
+                        }
+                        
+                        if (!bestSplit) {
+                            return { type: 'leaf', prediction: majority, samples: n };
+                        }
+                        
+                        // Split indices
+                        const leftIndices = [], rightIndices = [];
+                        if (bestSplit.type === 'continuous') {
+                            for (const idx of indices) {
+                                if (data[idx].features[bestSplit.feature] <= bestSplit.threshold) {
+                                    leftIndices.push(idx);
+                                } else {
+                                    rightIndices.push(idx);
+                                }
+                            }
+                        } else {
+                            for (const idx of indices) {
+                                if (data[idx].features[bestSplit.feature] === bestSplit.category) {
+                                    leftIndices.push(idx);
+                                } else {
+                                    rightIndices.push(idx);
+                                }
+                            }
+                        }
+                        
+                        return {
+                            type: 'node',
+                            feature: bestSplit.feature,
+                            splitType: bestSplit.type,
+                            threshold: bestSplit.threshold,
+                            category: bestSplit.category,
+                            samples: n,
+                            left: this.buildTree(leftIndices, data, labels, depth + 1),
+                            right: this.buildTree(rightIndices, data, labels, depth + 1)
+                        };
+                    }
+
+                    fit(data) {
+                        const indices = data.map((_, i) => i);
+                        const labels = data.map(d => d.label);
+                        this.tree = this.buildTree(indices, data, labels);
+                        return this;
+                    }
+
+                    predictOne(sample, node = this.tree) {
+                        if (node.type === 'leaf') return node.prediction;
+                        const goLeft = node.splitType === 'continuous'
+                            ? sample[node.feature] <= node.threshold
+                            : sample[node.feature] === node.category;
+                        return goLeft ? this.predictOne(sample, node.left) : this.predictOne(sample, node.right);
+                    }
+
+                    predict(samples) {
+                        return samples.map(s => this.predictOne(s.features || s));
+                    }
+                }
+
+                function bootstrapSample(data, sizeRatio) {
+                    const n = Math.floor(data.length * sizeRatio);
+                    const sample = new Array(n);
+                    for (let i = 0; i < n; i++) {
+                        sample[i] = data[Math.floor(Math.random() * data.length)];
+                    }
+                    return sample;
+                }
+
+                function accuracy(yTrue, yPred) {
+                    let correct = 0;
+                    for (let i = 0; i < yTrue.length; i++) {
+                        if (yTrue[i] === yPred[i]) correct++;
+                    }
+                    return correct / yTrue.length;
+                }
+
+                self.onmessage = function(e) {
+                    const { train, test, opts, nTrees, bootstrapSize } = e.data;
+                    const testFeatures = test.map(d => d.features);
+                    const trueLabels = test.map(d => d.label);
+                    
+                    // Train single tree on full data
+                    const singleTree = new FastDecisionTree(opts);
+                    singleTree.fit(train);
+                    const singlePreds = singleTree.predict(testFeatures);
+                    const singleTreeAccuracy = accuracy(trueLabels, singlePreds);
+                    
+                    // Store all predictions for ensemble
+                    const allPredictions = [];
+                    const treeAccuracies = [];
+                    
+                    for (let i = 0; i < nTrees; i++) {
+                        const sample = bootstrapSample(train, bootstrapSize);
+                        const tree = new FastDecisionTree(opts);
+                        tree.fit(sample);
+                        
+                        const preds = tree.predict(testFeatures);
+                        allPredictions.push(preds);
+                        treeAccuracies.push(accuracy(trueLabels, preds));
+                        
+                        // Report progress every 10 trees
+                        if ((i + 1) % 10 === 0 || i === nTrees - 1) {
+                            self.postMessage({ type: 'progress', current: i + 1, total: nTrees });
+                        }
+                    }
+                    
+                    // Calculate ensemble predictions (majority vote)
+                    const ensemblePreds = trueLabels.map((_, sampleIdx) => {
+                        let sum = 0;
+                        for (let t = 0; t < nTrees; t++) {
+                            sum += allPredictions[t][sampleIdx];
+                        }
+                        return sum > nTrees / 2 ? 1 : 0;
+                    });
+                    const ensembleAccuracy = accuracy(trueLabels, ensemblePreds);
+                    
+                    self.postMessage({
+                        type: 'done',
+                        treeAccuracies,
+                        singleTreeAccuracy,
+                        ensembleAccuracy
+                    });
+                };
+            `;
+            
+            const blob = new Blob([workerCode], { type: 'application/javascript' });
+            return new Worker(URL.createObjectURL(blob));
+        }
+
+        let forestWorker = null;
+
+        // Build the random forest using Web Worker
+        async function buildForest() {
+            const nTrees = parseInt(document.getElementById('n-trees').value);
+            const bootstrapSize = parseInt(document.getElementById('bootstrap-size').value) / 100;
+            const opts = {
+                maxDepth: parseInt(document.getElementById('max-depth').value),
+                minSamplesSplit: parseInt(document.getElementById('min-samples').value),
+                minSamplesLeaf: parseInt(document.getElementById('min-leaf').value),
+                criterion: document.getElementById('criterion').value,
+                features: state.selectedFeatures,
+                continuousFeatures: CONTINUOUS_FEATURES
+            };
+
+            // Show progress
+            const overlay = document.getElementById('progress-overlay');
+            const progressFill = document.getElementById('progress-fill');
+            const progressText = document.getElementById('progress-text');
+            overlay.style.display = 'flex';
+            progressFill.style.width = '0%';
+            progressText.textContent = `0 / ${nTrees}`;
+
+            // Terminate previous worker if exists
+            if (forestWorker) {
+                forestWorker.terminate();
+            }
+
+            // Create new worker
+            forestWorker = createForestWorker();
+
+            return new Promise((resolve) => {
+                forestWorker.onmessage = function(e) {
+                    if (e.data.type === 'progress') {
+                        const progress = (e.data.current / e.data.total) * 100;
+                        progressFill.style.width = progress + '%';
+                        progressText.textContent = `${e.data.current} / ${e.data.total}`;
+                    } else if (e.data.type === 'done') {
+                        state.treeAccuracies = e.data.treeAccuracies;
+                        state.singleTreeAccuracy = e.data.singleTreeAccuracy;
+                        state.ensembleAccuracy = e.data.ensembleAccuracy;
+                        
+                        overlay.style.display = 'none';
+                        renderHistogram();
+                        updateStats();
+                        resolve();
+                    }
+                };
+
+                // Send data to worker
+                forestWorker.postMessage({
+                    train: state.train,
+                    test: state.test,
+                    opts,
+                    nTrees,
+                    bootstrapSize
+                });
+            });
+        }
+
+        // Render histogram
+        function renderHistogram() {
+            const svg = document.getElementById('histogram-svg');
+            const container = document.getElementById('histogram-chart');
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+            const margin = { top: 30, right: 40, bottom: 50, left: 60 };
+            const plotWidth = width - margin.left - margin.right;
+            const plotHeight = height - margin.top - margin.bottom;
+
+            if (state.treeAccuracies.length === 0) {
+                svg.innerHTML = '<text x="50%" y="50%" text-anchor="middle" fill="#666">Click "Build Forest" to see results</text>';
+                return;
+            }
+
+            // Calculate histogram bins
+            const minAcc = Math.min(...state.treeAccuracies, state.singleTreeAccuracy, state.ensembleAccuracy);
+            const maxAcc = Math.max(...state.treeAccuracies, state.singleTreeAccuracy, state.ensembleAccuracy);
+            const range = maxAcc - minAcc;
+            const padding = range * 0.1;
+            const binMin = Math.max(0, minAcc - padding);
+            const binMax = Math.min(1, maxAcc + padding);
+            const numBins = 20;
+            const binWidth = (binMax - binMin) / numBins;
+
+            const bins = Array(numBins).fill(0);
+            state.treeAccuracies.forEach(acc => {
+                const binIdx = Math.min(Math.floor((acc - binMin) / binWidth), numBins - 1);
+                bins[binIdx]++;
+            });
+
+            const maxCount = Math.max(...bins);
+            const barWidth = plotWidth / numBins;
+
+            // Scale functions
+            const xScale = (acc) => margin.left + ((acc - binMin) / (binMax - binMin)) * plotWidth;
+            const yScale = (count) => margin.top + plotHeight - (count / maxCount) * plotHeight;
+
+            let html = '';
+
+            // Draw bars
+            bins.forEach((count, i) => {
+                const x = margin.left + i * barWidth;
+                const barHeight = (count / maxCount) * plotHeight;
+                const y = margin.top + plotHeight - barHeight;
+                const binStart = binMin + i * binWidth;
+                const binEnd = binStart + binWidth;
+                html += `<rect class="histogram-bar" x="${x}" y="${y}" width="${barWidth - 2}" height="${barHeight}" 
+                    data-count="${count}" data-range="${(binStart * 100).toFixed(1)}-${(binEnd * 100).toFixed(1)}%"/>`;
+            });
+
+            // Draw axes
+            html += `<line class="axis-line" x1="${margin.left}" y1="${margin.top + plotHeight}" x2="${margin.left + plotWidth}" y2="${margin.top + plotHeight}"/>`;
+            html += `<line class="axis-line" x1="${margin.left}" y1="${margin.top}" x2="${margin.left}" y2="${margin.top + plotHeight}"/>`;
+
+            // X-axis labels
+            const numXTicks = 5;
+            for (let i = 0; i <= numXTicks; i++) {
+                const acc = binMin + (i / numXTicks) * (binMax - binMin);
+                const x = xScale(acc);
+                html += `<text class="tick-label" x="${x}" y="${margin.top + plotHeight + 20}" text-anchor="middle">${(acc * 100).toFixed(1)}%</text>`;
+                html += `<line class="axis-line" x1="${x}" y1="${margin.top + plotHeight}" x2="${x}" y2="${margin.top + plotHeight + 5}"/>`;
+            }
+
+            // Y-axis labels
+            const numYTicks = 5;
+            for (let i = 0; i <= numYTicks; i++) {
+                const count = (i / numYTicks) * maxCount;
+                const y = yScale(count);
+                html += `<text class="tick-label" x="${margin.left - 10}" y="${y + 4}" text-anchor="end">${Math.round(count)}</text>`;
+                html += `<line class="axis-line" x1="${margin.left - 5}" y1="${y}" x2="${margin.left}" y2="${y}"/>`;
+            }
+
+            // Axis titles
+            html += `<text class="axis-label" x="${margin.left + plotWidth / 2}" y="${height - 10}" text-anchor="middle">Test Accuracy</text>`;
+            html += `<text class="axis-label" x="${15}" y="${margin.top + plotHeight / 2}" text-anchor="middle" transform="rotate(-90, 15, ${margin.top + plotHeight / 2})">Number of Trees</text>`;
+
+            // Single tree line (black dashed)
+            const singleX = xScale(state.singleTreeAccuracy);
+            html += `<line class="single-tree-line" x1="${singleX}" y1="${margin.top}" x2="${singleX}" y2="${margin.top + plotHeight}"/>`;
+            html += `<text x="${singleX}" y="${margin.top - 8}" text-anchor="middle" style="font-size: 11px; fill: #1f2937; font-weight: 600;">Single: ${(state.singleTreeAccuracy * 100).toFixed(1)}%</text>`;
+
+            // Ensemble line (green solid)
+            const ensembleX = xScale(state.ensembleAccuracy);
+            html += `<line class="ensemble-line" x1="${ensembleX}" y1="${margin.top}" x2="${ensembleX}" y2="${margin.top + plotHeight}"/>`;
+            html += `<text x="${ensembleX}" y="${margin.top - 8}" text-anchor="middle" style="font-size: 11px; fill: var(--success); font-weight: 600;">Ensemble: ${(state.ensembleAccuracy * 100).toFixed(1)}%</text>`;
+
+            svg.innerHTML = html;
+
+            // Add hover tooltips
+            const tooltip = document.getElementById('tooltip');
+            svg.querySelectorAll('.histogram-bar').forEach(bar => {
+                bar.addEventListener('mouseenter', (e) => {
+                    const count = bar.dataset.count;
+                    const range = bar.dataset.range;
+                    tooltip.innerHTML = `<strong>${count}</strong> trees<br>Accuracy: ${range}`;
+                    tooltip.classList.add('visible');
+                });
+                bar.addEventListener('mousemove', (e) => {
+                    tooltip.style.left = (e.clientX + 10) + 'px';
+                    tooltip.style.top = (e.clientY - 30) + 'px';
+                });
+                bar.addEventListener('mouseleave', () => {
+                    tooltip.classList.remove('visible');
+                });
+            });
+        }
+
+        // Update statistics
+        function updateStats() {
+            const accs = state.treeAccuracies;
+            const mean = accs.reduce((a, b) => a + b, 0) / accs.length;
+            const variance = accs.reduce((sum, acc) => sum + Math.pow(acc - mean, 2), 0) / accs.length;
+            const std = Math.sqrt(variance);
+            const min = Math.min(...accs);
+            const max = Math.max(...accs);
+
+            document.getElementById('single-accuracy').textContent = (state.singleTreeAccuracy * 100).toFixed(1) + '%';
+            document.getElementById('ensemble-accuracy').textContent = (state.ensembleAccuracy * 100).toFixed(1) + '%';
+            
+            const improvement = state.ensembleAccuracy - state.singleTreeAccuracy;
+            const improvementEl = document.getElementById('improvement');
+            improvementEl.textContent = (improvement >= 0 ? '+' : '') + (improvement * 100).toFixed(1) + '%';
+            improvementEl.style.color = improvement >= 0 ? 'var(--success)' : 'var(--error)';
+
+            document.getElementById('mean-acc').textContent = (mean * 100).toFixed(1) + '%';
+            document.getElementById('std-acc').textContent = (std * 100).toFixed(2) + '%';
+            document.getElementById('min-acc').textContent = (min * 100).toFixed(1) + '%';
+            document.getElementById('max-acc').textContent = (max * 100).toFixed(1) + '%';
+        }
+
+        // Initialize UI
+        function initSliders() {
+            [['max-depth', 'max-depth-val', ''], ['min-samples', 'min-samples-val', ''], ['min-leaf', 'min-leaf-val', '']].forEach(([id, valId, suf]) => {
+                const slider = document.getElementById(id);
+                const display = document.getElementById(valId);
+                if (slider && display) {
+                    slider.addEventListener('input', () => display.textContent = slider.value + suf);
+                }
+            });
+            
+            const nTreesSlider = document.getElementById('n-trees');
+            const nTreesDisplay = document.getElementById('n-trees-val');
+            if (nTreesSlider && nTreesDisplay) {
+                nTreesSlider.addEventListener('input', () => nTreesDisplay.textContent = nTreesSlider.value);
+            }
+
+            const bootstrapSlider = document.getElementById('bootstrap-size');
+            const bootstrapDisplay = document.getElementById('bootstrap-size-val');
+            if (bootstrapSlider && bootstrapDisplay) {
+                bootstrapSlider.addEventListener('input', () => bootstrapDisplay.textContent = bootstrapSlider.value + '%');
+            }
+        }
+
+        function initCheckboxes() {
+            const container = document.getElementById('feature-checkboxes');
+            container.innerHTML = AVAILABLE_FEATURES.map(f => `
+                <label class="checkbox-item"><input type="checkbox" value="${f}" checked> ${f}</label>
+            `).join('');
+            
+            state.selectedFeatures = [...container.querySelectorAll('input:checked')].map(c => c.value);
+            
+            container.querySelectorAll('input').forEach(cb => {
+                cb.addEventListener('change', () => {
+                    state.selectedFeatures = [...container.querySelectorAll('input:checked')].map(c => c.value);
+                });
+            });
+        }
+
+        // Main init
+        async function init() {
+            const { train, test } = await loadDataset();
+            state.train = train;
+            state.test = test;
+            
+            document.getElementById('train-info').textContent = train.length.toLocaleString();
+            document.getElementById('test-info').textContent = test.length.toLocaleString();
+
+            initSliders();
+            initCheckboxes();
+
+            document.getElementById('train-btn').addEventListener('click', buildForest);
+
+            // Handle window resize
+            window.addEventListener('resize', () => {
+                if (state.treeAccuracies.length > 0) {
+                    renderHistogram();
+                }
+            });
+
+            // Initial render with placeholder
+            renderHistogram();
+        }
+
+        init();
+    </script>
+
+    <footer style="text-align:center; padding:24px 16px; color:#6b7280; font-size:13px;">
+        By: Caleb Robinson, 2026
+    </footer>
+
+</body>
+</html>
