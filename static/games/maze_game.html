@@ -1,0 +1,1952 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Space Maze Explorer 🚀</title>
+  <style>
+    :root{
+      --bg0:#070a2a;
+      --bg1:#0b1242;
+      --ui:#0b1538cc;
+      --text:#eaf2ff;
+      --accent:#7cf7ff;
+      --accent2:#ff6fd8;
+      --danger:#ff5a5a;
+      --ok:#6dff8a;
+    }
+    html,body{height:100%; margin:0; background:radial-gradient(1200px 800px at 50% 25%, var(--bg1), var(--bg0)); color:var(--text); font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;}
+    #wrap{height:100%; display:flex; align-items:center; justify-content:center; padding:14px; box-sizing:border-box;}
+    #card{
+      width:min(980px, 100%);
+      background:linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.03));
+      border:1px solid rgba(255,255,255,0.12);
+      border-radius:18px;
+      box-shadow:0 10px 40px rgba(0,0,0,0.4);
+      overflow:hidden;
+      position:relative;
+    }
+    header{
+      display:flex; gap:12px; align-items:center; justify-content:space-between;
+      padding:12px 14px;
+      background:linear-gradient(90deg, rgba(124,247,255,0.10), rgba(255,111,216,0.07));
+      border-bottom:1px solid rgba(255,255,255,0.12);
+    }
+    header .title{display:flex; align-items:center; gap:10px; font-weight:800; letter-spacing:0.4px;}
+    header .title .badge{
+      font-size:12px; padding:3px 8px; border-radius:999px;
+      border:1px solid rgba(255,255,255,0.18);
+      background:rgba(0,0,0,0.15);
+      color:rgba(255,255,255,0.9);
+    }
+    header .meta{display:flex; gap:10px; align-items:center; font-size:13px; opacity:0.95;}
+    .pill{
+      display:inline-flex; gap:7px; align-items:center;
+      padding:6px 10px; border-radius:999px;
+      background:rgba(0,0,0,0.18);
+      border:1px solid rgba(255,255,255,0.12);
+      white-space:nowrap;
+    }
+    #complexity{
+      background:rgba(0,0,0,0.3);
+      color:var(--text);
+      border:1px solid rgba(255,255,255,0.2);
+      border-radius:6px;
+      padding:3px 8px;
+      font-size:12px;
+      cursor:pointer;
+    }
+    #complexity:focus{outline:1px solid var(--accent);}
+    .dot{width:8px; height:8px; border-radius:50%;}
+    .dot.level{background:var(--accent);}
+    .dot.lives{background:var(--accent2);}
+    .dot.msg{background:var(--ok);}
+    #game{
+      display:block;
+      width:100%;
+      height:auto;
+      background:transparent;
+    }
+    #hud{
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      padding:12px;
+      background:linear-gradient(180deg, rgba(0,0,0,0.2), rgba(0,0,0,0.1));
+      border-top:1px solid rgba(255,255,255,0.08);
+    }
+    #hud .panel{
+      background:var(--ui);
+      border:1px solid rgba(255,255,255,0.12);
+      border-radius:14px;
+      padding:10px 12px;
+      backdrop-filter: blur(10px);
+      box-shadow:0 8px 20px rgba(0,0,0,0.25);
+      min-width: 220px;
+    }
+    #hud .panel.right{min-width: 280px; text-align:right;}
+    #hint{
+      font-size:12.5px; line-height:1.35;
+      opacity:0.95;
+    }
+    #bigMsg{
+      position:absolute;
+      inset:0;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      pointer-events:none;
+      padding:20px;
+      text-align:center;
+    }
+    .overlay{
+      pointer-events:none;
+      max-width: 680px;
+      width:100%;
+      padding:18px 18px;
+      border-radius:18px;
+      background:rgba(0,0,0,0.45);
+      border:1px solid rgba(255,255,255,0.16);
+      backdrop-filter: blur(10px);
+      box-shadow:0 12px 40px rgba(0,0,0,0.35);
+    }
+    .overlay h1{margin:0 0 8px; font-size:24px; letter-spacing:0.2px;}
+    .overlay p{margin:6px 0; opacity:0.95;}
+    .kbd{
+      display:inline-block;
+      padding:2px 6px;
+      border-radius:8px;
+      border:1px solid rgba(255,255,255,0.22);
+      background:rgba(255,255,255,0.08);
+      font-weight:700;
+      font-size:12px;
+    }
+    .subtle{opacity:0.85; font-size:13px;}
+    .danger{color:#ffd1d1}
+    .ok{color:#d5ffe1}
+    @media (max-width:520px){
+      header{flex-direction:column; align-items:flex-start;}
+      #hud{flex-direction:column; align-items:stretch;}
+      #hud .panel.right{text-align:left;}
+    }
+  </style>
+</head>
+<body>
+<div id="wrap">
+  <div id="card">
+    <header>
+      <div class="title">
+        <span style="font-size:18px">🚀 Space Maze Explorer</span>
+        <span class="badge">Kids Mode</span>
+      </div>
+      <div class="meta">
+        <span class="pill"><span class="dot level"></span><span id="uiLevel">Level 1</span></span>
+        <span class="pill"><span class="dot lives"></span><span id="uiLives">Lives: 3</span></span>
+        <span class="pill">⭐ <span id="uiScore">0</span></span>
+        <span class="pill"><span class="dot msg"></span><span id="uiStatus">Find the planet!</span></span>
+        <span class="pill" id="activePowerups" style="display:none;"></span>
+        <span class="pill">
+          <label for="complexity" style="font-size:12px;">Maze:</label>
+          <select id="complexity">
+            <option value="easy">Easy</option>
+            <option value="medium" selected>Medium</option>
+            <option value="hard">Hard</option>
+          </select>
+        </span>
+      </div>
+    </header>
+
+    <canvas id="game" width="960" height="640"></canvas>
+
+    <div id="hud">
+      <div class="panel">
+        <div id="hint">
+          <div><b>Controls:</b> <span class="kbd">←</span> <span class="kbd">↑</span> <span class="kbd">→</span> <span class="kbd">↓</span> (or WASD) &nbsp; <span class="kbd">Space</span> Turbo Boost</div>
+          <div class="subtle">Goal: fly through the maze to reach the planet 🪐</div>
+        </div>
+      </div>
+      <div class="panel right">
+        <div class="subtle">Tip: moving obstacles (asteroids) appear in higher levels—time your dash!</div>
+      </div>
+    </div>
+
+    <div id="bigMsg"></div>
+  </div>
+</div>
+
+<script>
+(() => {
+  // ---------- Canvas & scaling ----------
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
+
+  function resizeCanvas() {
+    // Keep internal resolution crisp, scale via CSS to fit card width.
+    const card = document.getElementById("card");
+    const headerH = card.querySelector("header").getBoundingClientRect().height;
+    const maxW = card.getBoundingClientRect().width;
+    const maxH = window.innerHeight - 40 - headerH; // some padding
+    const aspect = 960/640;
+
+    let cssW = Math.min(maxW, 980);
+    let cssH = cssW / aspect;
+    if (cssH > maxH) {
+      cssH = maxH;
+      cssW = cssH * aspect;
+    }
+    canvas.style.width = cssW + "px";
+    canvas.style.height = cssH + "px";
+  }
+  window.addEventListener("resize", resizeCanvas);
+
+  // ---------- UI ----------
+  const uiLevel = document.getElementById("uiLevel");
+  const uiLives = document.getElementById("uiLives");
+  const uiStatus = document.getElementById("uiStatus");
+  const uiScore = document.getElementById("uiScore");
+  const bigMsg = document.getElementById("bigMsg");
+  const activePowerupsEl = document.getElementById("activePowerups");
+
+  // ---------- Audio Engine (Web Audio API) ----------
+  let audioCtx = null;
+  let musicPlaying = false;
+  let musicInterval = null;
+  let masterGain = null;
+
+  function initAudio() {
+    if (audioCtx) return;
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    masterGain = audioCtx.createGain();
+    masterGain.gain.value = 0.4;
+    masterGain.connect(audioCtx.destination);
+  }
+
+  function playKick(time) {
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(150, time);
+    osc.frequency.exponentialRampToValueAtTime(30, time + 0.12);
+    gain.gain.setValueAtTime(0.8, time);
+    gain.gain.exponentialRampToValueAtTime(0.01, time + 0.25);
+    osc.connect(gain);
+    gain.connect(masterGain);
+    osc.start(time);
+    osc.stop(time + 0.25);
+  }
+
+  function playSnare(time) {
+    // Noise burst for snare
+    const bufferSize = audioCtx.sampleRate * 0.15;
+    const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufferSize, 2);
+    }
+    const noise = audioCtx.createBufferSource();
+    noise.buffer = buffer;
+    
+    const filter = audioCtx.createBiquadFilter();
+    filter.type = 'highpass';
+    filter.frequency.value = 1000;
+    
+    const gain = audioCtx.createGain();
+    gain.gain.setValueAtTime(0.5, time);
+    gain.gain.exponentialRampToValueAtTime(0.01, time + 0.12);
+    
+    noise.connect(filter);
+    filter.connect(gain);
+    gain.connect(masterGain);
+    noise.start(time);
+  }
+
+  function playHiHat(time) {
+    const bufferSize = audioCtx.sampleRate * 0.05;
+    const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufferSize, 3);
+    }
+    const noise = audioCtx.createBufferSource();
+    noise.buffer = buffer;
+    
+    const filter = audioCtx.createBiquadFilter();
+    filter.type = 'highpass';
+    filter.frequency.value = 7000;
+    
+    const gain = audioCtx.createGain();
+    gain.gain.setValueAtTime(0.15, time);
+    gain.gain.exponentialRampToValueAtTime(0.01, time + 0.05);
+    
+    noise.connect(filter);
+    filter.connect(gain);
+    gain.connect(masterGain);
+    noise.start(time);
+  }
+
+  function playBassSynth(time, freq) {
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.value = freq;
+    
+    const filter = audioCtx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = 400;
+    
+    gain.gain.setValueAtTime(0.12, time);
+    gain.gain.setValueAtTime(0.12, time + 0.18);
+    gain.gain.exponentialRampToValueAtTime(0.01, time + 0.22);
+    
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(masterGain);
+    osc.start(time);
+    osc.stop(time + 0.25);
+  }
+
+  function playStarCollect() {
+    if (!audioCtx) return;
+    const time = audioCtx.currentTime;
+    [523, 659, 784].forEach((freq, i) => {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.2, time + i * 0.06);
+      gain.gain.exponentialRampToValueAtTime(0.01, time + i * 0.06 + 0.15);
+      osc.connect(gain);
+      gain.connect(masterGain);
+      osc.start(time + i * 0.06);
+      osc.stop(time + i * 0.06 + 0.15);
+    });
+  }
+
+  let beatStep = 0;
+  let totalBeats = 0;
+  const BPM = 100;
+  const beatInterval = 60 / BPM / 4; // 16th notes for smoother groove
+
+  // Musical state that evolves smoothly
+  let energy = 0.3;           // 0-1, controls intensity
+  let tension = 0;            // 0-1, builds up over time
+  let groove = 0;             // Phase for subtle variations
+  let currentRoot = 55;       // Bass root note (A1)
+  let nextRootChange = 32;    // When to consider changing root
+
+  // Chord progression roots (in Hz) - smooth jazz/ambient
+  const roots = [55, 73.4, 82.4, 61.7]; // A1, D2, E2, B1
+
+  // Pad synth for atmosphere
+  let padOsc = null;
+  let padGain = null;
+  let padFilter = null;
+
+  function startPad() {
+    if (padOsc) return;
+    padOsc = audioCtx.createOscillator();
+    const padOsc2 = audioCtx.createOscillator();
+    padGain = audioCtx.createGain();
+    padFilter = audioCtx.createBiquadFilter();
+    
+    padOsc.type = 'sine';
+    padOsc2.type = 'triangle';
+    padOsc.frequency.value = currentRoot * 2;
+    padOsc2.frequency.value = currentRoot * 3;
+    
+    padFilter.type = 'lowpass';
+    padFilter.frequency.value = 400;
+    padFilter.Q.value = 2;
+    
+    padGain.gain.value = 0;
+    
+    padOsc.connect(padFilter);
+    padOsc2.connect(padFilter);
+    padFilter.connect(padGain);
+    padGain.connect(masterGain);
+    
+    padOsc.start();
+    padOsc2.start();
+  }
+
+  function updatePad(time) {
+    if (!padOsc) return;
+    const targetGain = 0.06 + energy * 0.04;
+    padGain.gain.setTargetAtTime(targetGain, time, 0.5);
+    padFilter.frequency.setTargetAtTime(300 + energy * 600 + tension * 400, time, 0.3);
+    padOsc.frequency.setTargetAtTime(currentRoot * 2, time, 0.2);
+  }
+
+  function stopPad() {
+    if (padOsc) {
+      padOsc.stop();
+      padOsc = null;
+    }
+  }
+
+  function playKickProc(time, velocity) {
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(120 + tension * 30, time);
+    osc.frequency.exponentialRampToValueAtTime(35, time + 0.15);
+    gain.gain.setValueAtTime(0.5 * velocity, time);
+    gain.gain.exponentialRampToValueAtTime(0.01, time + 0.3);
+    osc.connect(gain);
+    gain.connect(masterGain);
+    osc.start(time);
+    osc.stop(time + 0.3);
+  }
+
+  function playSnareProc(time, velocity) {
+    const bufferSize = audioCtx.sampleRate * 0.12;
+    const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufferSize, 1.8);
+    }
+    const noise = audioCtx.createBufferSource();
+    noise.buffer = buffer;
+    
+    const filter = audioCtx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.value = 1800 + energy * 1200;
+    filter.Q.value = 0.8;
+    
+    const gain = audioCtx.createGain();
+    gain.gain.setValueAtTime(0.35 * velocity, time);
+    gain.gain.exponentialRampToValueAtTime(0.01, time + 0.1);
+    
+    noise.connect(filter);
+    filter.connect(gain);
+    gain.connect(masterGain);
+    noise.start(time);
+  }
+
+  function playHatProc(time, open, velocity) {
+    const duration = open ? 0.12 : 0.04;
+    const bufferSize = audioCtx.sampleRate * duration;
+    const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+    const data = buffer.getChannelData(0);
+    const decay = open ? 1.2 : 3;
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufferSize, decay);
+    }
+    const noise = audioCtx.createBufferSource();
+    noise.buffer = buffer;
+    
+    const filter = audioCtx.createBiquadFilter();
+    filter.type = 'highpass';
+    filter.frequency.value = open ? 6000 : 8000;
+    
+    const gain = audioCtx.createGain();
+    gain.gain.setValueAtTime(0.12 * velocity, time);
+    gain.gain.exponentialRampToValueAtTime(0.01, time + duration);
+    
+    noise.connect(filter);
+    filter.connect(gain);
+    gain.connect(masterGain);
+    noise.start(time);
+  }
+
+  function playBassProc(time, freq, velocity) {
+    const osc = audioCtx.createOscillator();
+    const osc2 = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    const filter = audioCtx.createBiquadFilter();
+    
+    osc.type = 'sawtooth';
+    osc2.type = 'square';
+    osc.frequency.value = freq;
+    osc2.frequency.value = freq * 0.998; // Slight detune for thickness
+    
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(200 + energy * 400, time);
+    filter.frequency.exponentialRampToValueAtTime(150, time + 0.2);
+    filter.Q.value = 4;
+    
+    gain.gain.setValueAtTime(0.15 * velocity, time);
+    gain.gain.setValueAtTime(0.12 * velocity, time + 0.1);
+    gain.gain.exponentialRampToValueAtTime(0.01, time + 0.28);
+    
+    osc.connect(filter);
+    osc2.connect(filter);
+    filter.connect(gain);
+    gain.connect(masterGain);
+    osc.start(time);
+    osc2.start(time);
+    osc.stop(time + 0.3);
+    osc2.stop(time + 0.3);
+  }
+
+  function playMelodyNote(time, semitones, velocity) {
+    const freq = currentRoot * 4 * Math.pow(2, semitones / 12);
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    const filter = audioCtx.createBiquadFilter();
+    
+    osc.type = 'triangle';
+    osc.frequency.value = freq;
+    
+    filter.type = 'lowpass';
+    filter.frequency.value = 1500 + energy * 1500;
+    
+    const duration = 0.15 + Math.random() * 0.1;
+    gain.gain.setValueAtTime(0, time);
+    gain.gain.linearRampToValueAtTime(0.07 * velocity, time + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.01, time + duration);
+    
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(masterGain);
+    osc.start(time);
+    osc.stop(time + duration + 0.05);
+  }
+
+  // Pentatonic scale intervals for melody
+  const pentatonic = [0, 3, 5, 7, 10, 12, 15, 17, 19];
+
+  function scheduleBeat() {
+    if (!audioCtx || !musicPlaying) return;
+    const time = audioCtx.currentTime + 0.02;
+    
+    // Smoothly evolve energy based on game state and time
+    const targetEnergy = 0.3 + Math.sin(totalBeats * 0.02) * 0.2 + tension * 0.3;
+    energy += (targetEnergy - energy) * 0.05;
+    energy = Math.max(0.2, Math.min(1, energy));
+    
+    // Build tension gradually, reset occasionally
+    tension += 0.002;
+    if (totalBeats % 128 === 0) tension *= 0.3;
+    tension = Math.min(tension, 0.8);
+    
+    // Groove phase for swing feel
+    groove = (totalBeats % 4) / 4;
+    const swing = (beatStep % 2 === 1) ? 0.02 : 0;
+    const t = time + swing;
+    
+    // Change root note smoothly at phrase boundaries
+    if (totalBeats >= nextRootChange && beatStep === 0) {
+      const idx = Math.floor(Math.random() * roots.length);
+      currentRoot = roots[idx];
+      nextRootChange = totalBeats + 16 + Math.floor(Math.random() * 32);
+    }
+    
+    // Update pad atmosphere
+    updatePad(t);
+    
+    // --- KICK: probability-based with core rhythm ---
+    const kickProb = (beatStep === 0) ? 0.95 : 
+                     (beatStep === 8) ? 0.85 :
+                     (beatStep === 4 || beatStep === 12) ? 0.3 * energy :
+                     (beatStep === 6 || beatStep === 14) ? 0.15 * energy : 0.02;
+    if (Math.random() < kickProb) {
+      playKickProc(t, 0.7 + energy * 0.3);
+    }
+    
+    // --- SNARE: backbeat with ghost notes ---
+    const snareProb = (beatStep === 4 || beatStep === 12) ? 0.92 :
+                      (beatStep === 3 || beatStep === 11) ? 0.1 * energy :
+                      (beatStep === 7 || beatStep === 15) ? 0.2 * energy : 0.01;
+    if (Math.random() < snareProb) {
+      const ghostNote = (beatStep !== 4 && beatStep !== 12);
+      playSnareProc(t, ghostNote ? 0.3 : 0.7 + energy * 0.25);
+    }
+    
+    // --- HI-HAT: flowing pattern ---
+    const hatProb = 0.7 + energy * 0.25;
+    const openProb = (beatStep % 4 === 2) ? 0.3 : 0.05;
+    if (Math.random() < hatProb) {
+      const isOpen = Math.random() < openProb;
+      playHatProc(t, isOpen, 0.5 + energy * 0.4);
+    }
+    
+    // --- BASS: follows root, rhythmic variations ---
+    const bassProb = (beatStep % 4 === 0) ? 0.9 :
+                     (beatStep % 4 === 2) ? 0.4 * energy :
+                     (beatStep === 7 || beatStep === 15) ? 0.25 : 0.05;
+    if (Math.random() < bassProb) {
+      // Occasional octave jump or fifth
+      const variation = Math.random();
+      const freq = variation < 0.7 ? currentRoot :
+                   variation < 0.85 ? currentRoot * 2 :
+                   currentRoot * 1.5;
+      playBassProc(t, freq, 0.7 + energy * 0.3);
+    }
+    
+    // --- MELODY: sparse, pentatonic phrases ---
+    const melodyProb = energy > 0.5 ? 0.12 : 0.04;
+    if (Math.random() < melodyProb && beatStep % 2 === 0) {
+      const noteIdx = Math.floor(Math.random() * pentatonic.length);
+      playMelodyNote(t, pentatonic[noteIdx], 0.6 + tension * 0.4);
+    }
+    
+    beatStep = (beatStep + 1) % 16;
+    totalBeats++;
+  }
+
+  function startMusic() {
+    if (musicPlaying) return;
+    initAudio();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    musicPlaying = true;
+    beatStep = 0;
+    totalBeats = 0;
+    energy = 0.3;
+    tension = 0;
+    currentRoot = 55;
+    startPad();
+    musicInterval = setInterval(scheduleBeat, beatInterval * 1000);
+  }
+
+  function stopMusic() {
+    musicPlaying = false;
+    if (musicInterval) {
+      clearInterval(musicInterval);
+      musicInterval = null;
+    }
+    stopPad();
+  }
+
+  function setOverlay(html) {
+    if (!html) { bigMsg.innerHTML = ""; return; }
+    bigMsg.innerHTML = `<div class="overlay">${html}</div>`;
+  }
+
+  // ---------- Helpers ----------
+  const rand = (a,b) => a + Math.random()*(b-a);
+  const randi = (a,b) => Math.floor(rand(a,b+1));
+  const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+  const dist2 = (ax,ay,bx,by) => (ax-bx)**2 + (ay-by)**2;
+
+  // ---------- Stars background ----------
+  const stars = [];
+  function initStars() {
+    stars.length = 0;
+    for (let i=0; i<180; i++) {
+      stars.push({
+        x: Math.random()*canvas.width,
+        y: Math.random()*canvas.height,
+        r: rand(0.6, 2.2),
+        tw: rand(0, Math.PI*2),
+        sp: rand(0.6, 2.2),
+        hue: rand(180, 320)
+      });
+    }
+  }
+
+  // ---------- Maze generation (improved with multiple paths) ----------
+  // Each cell has walls: N,E,S,W
+  function makeMaze(cols, rows) {
+    const cells = new Array(cols*rows).fill(0).map(()=>({
+      N:true,E:true,S:true,W:true, v:false
+    }));
+    const idx = (x,y) => y*cols + x;
+
+    // Phase 1: Generate base maze with recursive backtracker
+    const stack = [];
+    let cx = 0, cy = 0;
+    cells[idx(cx,cy)].v = true;
+    stack.push([cx,cy]);
+
+    while (stack.length) {
+      const [x,y] = stack[stack.length-1];
+      const neighbors = [];
+      if (y>0 && !cells[idx(x,y-1)].v) neighbors.push(["N", x, y-1]);
+      if (x<cols-1 && !cells[idx(x+1,y)].v) neighbors.push(["E", x+1, y]);
+      if (y<rows-1 && !cells[idx(x,y+1)].v) neighbors.push(["S", x, y+1]);
+      if (x>0 && !cells[idx(x-1,y)].v) neighbors.push(["W", x-1, y]);
+
+      if (!neighbors.length) { stack.pop(); continue; }
+
+      const [dir, nx, ny] = neighbors[randi(0, neighbors.length-1)];
+      const a = cells[idx(x,y)];
+      const b = cells[idx(nx,ny)];
+      if (dir==="N"){ a.N=false; b.S=false; }
+      if (dir==="E"){ a.E=false; b.W=false; }
+      if (dir==="S"){ a.S=false; b.N=false; }
+      if (dir==="W"){ a.W=false; b.E=false; }
+      b.v = true;
+      stack.push([nx,ny]);
+    }
+
+    // Phase 2: Add loops by removing random walls (creates multiple paths)
+    const complexity = getComplexity();
+    const loopChance = complexity === "easy" ? 0.15 : complexity === "hard" ? 0.08 : 0.12;
+    const numLoops = Math.floor((cols * rows) * loopChance);
+    
+    for (let i = 0; i < numLoops; i++) {
+      const x = randi(0, cols - 1);
+      const y = randi(0, rows - 1);
+      const cell = cells[idx(x, y)];
+      
+      // Randomly pick a wall to remove
+      const walls = [];
+      if (y > 0 && cell.N) walls.push("N");
+      if (x < cols - 1 && cell.E) walls.push("E");
+      if (y < rows - 1 && cell.S) walls.push("S");
+      if (x > 0 && cell.W) walls.push("W");
+      
+      if (walls.length === 0) continue;
+      
+      const wall = walls[randi(0, walls.length - 1)];
+      if (wall === "N" && y > 0) { cell.N = false; cells[idx(x, y-1)].S = false; }
+      if (wall === "E" && x < cols-1) { cell.E = false; cells[idx(x+1, y)].W = false; }
+      if (wall === "S" && y < rows-1) { cell.S = false; cells[idx(x, y+1)].N = false; }
+      if (wall === "W" && x > 0) { cell.W = false; cells[idx(x-1, y)].E = false; }
+    }
+
+    // Phase 3: Create some open areas (rooms) for more interesting navigation
+    const numRooms = Math.floor(1 + (cols * rows) / 80);
+    for (let r = 0; r < numRooms; r++) {
+      const roomW = randi(2, 3);
+      const roomH = randi(2, 3);
+      const rx = randi(1, cols - roomW - 1);
+      const ry = randi(1, rows - roomH - 1);
+      
+      // Remove internal walls in the room
+      for (let dy = 0; dy < roomH; dy++) {
+        for (let dx = 0; dx < roomW; dx++) {
+          const cell = cells[idx(rx + dx, ry + dy)];
+          if (dx < roomW - 1) { cell.E = false; cells[idx(rx + dx + 1, ry + dy)].W = false; }
+          if (dy < roomH - 1) { cell.S = false; cells[idx(rx + dx, ry + dy + 1)].N = false; }
+        }
+      }
+    }
+
+    return { cols, rows, cells };
+  }
+
+  // ---------- Pathfinding (BFS with optional blocked cells) ----------
+  function findPath(maze, startC, startR, goalC, goalR, blockedCells = new Set()) {
+    const {cols, rows, cells} = maze;
+    const idx = (c,r) => r*cols + c;
+    
+    const visited = new Set();
+    const parent = new Map();
+    const queue = [{c: startC, r: startR}];
+    visited.add(idx(startC, startR));
+    
+    while (queue.length > 0) {
+      const cur = queue.shift();
+      if (cur.c === goalC && cur.r === goalR) {
+        const path = [];
+        let node = cur;
+        while (node) {
+          path.unshift({c: node.c, r: node.r});
+          node = parent.get(idx(node.c, node.r));
+        }
+        return path;
+      }
+      
+      const cell = cells[idx(cur.c, cur.r)];
+      const neighbors = [];
+      if (!cell.N && cur.r > 0) neighbors.push({c: cur.c, r: cur.r - 1});
+      if (!cell.E && cur.c < cols - 1) neighbors.push({c: cur.c + 1, r: cur.r});
+      if (!cell.S && cur.r < rows - 1) neighbors.push({c: cur.c, r: cur.r + 1});
+      if (!cell.W && cur.c > 0) neighbors.push({c: cur.c - 1, r: cur.r});
+      
+      for (const nb of neighbors) {
+        const nbIdx = idx(nb.c, nb.r);
+        const nbKey = `${nb.c},${nb.r}`;
+        if (!visited.has(nbIdx) && !blockedCells.has(nbKey)) {
+          visited.add(nbIdx);
+          parent.set(nbIdx, cur);
+          queue.push(nb);
+        }
+      }
+    }
+    return []; // no path found
+  }
+
+  function findSolutionPath(maze) {
+    return findPath(maze, 0, 0, maze.cols - 1, maze.rows - 1);
+  }
+
+  // ---------- Game state ----------
+  const keys = new Set();
+  window.addEventListener("keydown", (e) => {
+    if (["ArrowUp","ArrowDown","ArrowLeft","ArrowRight","w","a","s","d","W","A","S","D"," "].includes(e.key)) e.preventDefault();
+    keys.add(e.key);
+    if (e.key === " " && (state.mode === "intro" || state.mode === "gameover")) {
+      startGame();
+    } else if (e.key === " " && state.mode === "levelclear") {
+      nextLevel();
+    }
+  });
+  window.addEventListener("keyup", (e)=> keys.delete(e.key));
+
+  const state = {
+    mode: "intro", // intro | playing | levelclear | gameover
+    level: 1,
+    lives: 3,
+    maze: null,
+    tile: 32,
+    wall: 6,
+    // player
+    px: 0, py: 0,
+    pr: 10,
+    vx: 0, vy: 0,
+    speed: 220,
+    // target (planet)
+    tx: 0, ty: 0,
+    tr: 16,
+    // collectible stars
+    collectStars: [],
+    score: 0,
+    // powerups
+    powerups: [],
+    shieldActive: false,
+    shieldTimer: 0,
+    freezeActive: false,
+    freezeTimer: 0,
+    // obstacles
+    asteroids: [],
+    // timing
+    lastT: 0
+  };
+
+  // Powerup types
+  const POWERUP_TYPES = {
+    SHIELD: { color: '#4af', icon: '🛡️', duration: 5000, name: 'Shield' },
+    FREEZE: { color: '#88f', icon: '❄️', duration: 4000, name: 'Freeze' },
+    LIFE: { color: '#f4a', icon: '💖', duration: 0, name: 'Extra Life' },
+    SPEED: { color: '#ff4', icon: '⚡', duration: 8000, name: 'Speed Boost' },
+    MAGNET: { color: '#f84', icon: '🧲', duration: 6000, name: 'Star Magnet' }
+  };
+
+  function getComplexity() {
+    return document.getElementById("complexity").value;
+  }
+
+  function levelConfig(level) {
+    // Grows with level; keep within canvas constraints
+    const complexity = getComplexity();
+    let baseCol, baseRow, colMult, rowMult, maxCols, maxRows;
+    if (complexity === "easy") {
+      baseCol = 8; baseRow = 5; colMult = 1; rowMult = 1; maxCols = 16; maxRows = 12;
+    } else if (complexity === "hard") {
+      baseCol = 14; baseRow = 10; colMult = 3; rowMult = 3; maxCols = 32; maxRows = 22;
+    } else { // medium
+      baseCol = 10; baseRow = 7; colMult = 2; rowMult = 2; maxCols = 26; maxRows = 18;
+    }
+    const cols = clamp(baseCol + level*colMult, baseCol, maxCols);
+    const rows = clamp(baseRow + level*rowMult, baseRow, maxRows);
+    const asteroidCount = Math.max(0, level - 1); // start at level 2
+    const asteroidSpeed = 70 + level*18;
+    return { cols, rows, asteroidCount, asteroidSpeed };
+  }
+
+  function cellAt(x,y) {
+    const {cols, rows} = state.maze;
+    const c = clamp(Math.floor(x/state.tile), 0, cols-1);
+    const r = clamp(Math.floor(y/state.tile), 0, rows-1);
+    return {c,r};
+  }
+
+  function cellIndex(c,r){ return r*state.maze.cols + c; }
+  function cellObj(c,r){ return state.maze.cells[cellIndex(c,r)]; }
+  function centerOf(c,r){ return { x:(c+0.5)*state.tile, y:(r+0.5)*state.tile }; }
+
+  function buildLevel(level) {
+    const cfg = levelConfig(level);
+    // tile size to fit in canvas nicely with margin
+    const margin = 24;
+    const tileW = Math.floor((canvas.width - margin*2) / cfg.cols);
+    const tileH = Math.floor((canvas.height - margin*2) / cfg.rows);
+    state.tile = Math.max(22, Math.min(tileW, tileH));
+    // center maze in canvas by shifting draw origin
+    state.originX = Math.floor((canvas.width - state.tile*cfg.cols)/2);
+    state.originY = Math.floor((canvas.height - state.tile*cfg.rows)/2);
+    // wall thickness relative to tile
+    state.wall = clamp(Math.floor(state.tile*0.18), 4, 10);
+
+    state.maze = makeMaze(cfg.cols, cfg.rows);
+
+    // player start (top-left corner cell center)
+    const s = centerOf(0,0);
+    state.pr = state.tile*0.22;
+    state.px = s.x;
+    state.py = s.y;
+
+    // planet at bottom-right (or random far cell)
+    const goal = centerOf(cfg.cols-1, cfg.rows-1);
+    state.tx = goal.x;
+    state.ty = goal.y;
+    state.tr = state.tile*0.28;
+
+    // movement speed (pixels per second)
+    state.speed = 3.4*state.tile + level*4;
+
+    // Reset powerup states
+    state.shieldActive = false;
+    state.shieldTimer = 0;
+    state.freezeActive = false;
+    state.freezeTimer = 0;
+    state.speedBoostActive = false;
+    state.speedBoostTimer = 0;
+    state.magnetActive = false;
+    state.magnetTimer = 0;
+
+    // obstacles (with proper path validation)
+    state.asteroids = makeAsteroidsWithValidation(cfg.asteroidCount, cfg.asteroidSpeed, cfg.cols, cfg.rows);
+    
+    // collectible stars
+    state.collectStars = makeCollectStars(cfg.cols, cfg.rows);
+    
+    // powerups
+    state.powerups = makePowerups(cfg.cols, cfg.rows, level);
+    
+    uiLevel.textContent = `Level ${state.level}`;
+    uiLives.textContent = `Lives: ${state.lives}`;
+    uiScore.textContent = state.score;
+    uiStatus.textContent = cfg.asteroidCount ? "Watch for asteroids!" : "Find the planet!";
+  }
+
+  // Generate powerups throughout the maze
+  function makePowerups(cols, rows, level) {
+    const powerups = [];
+    const types = Object.keys(POWERUP_TYPES);
+    
+    // More powerups on higher levels (but not too many)
+    const numPowerups = Math.min(5, 1 + Math.floor(level / 2));
+    const placed = new Set();
+    placed.add('0,0');
+    placed.add(`${cols-1},${rows-1}`);
+    
+    // Don't place powerups too close to start
+    for (let c = 0; c < 2; c++) {
+      for (let r = 0; r < 2; r++) {
+        placed.add(`${c},${r}`);
+      }
+    }
+    
+    let attempts = 0;
+    while (powerups.length < numPowerups && attempts < 200) {
+      attempts++;
+      const c = randi(0, cols - 1);
+      const r = randi(0, rows - 1);
+      const key = `${c},${r}`;
+      if (placed.has(key)) continue;
+      placed.add(key);
+      
+      // Pick a random powerup type (weighted)
+      let type;
+      const roll = Math.random();
+      if (roll < 0.25) type = 'SHIELD';
+      else if (roll < 0.45) type = 'FREEZE';
+      else if (roll < 0.55) type = 'LIFE';
+      else if (roll < 0.75) type = 'SPEED';
+      else type = 'MAGNET';
+      
+      const pos = centerOf(c, r);
+      powerups.push({
+        x: pos.x,
+        y: pos.y,
+        type: type,
+        collected: false,
+        bobPhase: rand(0, Math.PI * 2)
+      });
+    }
+    return powerups;
+  }
+
+  function makeAsteroidsWithValidation(count, baseSpeed, cols, rows) {
+    const ast = [];
+    if (count <= 0) return ast;
+
+    // Track all cells blocked by placed asteroids
+    let allBlockedCells = new Set();
+
+    function getSegmentCells(seg) {
+      const cells = [];
+      const tile = state.tile;
+      const c1 = Math.floor(seg.a.x / tile);
+      const r1 = Math.floor(seg.a.y / tile);
+      const c2 = Math.floor(seg.b.x / tile);
+      const r2 = Math.floor(seg.b.y / tile);
+      
+      if (seg.dir === "H") {
+        const minC = Math.min(c1, c2);
+        const maxC = Math.max(c1, c2);
+        for (let c = minC; c <= maxC; c++) {
+          cells.push({c, r: r1});
+        }
+      } else {
+        const minR = Math.min(r1, r2);
+        const maxR = Math.max(r1, r2);
+        for (let r = minR; r <= maxR; r++) {
+          cells.push({c: c1, r});
+        }
+      }
+      return cells;
+    }
+
+    function tryMakeSegment() {
+      const c0 = randi(0, cols-1);
+      const r0 = randi(0, rows-1);
+      const dir = Math.random() < 0.5 ? "H" : "V";
+
+      let c = c0, r = r0;
+      const points = [centerOf(c,r)];
+
+      const maxSteps = randi(3, Math.max(5, Math.floor((cols+rows)/4)));
+      for (let i=0; i<maxSteps; i++) {
+        const cell = cellObj(c,r);
+        if (dir==="H") {
+          if (c < cols-1 && !cell.E) { c += 1; points.push(centerOf(c,r)); }
+          else break;
+        } else {
+          if (r < rows-1 && !cell.S) { r += 1; points.push(centerOf(c,r)); }
+          else break;
+        }
+      }
+
+      if (points.length < 2) return null;
+      return {a:points[0], b:points[points.length-1], dir};
+    }
+
+    let safety = 800;
+    while (ast.length < count && safety-- > 0) {
+      let seg = tryMakeSegment();
+      if (!seg) continue;
+
+      // Avoid segments too close to start
+      const start = centerOf(0,0);
+      const dStart = Math.hypot(seg.a.x-start.x, seg.a.y-start.y);
+      if (dStart < state.tile*3) continue;
+
+      // Get cells this asteroid would block
+      const segCells = getSegmentCells(seg);
+      const newBlockedCells = new Set(allBlockedCells);
+      for (const cell of segCells) {
+        newBlockedCells.add(`${cell.c},${cell.r}`);
+      }
+
+      // Check if there's still a valid path with this asteroid added
+      const testPath = findPath(state.maze, 0, 0, cols-1, rows-1, newBlockedCells);
+      if (testPath.length === 0) {
+        // This asteroid would block all paths - skip it
+        continue;
+      }
+
+      // Asteroid is valid - add it
+      allBlockedCells = newBlockedCells;
+      
+      const len = Math.hypot(seg.b.x - seg.a.x, seg.b.y - seg.a.y);
+      if (len < state.tile * 1) continue;
+      
+      const rad = state.tile*0.22;
+      const speed = baseSpeed + rand(-15, 25) + state.level*4;
+      ast.push({
+        a:seg.a, b:seg.b,
+        t: Math.random(), dir: Math.random()<0.5 ? -1 : 1,
+        speed,
+        r: rad,
+        spin: rand(-3, 3),
+        rot: rand(0, Math.PI*2),
+      });
+    }
+
+    return ast;
+  }
+
+  // Keep old function name for compatibility but redirect
+  function makeAsteroids(count, baseSpeed) {
+    const {cols, rows} = state.maze;
+    return makeAsteroidsWithValidation(count, baseSpeed, cols, rows);
+  }
+
+  // Generate collectible stars throughout the maze
+  function makeCollectStars(cols, rows) {
+    const stars = [];
+    const numStars = Math.floor(3 + state.level * 1.5 + (cols * rows) / 20);
+    const placed = new Set();
+    placed.add('0,0'); // Don't place at start
+    placed.add(`${cols-1},${rows-1}`); // Don't place at goal
+    
+    let attempts = 0;
+    while (stars.length < numStars && attempts < 500) {
+      attempts++;
+      const c = randi(0, cols - 1);
+      const r = randi(0, rows - 1);
+      const key = `${c},${r}`;
+      if (placed.has(key)) continue;
+      placed.add(key);
+      
+      const pos = centerOf(c, r);
+      stars.push({
+        x: pos.x,
+        y: pos.y,
+        collected: false,
+        scale: 1,
+        twinkle: rand(0, Math.PI * 2),
+        points: randi(1, 3) // 1-3 points per star
+      });
+    }
+    return stars;
+  }
+
+  function checkStarCollision() {
+    const px = state.px, py = state.py;
+    let collectRadius = state.pr + state.tile * 0.15;
+    
+    // Magnet power-up increases collect radius
+    if (state.magnetActive) {
+      collectRadius = state.pr + state.tile * 0.8;
+    }
+    
+    for (const star of state.collectStars) {
+      if (star.collected) continue;
+      const dx = px - star.x;
+      const dy = py - star.y;
+      if (dx * dx + dy * dy < collectRadius * collectRadius) {
+        star.collected = true;
+        state.score += star.points;
+        uiScore.textContent = state.score;
+        playStarCollect();
+      }
+    }
+  }
+
+  function checkPowerupCollision() {
+    const px = state.px, py = state.py;
+    const collectRadius = state.pr + state.tile * 0.2;
+    
+    for (const powerup of state.powerups) {
+      if (powerup.collected) continue;
+      const dx = px - powerup.x;
+      const dy = py - powerup.y;
+      if (dx * dx + dy * dy < collectRadius * collectRadius) {
+        powerup.collected = true;
+        activatePowerup(powerup.type);
+        playPowerupCollect();
+      }
+    }
+  }
+
+  function activatePowerup(type) {
+    const info = POWERUP_TYPES[type];
+    
+    switch(type) {
+      case 'SHIELD':
+        state.shieldActive = true;
+        state.shieldTimer = info.duration;
+        uiStatus.textContent = "🛡️ Shield Active!";
+        break;
+      case 'FREEZE':
+        state.freezeActive = true;
+        state.freezeTimer = info.duration;
+        uiStatus.textContent = "❄️ Asteroids Frozen!";
+        break;
+      case 'LIFE':
+        state.lives = Math.min(state.lives + 1, 5);
+        uiLives.textContent = `Lives: ${state.lives}`;
+        uiStatus.textContent = "💖 Extra Life!";
+        break;
+      case 'SPEED':
+        state.speedBoostActive = true;
+        state.speedBoostTimer = info.duration;
+        uiStatus.textContent = "⚡ Speed Boost!";
+        break;
+      case 'MAGNET':
+        state.magnetActive = true;
+        state.magnetTimer = info.duration;
+        uiStatus.textContent = "🧲 Star Magnet!";
+        break;
+    }
+  }
+
+  function updatePowerupTimers(dt) {
+    const dtMs = dt * 1000;
+    
+    if (state.shieldActive) {
+      state.shieldTimer -= dtMs;
+      if (state.shieldTimer <= 0) {
+        state.shieldActive = false;
+        uiStatus.textContent = "Shield expired!";
+      }
+    }
+    
+    if (state.freezeActive) {
+      state.freezeTimer -= dtMs;
+      if (state.freezeTimer <= 0) {
+        state.freezeActive = false;
+        uiStatus.textContent = "Asteroids moving!";
+      }
+    }
+    
+    if (state.speedBoostActive) {
+      state.speedBoostTimer -= dtMs;
+      if (state.speedBoostTimer <= 0) {
+        state.speedBoostActive = false;
+      }
+    }
+    
+    if (state.magnetActive) {
+      state.magnetTimer -= dtMs;
+      if (state.magnetTimer <= 0) {
+        state.magnetActive = false;
+      }
+    }
+    
+    // Update active powerups HUD
+    const actives = [];
+    if (state.shieldActive) actives.push(`🛡️${Math.ceil(state.shieldTimer/1000)}s`);
+    if (state.freezeActive) actives.push(`❄️${Math.ceil(state.freezeTimer/1000)}s`);
+    if (state.speedBoostActive) actives.push(`⚡${Math.ceil(state.speedBoostTimer/1000)}s`);
+    if (state.magnetActive) actives.push(`🧲${Math.ceil(state.magnetTimer/1000)}s`);
+    
+    if (actives.length > 0) {
+      activePowerupsEl.style.display = '';
+      activePowerupsEl.textContent = actives.join(' ');
+    } else {
+      activePowerupsEl.style.display = 'none';
+    }
+  }
+
+  function playPowerupCollect() {
+    if (!audioCtx) return;
+    const time = audioCtx.currentTime;
+    // Rising arpeggio sound
+    [392, 523, 659, 784].forEach((freq, i) => {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.15, time + i * 0.05);
+      gain.gain.exponentialRampToValueAtTime(0.01, time + i * 0.05 + 0.2);
+      osc.connect(gain);
+      gain.connect(masterGain);
+      osc.start(time + i * 0.05);
+      osc.stop(time + i * 0.05 + 0.2);
+    });
+  }
+
+  // Collision with maze walls by checking boundary crossings per axis.
+  // Uses cell walls (N,E,S,W) and clamps the player circle to stay inside corridors.
+  function movePlayer(dt) {
+    let turbo = keys.has(" ") ? 1.8 : 1.0;
+    // Speed boost powerup stacks with turbo
+    if (state.speedBoostActive) turbo *= 1.4;
+    const sp = state.speed * turbo;
+    let dx = 0, dy = 0;
+
+    const up = keys.has("ArrowUp") || keys.has("w") || keys.has("W");
+    const dn = keys.has("ArrowDown") || keys.has("s") || keys.has("S");
+    const lt = keys.has("ArrowLeft") || keys.has("a") || keys.has("A");
+    const rt = keys.has("ArrowRight") || keys.has("d") || keys.has("D");
+
+    if (up) dy -= 1;
+    if (dn) dy += 1;
+    if (lt) dx -= 1;
+    if (rt) dx += 1;
+
+    // normalize for diagonal
+    const mag = Math.hypot(dx,dy);
+    if (mag > 0) { dx /= mag; dy /= mag; }
+
+    const stepX = dx * sp * dt;
+    const stepY = dy * sp * dt;
+
+    // move X then resolve by wall checks
+    attemptAxisMove("x", stepX);
+    attemptAxisMove("y", stepY);
+  }
+
+  function attemptAxisMove(axis, delta) {
+    if (!delta) return;
+    let x = state.px, y = state.py;
+    const r = state.pr;
+
+    if (axis === "x") x += delta;
+    else y += delta;
+
+    // Resolve by potentially crossing multiple cell boundaries if dt is big
+    const maxIter = 6;
+    for (let k=0; k<maxIter; k++) {
+      const {c, r:rr} = cellAt(x,y);
+      const cell = cellObj(c, rr);
+
+      const leftEdge  = c * state.tile + r;
+      const rightEdge = (c+1)*state.tile - r;
+      const topEdge   = rr * state.tile + r;
+      const botEdge   = (rr+1)*state.tile - r;
+
+      // boundaries for circle center (keep inside [edge + pr, edge - pr])
+      const minX = c*state.tile + state.pr;
+      const maxX = (c+1)*state.tile - state.pr;
+      const minY = rr*state.tile + state.pr;
+      const maxY = (rr+1)*state.tile - state.pr;
+
+      if (axis === "x") {
+        // crossing right boundary?
+        if (x > maxX) {
+          if (cell.E || c === state.maze.cols-1) { x = maxX; break; }
+          // allowed to enter next cell, but still clamp to next cell if necessary in next loop
+        } else if (x < minX) {
+          if (cell.W || c === 0) { x = minX; break; }
+        } else break;
+      } else {
+        if (y > maxY) {
+          if (cell.S || rr === state.maze.rows-1) { y = maxY; break; }
+        } else if (y < minY) {
+          if (cell.N || rr === 0) { y = minY; break; }
+        } else break;
+      }
+    }
+
+    state.px = x;
+    state.py = y;
+  }
+
+  // ---------- Asteroids ----------
+  function updateAsteroids(dt) {
+    // Freeze powerup stops asteroids
+    if (state.freezeActive) {
+      // Just update rotation for visual effect
+      for (const a of state.asteroids) {
+        a.rot += a.spin * dt * 0.2; // Slow spin while frozen
+      }
+      return;
+    }
+    
+    for (const a of state.asteroids) {
+      const len = Math.hypot(a.b.x - a.a.x, a.b.y - a.a.y) || 1;
+      a.t += a.dir * (a.speed * dt) / len;
+      if (a.t > 1) { a.t = 1; a.dir *= -1; }
+      if (a.t < 0) { a.t = 0; a.dir *= -1; }
+      a.rot += a.spin * dt;
+    }
+  }
+
+  function asteroidPos(a) {
+    const x = a.a.x + (a.b.x - a.a.x)*a.t;
+    const y = a.a.y + (a.b.y - a.a.y)*a.t;
+    return {x,y};
+  }
+
+  function hitAsteroid() {
+    // Shield protects from asteroids
+    if (state.shieldActive) return false;
+    
+    const px = state.px, py = state.py;
+    for (const a of state.asteroids) {
+      const p = asteroidPos(a);
+      const rr = (state.pr + a.r) * (state.pr + a.r);
+      if (dist2(px,py,p.x,p.y) <= rr) return true;
+    }
+    return false;
+  }
+
+  // ---------- Win check ----------
+  function reachedPlanet() {
+    const rr = (state.pr + state.tr*0.72);
+    return dist2(state.px, state.py, state.tx, state.ty) <= rr*rr;
+  }
+
+  // ---------- Drawing ----------
+  function withOrigin(fn) {
+    ctx.save();
+    ctx.translate(state.originX, state.originY);
+    fn();
+    ctx.restore();
+  }
+
+  function drawBackground(t) {
+    // space gradient
+    const g = ctx.createRadialGradient(canvas.width*0.5, canvas.height*0.35, 50, canvas.width*0.5, canvas.height*0.35, canvas.width*0.8);
+    g.addColorStop(0, "rgba(124,247,255,0.10)");
+    g.addColorStop(0.4, "rgba(255,111,216,0.06)");
+    g.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = g;
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+
+    // stars
+    for (const s of stars) {
+      const tw = 0.55 + 0.45*Math.sin(s.tw + t*0.001*s.sp);
+      ctx.beginPath();
+      ctx.fillStyle = `hsla(${s.hue}, 90%, 85%, ${0.35 + 0.55*tw})`;
+      ctx.arc(s.x, s.y, s.r*tw, 0, Math.PI*2);
+      ctx.fill();
+    }
+
+    // little nebula blobs
+    for (let i=0; i<4; i++) {
+      const x = (canvas.width*(0.2 + 0.2*i)) + 40*Math.sin(t*0.0006 + i);
+      const y = canvas.height*(0.25 + 0.14*i) + 30*Math.cos(t*0.0007 + i*2);
+      const rg = ctx.createRadialGradient(x,y, 0, x,y, 140);
+      rg.addColorStop(0, `rgba(124,247,255,0.08)`);
+      rg.addColorStop(1, `rgba(0,0,0,0)`);
+      ctx.fillStyle = rg;
+      ctx.beginPath(); ctx.arc(x,y,140,0,Math.PI*2); ctx.fill();
+    }
+  }
+
+  function drawMaze() {
+    const {cols, rows, cells} = state.maze;
+    const t = state.tile;
+    const w = state.wall;
+
+    // soft glow behind walls
+    ctx.save();
+    ctx.shadowBlur = 18;
+    ctx.shadowColor = "rgba(124,247,255,0.22)";
+
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+
+    for (let r=0; r<rows; r++) {
+      for (let c=0; c<cols; c++) {
+        const cell = cells[r*cols + c];
+        const x = c*t, y = r*t;
+
+        // walls drawn as thick lines
+        ctx.strokeStyle = "rgba(255,255,255,0.22)";
+        ctx.lineWidth = w;
+
+        if (cell.N) { ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x+t, y); ctx.stroke(); }
+        if (cell.W) { ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y+t); ctx.stroke(); }
+
+        // Draw E and S walls only for boundary to avoid double-draw (or for last row/col)
+        if (c === cols-1 && cell.E) { ctx.beginPath(); ctx.moveTo(x+t, y); ctx.lineTo(x+t, y+t); ctx.stroke(); }
+        if (r === rows-1 && cell.S) { ctx.beginPath(); ctx.moveTo(x, y+t); ctx.lineTo(x+t, y+t); ctx.stroke(); }
+      }
+    }
+    ctx.restore();
+
+    // subtle floor grid glow
+    ctx.save();
+    ctx.globalAlpha = 0.22;
+    ctx.strokeStyle = "rgba(124,247,255,0.15)";
+    ctx.lineWidth = 1;
+    for (let c=0; c<=cols; c++) {
+      ctx.beginPath(); ctx.moveTo(c*t, 0); ctx.lineTo(c*t, rows*t); ctx.stroke();
+    }
+    for (let r=0; r<=rows; r++) {
+      ctx.beginPath(); ctx.moveTo(0, r*t); ctx.lineTo(cols*t, r*t); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawPlanet(tNow) {
+    const x = state.tx, y = state.ty;
+    const R = state.tr;
+
+    // glow
+    ctx.save();
+    ctx.shadowBlur = 24;
+    ctx.shadowColor = "rgba(255,111,216,0.35)";
+    const rg = ctx.createRadialGradient(x,y, 0, x,y, R*2.2);
+    rg.addColorStop(0, "rgba(255,111,216,0.35)");
+    rg.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = rg;
+    ctx.beginPath(); ctx.arc(x,y,R*2.0,0,Math.PI*2); ctx.fill();
+    ctx.restore();
+
+    // planet body
+    ctx.save();
+    const g = ctx.createRadialGradient(x-R*0.35,y-R*0.35, R*0.2, x,y, R*1.2);
+    g.addColorStop(0, "rgba(255,255,255,0.95)");
+    g.addColorStop(0.25, "rgba(124,247,255,0.95)");
+    g.addColorStop(1, "rgba(40,120,255,0.95)");
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(x,y,R,0,Math.PI*2); ctx.fill();
+
+    // stripes
+    ctx.globalAlpha = 0.35;
+    ctx.strokeStyle = "rgba(255,255,255,0.7)";
+    ctx.lineWidth = Math.max(2, R*0.12);
+    for (let i=-1; i<=1; i++) {
+      ctx.beginPath();
+      const yy = y + i*R*0.30 + 2*Math.sin(tNow*0.002 + i*2);
+      ctx.arc(x, yy, R*0.78, Math.PI*0.15, Math.PI*0.85);
+      ctx.stroke();
+    }
+
+    // ring
+    ctx.globalAlpha = 0.85;
+    ctx.strokeStyle = "rgba(255,111,216,0.75)";
+    ctx.lineWidth = Math.max(2, R*0.14);
+    ctx.beginPath();
+    ctx.ellipse(x, y+R*0.15, R*1.35, R*0.55, -0.15, 0, Math.PI*2);
+    ctx.stroke();
+
+    // little flag sparkle
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = "rgba(255,255,255,0.9)";
+    ctx.beginPath();
+    ctx.arc(x+R*0.95, y-R*0.85, 3.2, 0, Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawSpaceship(tNow) {
+    const x = state.px, y = state.py;
+    const r = state.pr;
+
+    // face direction based on input
+    let dx = 0, dy = 0;
+    if (keys.has("ArrowUp")||keys.has("w")||keys.has("W")) dy -= 1;
+    if (keys.has("ArrowDown")||keys.has("s")||keys.has("S")) dy += 1;
+    if (keys.has("ArrowLeft")||keys.has("a")||keys.has("A")) dx -= 1;
+    if (keys.has("ArrowRight")||keys.has("d")||keys.has("D")) dx += 1;
+    const ang = (dx||dy) ? Math.atan2(dy,dx) : -Math.PI/2;
+
+    ctx.save();
+    ctx.translate(x,y);
+    ctx.rotate(ang);
+
+    // glow
+    ctx.shadowBlur = 18;
+    ctx.shadowColor = "rgba(124,247,255,0.35)";
+
+    // ship body
+    const body = ctx.createLinearGradient(-r,0,r,0);
+    body.addColorStop(0,"rgba(255,255,255,0.95)");
+    body.addColorStop(1,"rgba(124,247,255,0.95)");
+    ctx.fillStyle = body;
+
+    ctx.beginPath();
+    ctx.moveTo(r*1.35, 0);
+    ctx.lineTo(-r*0.9, -r*0.85);
+    ctx.lineTo(-r*0.55, 0);
+    ctx.lineTo(-r*0.9, r*0.85);
+    ctx.closePath();
+    ctx.fill();
+
+    // cockpit
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = "rgba(30, 0, 60, 0.55)";
+    ctx.beginPath();
+    ctx.ellipse(r*0.1, 0, r*0.55, r*0.35, 0, 0, Math.PI*2);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(255,255,255,0.25)";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // fins
+    ctx.fillStyle = "rgba(255,111,216,0.85)";
+    ctx.beginPath();
+    ctx.moveTo(-r*0.25, -r*0.25);
+    ctx.lineTo(-r*1.05, -r*1.0);
+    ctx.lineTo(-r*0.65, -r*0.05);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.moveTo(-r*0.25, r*0.25);
+    ctx.lineTo(-r*1.05, r*1.0);
+    ctx.lineTo(-r*0.65, r*0.05);
+    ctx.closePath();
+    ctx.fill();
+
+    // thruster flame (if moving)
+    const moving = (dx||dy);
+    const turbo = keys.has(" ");
+    if (moving) {
+      const flick = 0.7 + 0.3*Math.sin(tNow*0.03);
+      const turboFlick = 0.5 + 0.5*Math.sin(tNow*0.08);
+      const baseLen = turbo ? 2.2 : 1.1;
+      const flickMult = turbo ? 1.2 : 0.7;
+      const flameLen = r*(baseLen + flickMult*flick);
+      const flameWidth = turbo ? r*0.35 : r*0.18;
+
+      // Turbo: extra outer glow
+      if (turbo) {
+        ctx.shadowBlur = 30;
+        ctx.shadowColor = "rgba(100,200,255,0.7)";
+      }
+
+      const flame = ctx.createLinearGradient(-r*1.2,0,-r*1.2-flameLen,0);
+      if (turbo) {
+        // Turbo: blue-white hot flame
+        flame.addColorStop(0,"rgba(255,255,255,1)");
+        flame.addColorStop(0.2,"rgba(180,230,255,0.95)");
+        flame.addColorStop(0.5,"rgba(80,180,255,0.85)");
+        flame.addColorStop(1,"rgba(100,50,255,0)");
+      } else {
+        // Normal: orange flame
+        flame.addColorStop(0,"rgba(255,255,255,0.85)");
+        flame.addColorStop(0.4,"rgba(255,214,102,0.85)");
+        flame.addColorStop(1,"rgba(255,90,90,0)");
+      }
+      ctx.fillStyle = flame;
+      ctx.beginPath();
+      ctx.moveTo(-r*0.75, -flameWidth);
+      ctx.lineTo(-r*0.75-flameLen, 0);
+      ctx.lineTo(-r*0.75, flameWidth);
+      ctx.closePath();
+      ctx.fill();
+
+      // Turbo: second inner flame core
+      if (turbo) {
+        const coreLen = r*(1.6 + 0.8*turboFlick);
+        const coreFlame = ctx.createLinearGradient(-r*1.2,0,-r*1.2-coreLen,0);
+        coreFlame.addColorStop(0,"rgba(255,255,255,1)");
+        coreFlame.addColorStop(0.5,"rgba(200,240,255,0.9)");
+        coreFlame.addColorStop(1,"rgba(150,200,255,0)");
+        ctx.fillStyle = coreFlame;
+        ctx.beginPath();
+        ctx.moveTo(-r*0.75, -r*0.12);
+        ctx.lineTo(-r*0.75-coreLen, 0);
+        ctx.lineTo(-r*0.75, r*0.12);
+        ctx.closePath();
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      }
+    }
+
+    ctx.restore();
+  }
+
+  function drawCollectStars(tNow) {
+    for (const star of state.collectStars) {
+      if (star.collected) continue;
+      
+      const x = star.x;
+      const y = star.y;
+      const twinkle = 0.7 + 0.3 * Math.sin(tNow * 0.004 + star.twinkle);
+      const r = state.tile * 0.18 * twinkle;
+      
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(tNow * 0.001 + star.twinkle);
+      
+      // Glow
+      ctx.shadowBlur = 15;
+      ctx.shadowColor = "rgba(255,220,100,0.6)";
+      
+      // Star shape
+      ctx.fillStyle = `rgba(255,240,150,${0.85 * twinkle})`;
+      ctx.beginPath();
+      for (let i = 0; i < 5; i++) {
+        const angle = (i * 4 * Math.PI) / 5 - Math.PI / 2;
+        const px = Math.cos(angle) * r;
+        const py = Math.sin(angle) * r;
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      ctx.fill();
+      
+      // Inner glow
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = "rgba(255,255,255,0.9)";
+      ctx.beginPath();
+      ctx.arc(0, 0, r * 0.3, 0, Math.PI * 2);
+      ctx.fill();
+      
+      ctx.restore();
+    }
+  }
+
+  function drawPowerups(tNow) {
+    for (const powerup of state.powerups) {
+      if (powerup.collected) continue;
+      
+      const info = POWERUP_TYPES[powerup.type];
+      const x = powerup.x;
+      const y = powerup.y + Math.sin(tNow * 0.003 + powerup.bobPhase) * 4; // Bobbing
+      const r = state.tile * 0.25;
+      
+      ctx.save();
+      ctx.translate(x, y);
+      
+      // Outer glow
+      ctx.shadowBlur = 20;
+      ctx.shadowColor = info.color;
+      
+      // Pulsing ring
+      const pulse = 0.8 + 0.2 * Math.sin(tNow * 0.005 + powerup.bobPhase);
+      ctx.strokeStyle = info.color;
+      ctx.lineWidth = 3;
+      ctx.globalAlpha = 0.6 * pulse;
+      ctx.beginPath();
+      ctx.arc(0, 0, r * 1.3 * pulse, 0, Math.PI * 2);
+      ctx.stroke();
+      
+      // Background circle
+      ctx.globalAlpha = 0.9;
+      ctx.shadowBlur = 0;
+      const grad = ctx.createRadialGradient(0, -r*0.3, 0, 0, 0, r);
+      grad.addColorStop(0, 'rgba(255,255,255,0.95)');
+      grad.addColorStop(0.5, info.color);
+      grad.addColorStop(1, 'rgba(0,0,0,0.3)');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(0, 0, r, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Icon (emoji)
+      ctx.globalAlpha = 1;
+      ctx.font = `${r * 1.2}px sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(info.icon, 0, 2);
+      
+      ctx.restore();
+    }
+  }
+
+  function drawShieldEffect(tNow) {
+    if (!state.shieldActive) return;
+    
+    ctx.save();
+    const pulse = 0.7 + 0.3 * Math.sin(tNow * 0.01);
+    const r = state.pr * 2.2;
+    
+    // Shield bubble
+    ctx.globalAlpha = 0.3 * pulse;
+    const grad = ctx.createRadialGradient(state.px, state.py, 0, state.px, state.py, r);
+    grad.addColorStop(0, 'rgba(100,200,255,0)');
+    grad.addColorStop(0.7, 'rgba(100,200,255,0.3)');
+    grad.addColorStop(1, 'rgba(100,200,255,0.6)');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(state.px, state.py, r, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Shield ring
+    ctx.globalAlpha = 0.6 * pulse;
+    ctx.strokeStyle = '#4af';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(state.px, state.py, r, 0, Math.PI * 2);
+    ctx.stroke();
+    
+    ctx.restore();
+  }
+
+  function drawFreezeEffect(tNow) {
+    if (!state.freezeActive) return;
+    
+    // Blue tint over asteroids area when frozen
+    ctx.save();
+    ctx.globalAlpha = 0.15 + 0.05 * Math.sin(tNow * 0.005);
+    ctx.fillStyle = '#88f';
+    ctx.fillRect(0, 0, state.maze.cols * state.tile, state.maze.rows * state.tile);
+    ctx.restore();
+  }
+
+  function drawAsteroids() {
+    for (const a of state.asteroids) {
+      const p = asteroidPos(a);
+      const x = p.x, y = p.y;
+      const R = a.r;
+
+      ctx.save();
+      ctx.translate(x,y);
+      ctx.rotate(a.rot);
+
+      // glow
+      ctx.shadowBlur = 16;
+      ctx.shadowColor = "rgba(255,90,90,0.25)";
+
+      // rock
+      const g = ctx.createRadialGradient(-R*0.35,-R*0.25, R*0.2, 0,0,R*1.2);
+      g.addColorStop(0,"rgba(255,255,255,0.8)");
+      g.addColorStop(0.25,"rgba(210,190,150,0.95)");
+      g.addColorStop(1,"rgba(110,90,70,0.95)");
+      ctx.fillStyle = g;
+
+      ctx.beginPath();
+      // bumpy asteroid
+      const bumps = 10;
+      for (let i=0; i<=bumps; i++){
+        const a0 = (i/bumps)*Math.PI*2;
+        const rr = R*(0.82 + 0.22*Math.sin(i*1.7 + a.rot*0.8));
+        const xx = Math.cos(a0)*rr;
+        const yy = Math.sin(a0)*rr;
+        if (i===0) ctx.moveTo(xx,yy); else ctx.lineTo(xx,yy);
+      }
+      ctx.closePath();
+      ctx.fill();
+
+      // craters
+      ctx.shadowBlur = 0;
+      ctx.globalAlpha = 0.7;
+      ctx.fillStyle = "rgba(60,30,20,0.35)";
+      for (let i=0; i<3; i++) {
+        const cx = rand(-R*0.35, R*0.35);
+        const cy = rand(-R*0.35, R*0.35);
+        const cr = rand(R*0.12, R*0.22);
+        ctx.beginPath(); ctx.arc(cx,cy,cr,0,Math.PI*2); ctx.fill();
+      }
+      ctx.restore();
+    }
+  }
+
+  function drawFrame(tNow) {
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    drawBackground(tNow);
+
+    withOrigin(() => {
+      // darker backdrop behind maze area
+      ctx.save();
+      ctx.fillStyle = "rgba(0,0,0,0.22)";
+      ctx.fillRect(0,0,state.maze.cols*state.tile, state.maze.rows*state.tile);
+      ctx.restore();
+
+      drawPlanet(tNow);
+      drawMaze();
+      drawCollectStars(tNow);
+      drawPowerups(tNow);
+      drawFreezeEffect(tNow);
+      drawAsteroids();
+      drawSpaceship(tNow);
+      drawShieldEffect(tNow);
+
+      // mini sparkles near planet for fun
+      ctx.save();
+      ctx.globalAlpha = 0.75;
+      for (let i=0; i<6; i++){
+        const a = tNow*0.001 + i*1.2;
+        const sx = state.tx + Math.cos(a)*state.tr*1.6;
+        const sy = state.ty + Math.sin(a*1.3)*state.tr*1.0;
+        ctx.fillStyle = "rgba(255,255,255,0.85)";
+        ctx.beginPath(); ctx.arc(sx, sy, 1.5 + 1.2*Math.sin(a*2), 0, Math.PI*2); ctx.fill();
+      }
+      ctx.restore();
+    });
+
+    // border vignette
+    const vg = ctx.createRadialGradient(canvas.width/2, canvas.height/2, canvas.width*0.25, canvas.width/2, canvas.height/2, canvas.width*0.62);
+    vg.addColorStop(0, "rgba(0,0,0,0)");
+    vg.addColorStop(1, "rgba(0,0,0,0.35)");
+    ctx.fillStyle = vg;
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+  }
+
+  // ---------- Game flow ----------
+  function startGame() {
+    state.level = 1;
+    state.lives = 3;
+    state.score = 0;
+    state.mode = "playing";
+    buildLevel(state.level);
+    setOverlay("");
+    uiLives.textContent = `Lives: ${state.lives}`;
+    uiScore.textContent = state.score;
+    uiStatus.textContent = "Find the planet!";
+    startMusic();
+  }
+
+  // Regenerate maze when complexity changes
+  document.getElementById("complexity").addEventListener("change", () => {
+    if (state.mode === "playing" || state.mode === "levelclear") {
+      buildLevel(state.level);
+      // Reset player position
+      const s = centerOf(0,0);
+      state.px = s.x;
+      state.py = s.y;
+      setOverlay("");
+      state.mode = "playing";
+    }
+  });
+
+  function nextLevel() {
+    state.level += 1;
+    state.mode = "playing";
+    buildLevel(state.level);
+    setOverlay("");
+  }
+
+  function loseLife() {
+    state.lives -= 1;
+    uiLives.textContent = `Lives: ${state.lives}`;
+    if (state.lives <= 0) {
+      state.mode = "gameover";
+      uiStatus.textContent = "Oh no!";
+      stopMusic();
+      setOverlay(`
+        <h1 class="danger">💥 Space Crash!</h1>
+        <p>You bonked an asteroid. Final score: ⭐ ${state.score}</p>
+        <p class="subtle">Press <span class="kbd">Space</span> to restart.</p>
+      `);
+      return;
+    }
+    // Reset player to start of level
+    const s = centerOf(0,0);
+    state.px = s.x;
+    state.py = s.y;
+    uiStatus.textContent = "Careful! Try again!";
+    // tiny "ouch" overlay that fades quickly
+    const msg = document.createElement("div");
+    msg.style.position = "absolute";
+    msg.style.left = "0"; msg.style.right = "0"; msg.style.top = "0"; msg.style.bottom = "0";
+    msg.style.display = "flex"; msg.style.alignItems = "center"; msg.style.justifyContent = "center";
+    msg.style.pointerEvents = "none";
+    msg.innerHTML = `<div class="overlay"><h1>😵 Ouch!</h1><p class="subtle">Avoid the asteroids!</p></div>`;
+    bigMsg.appendChild(msg);
+    setTimeout(()=> { if (msg.parentNode) msg.parentNode.removeChild(msg); }, 650);
+  }
+
+  function winLevel() {
+    state.mode = "levelclear";
+    uiStatus.textContent = "Level cleared!";
+    const harder = state.level + 1;
+    setOverlay(`
+      <h1 class="ok">🪐 You found the planet!</h1>
+      <p>Great flying, Captain Space!</p>
+      <p class="subtle">Press <span class="kbd">Space</span> for Level ${harder}.</p>
+    `);
+  }
+
+  function showIntro() {
+    state.mode = "intro";
+    uiLevel.textContent = `Level 1`;
+    uiLives.textContent = `Lives: 3`;
+    uiStatus.textContent = "Ready?";
+    setOverlay(`
+      <h1>🚀 Fly the Spaceship through the Space Maze!</h1>
+      <p>Use the arrow keys to navigate through the maze and reach the planet 🪐.</p>
+      <p class="subtle">Collect ⭐ stars for bonus points! Higher levels add moving asteroids.</p>
+      <p class="subtle">Press <span class="kbd">Space</span> to begin (with music!).</p>
+    `);
+  }
+
+  // ---------- Main loop ----------
+  function tick(tNow) {
+    if (!state.lastT) state.lastT = tNow;
+    const dt = Math.min(0.033, (tNow - state.lastT) / 1000);
+    state.lastT = tNow;
+
+    if (state.mode === "playing") {
+      movePlayer(dt);
+      updateAsteroids(dt);
+      updatePowerupTimers(dt);
+      checkStarCollision();
+      checkPowerupCollision();
+
+      if (hitAsteroid()) {
+        loseLife();
+      } else if (reachedPlanet()) {
+        winLevel();
+      }
+    }
+
+    drawFrame(tNow);
+    requestAnimationFrame(tick);
+  }
+
+  // ---------- Setup ----------
+  function init() {
+    resizeCanvas();
+    initStars();
+    // start with a tiny maze so we can draw something behind intro overlay
+    state.level = 1;
+    state.lives = 3;
+    buildLevel(1);
+    showIntro();
+    requestAnimationFrame(tick);
+  }
+
+  init();
+
+  // Small quality-of-life: click canvas to focus (so arrow keys work on some browsers)
+  canvas.addEventListener("pointerdown", () => canvas.focus?.());
+})();
+</script>
+</body>
+</html>

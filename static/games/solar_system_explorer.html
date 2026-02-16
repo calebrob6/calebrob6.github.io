@@ -1,0 +1,1601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Solar System Explorer</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; overflow: hidden; background: #0a0a18; font-family: 'Segoe UI', system-ui, sans-serif; }
+
+    #wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 10px;
+      height: 100%;
+    }
+
+    header {
+      width: 100%;
+      max-width: 980px;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 14px;
+      background: linear-gradient(135deg, #1a1a3e 0%, #0d0d24 100%);
+      border-radius: 12px;
+      margin-bottom: 10px;
+      box-shadow: 0 4px 20px rgba(80,120,200,0.25);
+    }
+
+    header .title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    header h1 {
+      font-size: 1.4rem;
+      background: linear-gradient(90deg, #6af, #f8a);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    header .badge {
+      font-size: 0.65rem;
+      background: linear-gradient(90deg, #4a4, #6c6);
+      color: #fff;
+      padding: 3px 8px;
+      border-radius: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    header .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255,255,255,0.08);
+      padding: 5px 12px;
+      border-radius: 999px;
+      font-size: 0.82rem;
+      color: #cde;
+    }
+
+    .pill .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+
+    .dot.fuel { background: #4f4; }
+    .dot.msg { background: #fa4; animation: pulse 1.2s infinite; }
+
+    @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.4;} }
+
+    #game {
+      display: block;
+      border-radius: 14px;
+      box-shadow: 0 0 40px rgba(100,150,255,0.3);
+      max-width: 100%;
+      height: auto;
+      background: #000;
+    }
+
+    #hud {
+      width: 100%;
+      max-width: 980px;
+      margin-top: 10px;
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+
+    .hud-item {
+      background: rgba(255,255,255,0.06);
+      padding: 8px 16px;
+      border-radius: 10px;
+      color: #9ac;
+      font-size: 0.75rem;
+      text-align: center;
+      min-width: 100px;
+    }
+
+    .hud-item strong {
+      display: block;
+      color: #fff;
+      font-size: 0.95rem;
+      margin-top: 2px;
+    }
+
+    #creatureLog {
+      width: 100%;
+      max-width: 980px;
+      margin-top: 15px;
+      background: linear-gradient(135deg, #1a1a3e 0%, #0d0d24 100%);
+      border-radius: 12px;
+      padding: 15px;
+      max-height: 250px;
+      overflow-y: auto;
+    }
+
+    #creatureLog h3 {
+      color: #8cf;
+      margin-bottom: 10px;
+      font-size: 1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    #creatureLog .log-stats {
+      font-size: 0.75rem;
+      color: #9ac;
+    }
+
+    .creature-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 10px;
+    }
+
+    .creature-entry {
+      background: rgba(255,255,255,0.05);
+      border-radius: 8px;
+      padding: 10px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      border-left: 3px solid #4a8;
+    }
+
+    .creature-entry.rare { border-left-color: #a6f; }
+    .creature-entry.legendary { border-left-color: #fa0; }
+
+    .creature-entry .emoji {
+      font-size: 1.5rem;
+    }
+
+    .creature-entry .info {
+      flex: 1;
+    }
+
+    .creature-entry .name {
+      color: #fff;
+      font-weight: bold;
+      font-size: 0.85rem;
+    }
+
+    .creature-entry .details {
+      color: #89a;
+      font-size: 0.7rem;
+      margin-top: 2px;
+    }
+
+    .creature-entry .planet-tag {
+      background: rgba(100,150,255,0.2);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.65rem;
+      color: #8cf;
+    }
+
+    .empty-log {
+      color: #667;
+      text-align: center;
+      padding: 30px;
+      font-style: italic;
+    }
+
+    #resourceBar {
+      display: flex;
+      gap: 15px;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-top: 8px;
+    }
+
+    .resource {
+      background: rgba(255,255,255,0.08);
+      padding: 4px 12px;
+      border-radius: 15px;
+      font-size: 0.75rem;
+      color: #cde;
+    }
+
+    .resource span {
+      font-weight: bold;
+      color: #fff;
+    }
+
+    #overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(5,5,20,0.92);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 100;
+      backdrop-filter: blur(6px);
+    }
+
+    #overlay.hidden { display: none; }
+
+    #bigMsg {
+      background: linear-gradient(145deg, #1e1e4a, #12122e);
+      border-radius: 20px;
+      padding: 30px 40px;
+      max-width: 700px;
+      width: 90%;
+      max-height: 85vh;
+      overflow-y: auto;
+      text-align: center;
+      box-shadow: 0 0 60px rgba(100,150,255,0.4);
+      color: #dde;
+    }
+
+    #bigMsg h2 {
+      font-size: 1.8rem;
+      margin-bottom: 15px;
+      background: linear-gradient(90deg, #8cf, #f9c);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    #bigMsg p {
+      margin: 10px 0;
+      line-height: 1.6;
+      font-size: 0.95rem;
+    }
+
+    #bigMsg .planet-preview {
+      width: 150px;
+      height: 150px;
+      margin: 20px auto;
+      border-radius: 50%;
+      background: radial-gradient(circle at 30% 30%, #8cf, #246);
+      box-shadow: 0 0 40px rgba(100,180,255,0.5), inset -30px -30px 60px rgba(0,0,0,0.5);
+    }
+
+    #bigMsg .animal-card {
+      background: rgba(255,255,255,0.08);
+      border-radius: 12px;
+      padding: 15px;
+      margin: 10px 0;
+      text-align: left;
+    }
+
+    #bigMsg .animal-card h4 {
+      color: #8cf;
+      margin-bottom: 5px;
+    }
+
+    #bigMsg .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 10px;
+      margin: 15px 0;
+    }
+
+    #bigMsg .stat {
+      background: rgba(255,255,255,0.05);
+      padding: 10px;
+      border-radius: 8px;
+    }
+
+    #bigMsg .stat-label {
+      font-size: 0.7rem;
+      color: #89a;
+      text-transform: uppercase;
+    }
+
+    #bigMsg .stat-value {
+      font-size: 1rem;
+      color: #fff;
+      margin-top: 3px;
+    }
+
+    #bigMsg button, .btn {
+      margin-top: 20px;
+      padding: 12px 30px;
+      font-size: 1rem;
+      border: none;
+      border-radius: 25px;
+      cursor: pointer;
+      background: linear-gradient(90deg, #5a8, #4a7);
+      color: #fff;
+      box-shadow: 0 4px 15px rgba(80,180,120,0.4);
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+
+    #bigMsg button:hover, .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(80,180,120,0.5);
+    }
+
+    .instructions {
+      background: rgba(255,255,255,0.05);
+      padding: 15px;
+      border-radius: 10px;
+      margin: 15px 0;
+      text-align: left;
+    }
+
+    .instructions li {
+      margin: 8px 0;
+      padding-left: 5px;
+    }
+
+    select {
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.2);
+      color: #fff;
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+<div id="wrapper">
+  <header>
+    <div class="title">
+      <h1>🚀 Solar System Explorer</h1>
+      <span class="badge">Discovery Mode</span>
+    </div>
+    <div class="meta">
+      <span class="pill"><span class="dot fuel"></span><span id="uiFuel">Fuel: 100%</span></span>
+      <span class="pill">🪐 <span id="uiPlanetsVisited">0</span> Discovered</span>
+      <span class="pill"><span class="dot msg"></span><span id="uiStatus">Explore the cosmos!</span></span>
+      <span class="pill">
+        <label for="systemSize" style="font-size:12px;">System:</label>
+        <select id="systemSize">
+          <option value="small">Small (5 planets)</option>
+          <option value="medium" selected>Medium (8 planets)</option>
+          <option value="large">Large (12 planets)</option>
+        </select>
+      </span>
+    </div>
+  </header>
+
+  <canvas id="game" width="960" height="640"></canvas>
+
+  <div id="hud">
+    <div class="hud-item">Speed<strong id="hudSpeed">0</strong></div>
+    <div class="hud-item">Nearest Planet<strong id="hudNearest">---</strong></div>
+    <div class="hud-item">Distance<strong id="hudDistance">---</strong></div>
+    <div class="hud-item">Star System<strong id="hudSystem">1</strong></div>
+  </div>
+  <div id="resourceBar">
+    <div class="resource">💎 Minerals: <span id="resMinerals">0</span></div>
+    <div class="resource">💨 Gas: <span id="resGas">0</span></div>
+    <div class="resource">🧬 Organic: <span id="resOrganic">0</span></div>
+    <div class="resource">⚡ Energy: <span id="resEnergy">0</span></div>
+  </div>
+  <div id="creatureLog">
+    <h3>📖 Creature Codex <span class="log-stats" id="creatureStats">0 discovered</span></h3>
+    <div id="creatureGrid" class="creature-grid">
+      <div class="empty-log">No creatures discovered yet. Land on habitable planets and scan for lifeforms!</div>
+    </div>
+  </div>
+</div>
+
+<div id="overlay">
+  <div id="bigMsg"></div>
+</div>
+
+<script>
+(function() {
+  "use strict";
+
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
+
+  // ---------- State ----------
+  const state = {
+    mode: "intro", // intro, exploring, viewing
+    ship: { x: 480, y: 320, vx: 0, vy: 0, angle: 0, fuel: 100 },
+    planets: [],
+    stars: [],
+    sun: { x: 480, y: 320, r: 50 },
+    camera: { x: 0, y: 0 },
+    planetsVisited: new Set(),
+    currentPlanet: null,
+    lastT: 0,
+    keys: {},
+    // Persistent progression
+    systemNumber: 1,
+    totalSystemsExplored: 0,
+    creatureCodex: [], // All discovered creatures across all systems
+    resources: { minerals: 0, gas: 0, organic: 0, energy: 0 },
+    shipUpgrades: { scannerLevel: 1, fuelEfficiency: 1, thrustPower: 1 },
+    planetsFullyExplored: new Set() // Planets where all creatures scanned
+  };
+
+  // ---------- Resize ----------
+  function resizeCanvas() {
+    const maxW = Math.min(960, window.innerWidth - 30);
+    const scale = maxW / 960;
+    canvas.style.width = `${960 * scale}px`;
+    canvas.style.height = `${640 * scale}px`;
+  }
+  window.addEventListener("resize", resizeCanvas);
+
+  // ---------- UI ----------
+  const uiFuel = document.getElementById("uiFuel");
+  const uiPlanetsVisited = document.getElementById("uiPlanetsVisited");
+  const uiStatus = document.getElementById("uiStatus");
+  const hudSpeed = document.getElementById("hudSpeed");
+  const hudNearest = document.getElementById("hudNearest");
+  const hudDistance = document.getElementById("hudDistance");
+  const hudSystem = document.getElementById("hudSystem");
+  const bigMsg = document.getElementById("bigMsg");
+  const overlay = document.getElementById("overlay");
+  const creatureGrid = document.getElementById("creatureGrid");
+  const creatureStats = document.getElementById("creatureStats");
+  const resMinerals = document.getElementById("resMinerals");
+  const resGas = document.getElementById("resGas");
+  const resOrganic = document.getElementById("resOrganic");
+  const resEnergy = document.getElementById("resEnergy");
+
+  // ---------- Audio Engine ----------
+  let audioCtx = null;
+  let musicPlaying = false;
+  let musicInterval = null;
+  let masterGain = null;
+
+  function initAudio() {
+    if (audioCtx) return;
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    masterGain = audioCtx.createGain();
+    masterGain.gain.value = 0.25;
+    masterGain.connect(audioCtx.destination);
+  }
+
+  // Ambient space music - more ethereal than the maze game
+  const AMBIENT_SCALE = [65.41, 73.42, 82.41, 98.00, 110.00, 123.47, 130.81, 146.83]; // C2 scale
+  let ambientStep = 0;
+  let chordIndex = 0;
+  const CHORD_PROGRESSIONS = [
+    [0, 2, 4], [3, 5, 7], [2, 4, 6], [0, 3, 5]
+  ];
+
+  function playAmbientNote() {
+    if (!audioCtx || !musicPlaying) return;
+    const time = audioCtx.currentTime;
+    
+    // Slow pad chords
+    if (ambientStep % 16 === 0) {
+      const chord = CHORD_PROGRESSIONS[chordIndex % CHORD_PROGRESSIONS.length];
+      chord.forEach((noteIdx, i) => {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        const filter = audioCtx.createBiquadFilter();
+        
+        osc.type = 'sine';
+        osc.frequency.value = AMBIENT_SCALE[noteIdx] * 2;
+        
+        filter.type = 'lowpass';
+        filter.frequency.value = 800;
+        
+        gain.gain.setValueAtTime(0, time);
+        gain.gain.linearRampToValueAtTime(0.08, time + 0.5);
+        gain.gain.linearRampToValueAtTime(0.06, time + 2);
+        gain.gain.linearRampToValueAtTime(0, time + 4);
+        
+        osc.connect(filter);
+        filter.connect(gain);
+        gain.connect(masterGain);
+        osc.start(time + i * 0.1);
+        osc.stop(time + 4);
+      });
+      chordIndex++;
+    }
+    
+    // Random sparkle notes
+    if (Math.random() < 0.15) {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = AMBIENT_SCALE[Math.floor(Math.random() * 8)] * 8;
+      gain.gain.setValueAtTime(0.03, time);
+      gain.gain.exponentialRampToValueAtTime(0.001, time + 0.8);
+      osc.connect(gain);
+      gain.connect(masterGain);
+      osc.start(time);
+      osc.stop(time + 0.8);
+    }
+    
+    // Deep bass pulse every 8 steps
+    if (ambientStep % 8 === 0) {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = 40 + Math.random() * 20;
+      gain.gain.setValueAtTime(0.1, time);
+      gain.gain.exponentialRampToValueAtTime(0.01, time + 1.5);
+      osc.connect(gain);
+      gain.connect(masterGain);
+      osc.start(time);
+      osc.stop(time + 1.5);
+    }
+    
+    ambientStep++;
+  }
+
+  function startMusic() {
+    initAudio();
+    if (musicPlaying) return;
+    musicPlaying = true;
+    ambientStep = 0;
+    musicInterval = setInterval(playAmbientNote, 250);
+  }
+
+  function stopMusic() {
+    musicPlaying = false;
+    if (musicInterval) clearInterval(musicInterval);
+  }
+
+  // Sound effects
+  function playThrusterSound() {
+    if (!audioCtx) return;
+    const time = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.value = 80 + Math.random() * 30;
+    gain.gain.setValueAtTime(0.03, time);
+    gain.gain.exponentialRampToValueAtTime(0.001, time + 0.1);
+    osc.connect(gain);
+    gain.connect(masterGain);
+    osc.start(time);
+    osc.stop(time + 0.1);
+  }
+
+  function playLandingSound() {
+    if (!audioCtx) return;
+    const time = audioCtx.currentTime;
+    [523, 659, 784, 1047].forEach((freq, i) => {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.12, time + i * 0.08);
+      gain.gain.exponentialRampToValueAtTime(0.01, time + i * 0.08 + 0.3);
+      osc.connect(gain);
+      gain.connect(masterGain);
+      osc.start(time + i * 0.08);
+      osc.stop(time + i * 0.08 + 0.3);
+    });
+  }
+
+  // ---------- Procedural Generation ----------
+  const NAME_PREFIXES = ['Zor', 'Kry', 'Vel', 'Xan', 'Neb', 'Sol', 'Ori', 'Plu', 'Cer', 'And', 'Lyr', 'Cas', 'Dra', 'Peg', 'Aqu', 'Cap', 'Vir', 'Tau', 'Gem', 'Leo'];
+  const NAME_SUFFIXES = ['on', 'is', 'ar', 'ix', 'us', 'ia', 'um', 'os', 'ax', 'ex', 'or', 'an', 'en', 'ius', 'eus'];
+  const NAME_NUMERALS = ['', ' Prime', ' II', ' III', ' IV', ' V', '-B', '-C', ' Alpha', ' Beta'];
+
+  function generatePlanetName(seed) {
+    const rng = seededRandom(seed);
+    const prefix = NAME_PREFIXES[Math.floor(rng() * NAME_PREFIXES.length)];
+    const suffix = NAME_SUFFIXES[Math.floor(rng() * NAME_SUFFIXES.length)];
+    const numeral = rng() > 0.6 ? NAME_NUMERALS[Math.floor(rng() * NAME_NUMERALS.length)] : '';
+    return prefix + suffix + numeral;
+  }
+
+  function seededRandom(seed) {
+    let s = seed;
+    return function() {
+      s = (s * 9301 + 49297) % 233280;
+      return s / 233280;
+    };
+  }
+
+  const PLANET_TYPES = {
+    HABITABLE: {
+      colors: ['#4a8', '#5b9', '#3a7', '#6ca', '#4b9'],
+      atmospheres: ['Nitrogen-Oxygen', 'Oxygen-Rich', 'Earth-like', 'Thick Oxygen'],
+      features: ['Vast oceans', 'Dense forests', 'Mountain ranges', 'Tropical islands', 'Grassland plains', 'Crystal caves']
+    },
+    UNINHABITABLE: {
+      colors: ['#a65', '#876', '#967', '#745', '#854'],
+      atmospheres: ['Toxic Methane', 'Sulfuric Acid', 'No Atmosphere', 'Carbon Dioxide', 'Ammonia'],
+      features: ['Volcanic activity', 'Acid rain storms', 'Extreme temperatures', 'Radiation zones', 'Dust storms', 'Frozen wastelands']
+    },
+    GAS_GIANT: {
+      colors: ['#c96', '#a87', '#b98', '#d85', '#ca7'],
+      atmospheres: ['Hydrogen-Helium', 'Metallic Hydrogen', 'Ammonia Clouds', 'Methane Rich'],
+      features: ['Massive storms', 'Ring systems', 'Dozens of moons', 'Intense magnetic field', 'Lightning superstorms', 'Cloud bands']
+    }
+  };
+
+  const ANIMAL_PARTS = {
+    prefixes: ['Crystal', 'Shadow', 'Flame', 'Thunder', 'Frost', 'Nebula', 'Void', 'Solar', 'Lunar', 'Storm', 'Plasma', 'Quantum'],
+    bodies: ['Serpent', 'Drake', 'Crawler', 'Floater', 'Walker', 'Swimmer', 'Flyer', 'Burrower', 'Stalker', 'Grazer'],
+    features: ['with bioluminescent scales', 'with six legs', 'with crystalline eyes', 'that hovers above ground', 'with telepathic abilities', 'that changes colors', 'with armored plating', 'with multiple heads', 'that phases through matter', 'with energy absorption organs'],
+    behaviors: ['hunts in packs', 'is solitary and territorial', 'migrates with the seasons', 'lives in symbiosis with plants', 'hibernates for decades', 'communicates through light patterns', 'builds complex structures', 'farms smaller organisms']
+  };
+
+  function generateAnimal(seed) {
+    const rng = seededRandom(seed);
+    const prefix = ANIMAL_PARTS.prefixes[Math.floor(rng() * ANIMAL_PARTS.prefixes.length)];
+    const body = ANIMAL_PARTS.bodies[Math.floor(rng() * ANIMAL_PARTS.bodies.length)];
+    const feature = ANIMAL_PARTS.features[Math.floor(rng() * ANIMAL_PARTS.features.length)];
+    const behavior = ANIMAL_PARTS.behaviors[Math.floor(rng() * ANIMAL_PARTS.behaviors.length)];
+    const size = ['tiny', 'small', 'medium-sized', 'large', 'massive'][Math.floor(rng() * 5)];
+    const diet = ['herbivore', 'carnivore', 'omnivore', 'photosynthetic', 'energy-feeding'][Math.floor(rng() * 5)];
+    
+    return {
+      name: `${prefix} ${body}`,
+      description: `A ${size} ${diet} ${feature}. This creature ${behavior}.`,
+      danger: Math.floor(rng() * 10) + 1,
+      rarity: ['Common', 'Uncommon', 'Rare', 'Legendary'][Math.floor(rng() * 4)],
+      emoji: ['🦎', '🐙', '🦋', '🐛', '🦅', '🐋', '🦖', '🐲', '🦑', '🦀'][Math.floor(rng() * 10)]
+    };
+  }
+
+  function generatePlanetData(index, orbitRadius, seed) {
+    const rng = seededRandom(seed);
+    
+    // Determine type based on orbit (inner = rocky, outer = gas giants likely)
+    let type;
+    const typeRoll = rng();
+    if (orbitRadius < 200) {
+      type = typeRoll < 0.3 ? 'HABITABLE' : 'UNINHABITABLE';
+    } else if (orbitRadius < 400) {
+      type = typeRoll < 0.5 ? 'HABITABLE' : (typeRoll < 0.8 ? 'UNINHABITABLE' : 'GAS_GIANT');
+    } else {
+      type = typeRoll < 0.2 ? 'HABITABLE' : (typeRoll < 0.4 ? 'UNINHABITABLE' : 'GAS_GIANT');
+    }
+    
+    const typeInfo = PLANET_TYPES[type];
+    const color = typeInfo.colors[Math.floor(rng() * typeInfo.colors.length)];
+    const atmosphere = typeInfo.atmospheres[Math.floor(rng() * typeInfo.atmospheres.length)];
+    const features = [];
+    const numFeatures = 2 + Math.floor(rng() * 3);
+    for (let i = 0; i < numFeatures; i++) {
+      const f = typeInfo.features[Math.floor(rng() * typeInfo.features.length)];
+      if (!features.includes(f)) features.push(f);
+    }
+    
+    // Generate animals for habitable planets
+    const animals = [];
+    if (type === 'HABITABLE') {
+      const numAnimals = 2 + Math.floor(rng() * 3);
+      for (let i = 0; i < numAnimals; i++) {
+        animals.push(generateAnimal(seed * 100 + i));
+      }
+    }
+    
+    // Stats
+    const gravity = type === 'GAS_GIANT' ? (2 + rng() * 3).toFixed(1) : (0.3 + rng() * 1.5).toFixed(1);
+    const temp = type === 'HABITABLE' ? Math.floor(-20 + rng() * 60) : 
+                 type === 'GAS_GIANT' ? Math.floor(-200 + rng() * 100) :
+                 Math.floor(-100 + rng() * 500);
+    const moons = type === 'GAS_GIANT' ? Math.floor(10 + rng() * 60) : Math.floor(rng() * 5);
+    const dayLength = type === 'GAS_GIANT' ? Math.floor(8 + rng() * 20) : Math.floor(10 + rng() * 100);
+    const yearLength = Math.floor(50 + orbitRadius * 2 + rng() * 500);
+    const radius = type === 'GAS_GIANT' ? 35 + rng() * 25 : 12 + rng() * 20;
+    
+    // Rings for some gas giants
+    const hasRings = type === 'GAS_GIANT' && rng() > 0.5;
+    
+    // Discovery info
+    const discoveries = [];
+    if (type === 'HABITABLE') {
+      if (rng() > 0.7) discoveries.push('Ancient ruins detected');
+      if (rng() > 0.6) discoveries.push('Rich mineral deposits');
+      if (rng() > 0.8) discoveries.push('Signs of past civilization');
+      if (rng() > 0.5) discoveries.push('Freshwater sources');
+    } else if (type === 'GAS_GIANT') {
+      if (rng() > 0.5) discoveries.push('Unique atmospheric compounds');
+      if (rng() > 0.7) discoveries.push('Floating organisms detected');
+    } else {
+      if (rng() > 0.6) discoveries.push('Rare element deposits');
+      if (rng() > 0.8) discoveries.push('Geothermal energy potential');
+    }
+    
+    return {
+      id: index,
+      name: generatePlanetName(seed),
+      type,
+      color,
+      secondaryColor: typeInfo.colors[(Math.floor(rng() * typeInfo.colors.length))],
+      radius,
+      orbitRadius,
+      orbitSpeed: 0.0002 + rng() * 0.0003,
+      orbitAngle: rng() * Math.PI * 2,
+      atmosphere,
+      features,
+      animals,
+      gravity: parseFloat(gravity),
+      temperature: temp,
+      moons,
+      dayLength,
+      yearLength,
+      hasRings,
+      discoveries,
+      x: 0,
+      y: 0
+    };
+  }
+
+  function generateSolarSystem() {
+    const sizeSelect = document.getElementById("systemSize").value;
+    const numPlanets = sizeSelect === 'small' ? 5 : sizeSelect === 'large' ? 12 : 8;
+    
+    state.planets = [];
+    const baseSeed = Date.now();
+    
+    for (let i = 0; i < numPlanets; i++) {
+      const orbitRadius = 120 + i * 70 + Math.random() * 30;
+      const planet = generatePlanetData(i, orbitRadius, baseSeed + i * 1000);
+      state.planets.push(planet);
+    }
+    
+    state.planetsVisited = new Set();
+    uiPlanetsVisited.textContent = '0';
+  }
+
+  // ---------- Stars Background ----------
+  function initStars() {
+    state.stars = [];
+    for (let i = 0; i < 400; i++) {
+      state.stars.push({
+        x: Math.random() * 2000 - 500,
+        y: Math.random() * 1500 - 400,
+        r: 0.3 + Math.random() * 1.5,
+        twinkle: Math.random() * Math.PI * 2,
+        speed: 0.5 + Math.random() * 2
+      });
+    }
+  }
+
+  // ---------- Input ----------
+  window.addEventListener("keydown", e => {
+    state.keys[e.code] = true;
+    
+    if (state.mode === "exploring" && e.code === "Space") {
+      tryLandOnPlanet();
+      e.preventDefault();
+    }
+  });
+  
+  window.addEventListener("keyup", e => {
+    state.keys[e.code] = false;
+  });
+
+  function tryLandOnPlanet() {
+    const ship = state.ship;
+    const worldX = ship.x + state.camera.x;
+    const worldY = ship.y + state.camera.y;
+    
+    for (const planet of state.planets) {
+      const dx = worldX - planet.x;
+      const dy = worldY - planet.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      
+      if (dist < planet.radius + 30) {
+        landOnPlanet(planet);
+        return;
+      }
+    }
+  }
+
+  function landOnPlanet(planet) {
+    state.mode = "viewing";
+    state.currentPlanet = planet;
+    playLandingSound();
+    
+    if (!state.planetsVisited.has(planet.id)) {
+      state.planetsVisited.add(planet.id);
+      uiPlanetsVisited.textContent = state.planetsVisited.size;
+    }
+    
+    showPlanetDetails(planet);
+  }
+
+  // ---------- Planet Details Screen ----------
+  function showPlanetDetails(planet) {
+    const typeLabel = planet.type === 'HABITABLE' ? '🌍 Habitable World' :
+                      planet.type === 'GAS_GIANT' ? '🪐 Gas Giant' : '🌑 Uninhabitable World';
+    
+    const typeColor = planet.type === 'HABITABLE' ? '#4a8' :
+                      planet.type === 'GAS_GIANT' ? '#c96' : '#a65';
+    
+    // Check which creatures have been scanned
+    const scannedCreatures = planet.animals.filter(a => 
+      state.creatureCodex.some(c => c.id === `${state.systemNumber}-${planet.id}-${a.name}`)
+    );
+    const unscannedCreatures = planet.animals.filter(a => 
+      !state.creatureCodex.some(c => c.id === `${state.systemNumber}-${planet.id}-${a.name}`)
+    );
+    
+    let animalsHTML = '';
+    if (planet.animals.length > 0) {
+      animalsHTML = `
+        <h3 style="margin-top: 20px; color: #8cf;">🦎 Native Lifeforms (${scannedCreatures.length}/${planet.animals.length} scanned)</h3>
+        ${planet.animals.map(a => {
+          const isScanned = scannedCreatures.includes(a);
+          const creatureId = `${state.systemNumber}-${planet.id}-${a.name}`;
+          return `
+          <div class="animal-card" style="${isScanned ? 'border-left: 3px solid #4f4;' : ''}">
+            <h4>${a.emoji} ${a.name} <span style="color: ${a.rarity === 'Legendary' ? '#fa0' : a.rarity === 'Rare' ? '#a6f' : '#8cf'}; font-size: 0.75rem;">[${a.rarity}]</span>
+              ${isScanned ? '<span style="color: #4f4; font-size: 0.7rem; margin-left: 10px;">✓ LOGGED</span>' : ''}
+            </h4>
+            <p style="font-size: 0.85rem; color: #bcd;">${a.description}</p>
+            <p style="font-size: 0.75rem; color: #89a; margin-top: 5px;">Danger Level: ${'⚠️'.repeat(Math.ceil(a.danger / 3))} (${a.danger}/10)</p>
+            ${!isScanned ? `<button onclick="window.scanCreature('${creatureId.replace(/'/g, "\\'")}', '${a.name.replace(/'/g, "\\'")}', '${a.emoji}', '${a.rarity}', '${planet.name.replace(/'/g, "\\'")}')" style="margin-top: 8px; padding: 6px 15px; font-size: 0.8rem;">📡 Scan & Log Creature</button>` : ''}
+          </div>
+        `}).join('')}
+      `;
+    }
+    
+    let discoveriesHTML = '';
+    if (planet.discoveries.length > 0) {
+      discoveriesHTML = `
+        <h3 style="margin-top: 20px; color: #fa8;">🔬 Discoveries</h3>
+        <ul style="text-align: left; margin-left: 20px;">
+          ${planet.discoveries.map(d => `<li style="margin: 5px 0; color: #cde;">${d}</li>`).join('')}
+        </ul>
+      `;
+    }
+    
+    // Resource collection based on planet type
+    const resourceInfo = planet.type === 'HABITABLE' ? { type: 'organic', icon: '🧬', name: 'Organic Samples', amount: 5 + Math.floor(planet.radius / 5) } :
+                         planet.type === 'GAS_GIANT' ? { type: 'gas', icon: '💨', name: 'Gas Compounds', amount: 8 + Math.floor(planet.radius / 4) } :
+                         { type: 'minerals', icon: '💎', name: 'Minerals', amount: 6 + Math.floor(planet.radius / 5) };
+    
+    const canCollect = !planet.resourcesCollected;
+    
+    // Check if all planets in system visited
+    const allVisited = state.planetsVisited.size >= state.planets.length;
+    const newSystemButton = allVisited ? `
+      <button onclick="window.travelToNewSystem()" style="background: linear-gradient(90deg, #a6f, #f6a); margin-left: 10px;">
+        🌌 Travel to New Star System
+      </button>
+    ` : '';
+    
+    bigMsg.innerHTML = `
+      <h2>${planet.name}</h2>
+      <p style="color: ${typeColor}; font-size: 1.1rem; font-weight: bold;">${typeLabel}</p>
+      <p style="color: #89a; font-size: 0.8rem;">Star System ${state.systemNumber}</p>
+      
+      <div class="planet-preview" style="background: radial-gradient(circle at 30% 30%, ${planet.color}, ${planet.secondaryColor}, #123);"></div>
+      
+      <div class="stat-grid">
+        <div class="stat">
+          <div class="stat-label">Atmosphere</div>
+          <div class="stat-value">${planet.atmosphere}</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Gravity</div>
+          <div class="stat-value">${planet.gravity}g</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Temperature</div>
+          <div class="stat-value">${planet.temperature}°C</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Moons</div>
+          <div class="stat-value">${planet.moons}</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Day Length</div>
+          <div class="stat-value">${planet.dayLength} hrs</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Year Length</div>
+          <div class="stat-value">${planet.yearLength} days</div>
+        </div>
+      </div>
+      
+      <h3 style="margin-top: 15px; color: #9cf;">🌐 Surface Features</h3>
+      <p>${planet.features.join(' • ')}</p>
+      
+      ${planet.hasRings ? '<p style="color: #ca7; margin-top: 10px;">✨ This planet has a magnificent ring system!</p>' : ''}
+      
+      <div style="margin: 20px 0; padding: 15px; background: rgba(255,255,255,0.05); border-radius: 10px;">
+        <h3 style="color: #fa8; margin-bottom: 10px;">⛏️ Resource Collection</h3>
+        ${canCollect ? `
+          <p style="color: #bcd; margin-bottom: 10px;">Available: ${resourceInfo.icon} ${resourceInfo.amount} ${resourceInfo.name}</p>
+          <button onclick="window.collectResources(${planet.id}, '${resourceInfo.type}', ${resourceInfo.amount})" style="background: linear-gradient(90deg, #85a, #a58);">
+            ${resourceInfo.icon} Collect ${resourceInfo.name}
+          </button>
+        ` : `
+          <p style="color: #6a6;">✓ Resources already collected from this planet</p>
+        `}
+        ${planet.type !== 'GAS_GIANT' ? `
+          <button onclick="window.collectEnergy(${planet.id})" style="margin-left: 10px; ${planet.energyCollected ? 'opacity: 0.5;' : ''}" ${planet.energyCollected ? 'disabled' : ''}>
+            ⚡ ${planet.energyCollected ? 'Energy Collected' : 'Harvest Solar Energy (+3)'}
+          </button>
+        ` : ''}
+      </div>
+      
+      ${animalsHTML}
+      ${discoveriesHTML}
+      
+      <div style="margin-top: 25px;">
+        <button onclick="window.leavePlanet()">🚀 Return to Space</button>
+        ${newSystemButton}
+      </div>
+    `;
+    
+    overlay.classList.remove("hidden");
+  }
+
+  window.leavePlanet = function() {
+    state.mode = "exploring";
+    state.currentPlanet = null;
+    overlay.classList.add("hidden");
+  };
+
+  // Creature scanning
+  window.scanCreature = function(creatureId, name, emoji, rarity, planetName) {
+    // Add to codex
+    state.creatureCodex.push({
+      id: creatureId,
+      name: name,
+      emoji: emoji,
+      rarity: rarity,
+      planetName: planetName,
+      systemNumber: state.systemNumber,
+      timestamp: Date.now()
+    });
+    
+    // Play scan sound
+    playScanSound();
+    
+    // Update UI
+    updateCreatureLog();
+    
+    // Refresh planet details
+    showPlanetDetails(state.currentPlanet);
+    
+    // Bonus resources for scanning
+    const bonus = rarity === 'Legendary' ? 10 : rarity === 'Rare' ? 5 : 2;
+    state.resources.organic += bonus;
+    updateResourceDisplay();
+    
+    uiStatus.textContent = `${emoji} ${name} logged to codex! (+${bonus} organic)`;
+  };
+
+  // Resource collection
+  window.collectResources = function(planetId, type, amount) {
+    const planet = state.planets.find(p => p.id === planetId);
+    if (!planet || planet.resourcesCollected) return;
+    
+    planet.resourcesCollected = true;
+    state.resources[type] += amount;
+    
+    playCollectSound();
+    updateResourceDisplay();
+    showPlanetDetails(planet);
+    
+    uiStatus.textContent = `Collected ${amount} ${type}!`;
+  };
+
+  window.collectEnergy = function(planetId) {
+    const planet = state.planets.find(p => p.id === planetId);
+    if (!planet || planet.energyCollected) return;
+    
+    planet.energyCollected = true;
+    state.resources.energy += 3;
+    
+    playCollectSound();
+    updateResourceDisplay();
+    showPlanetDetails(planet);
+  };
+
+  // Travel to new star system
+  window.travelToNewSystem = function() {
+    state.systemNumber++;
+    state.totalSystemsExplored++;
+    state.planetsVisited = new Set();
+    
+    // Generate new system
+    generateSolarSystem();
+    
+    // Reset ship position
+    state.ship = { x: 480, y: 320, vx: 0, vy: 0, angle: 0, fuel: 100 };
+    state.camera = { x: 0, y: 0 };
+    
+    // Update UI
+    hudSystem.textContent = state.systemNumber;
+    uiPlanetsVisited.textContent = '0';
+    uiStatus.textContent = `Welcome to Star System ${state.systemNumber}!`;
+    
+    // Play warp sound
+    playWarpSound();
+    
+    // Close overlay
+    state.mode = "exploring";
+    state.currentPlanet = null;
+    overlay.classList.add("hidden");
+  };
+
+  function updateCreatureLog() {
+    if (state.creatureCodex.length === 0) {
+      creatureGrid.innerHTML = '<div class="empty-log">No creatures discovered yet. Land on habitable planets and scan for lifeforms!</div>';
+      creatureStats.textContent = '0 discovered';
+      return;
+    }
+    
+    creatureStats.textContent = `${state.creatureCodex.length} discovered across ${state.totalSystemsExplored + 1} systems`;
+    
+    // Sort by most recent first
+    const sorted = [...state.creatureCodex].sort((a, b) => b.timestamp - a.timestamp);
+    
+    creatureGrid.innerHTML = sorted.map(c => {
+      const rarityClass = c.rarity === 'Legendary' ? 'legendary' : c.rarity === 'Rare' ? 'rare' : '';
+      return `
+        <div class="creature-entry ${rarityClass}">
+          <div class="emoji">${c.emoji}</div>
+          <div class="info">
+            <div class="name">${c.name}</div>
+            <div class="details">
+              <span class="planet-tag">🪐 ${c.planetName}</span>
+              <span style="margin-left: 5px;">System ${c.systemNumber}</span>
+              <span style="margin-left: 5px; color: ${c.rarity === 'Legendary' ? '#fa0' : c.rarity === 'Rare' ? '#a6f' : '#8cf'};">[${c.rarity}]</span>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function updateResourceDisplay() {
+    resMinerals.textContent = state.resources.minerals;
+    resGas.textContent = state.resources.gas;
+    resOrganic.textContent = state.resources.organic;
+    resEnergy.textContent = state.resources.energy;
+  }
+
+  // Sound effects
+  function playScanSound() {
+    if (!audioCtx) return;
+    const time = audioCtx.currentTime;
+    [800, 1000, 1200, 1600].forEach((freq, i) => {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.1, time + i * 0.05);
+      gain.gain.exponentialRampToValueAtTime(0.01, time + i * 0.05 + 0.15);
+      osc.connect(gain);
+      gain.connect(masterGain);
+      osc.start(time + i * 0.05);
+      osc.stop(time + i * 0.05 + 0.15);
+    });
+  }
+
+  function playCollectSound() {
+    if (!audioCtx) return;
+    const time = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(400, time);
+    osc.frequency.exponentialRampToValueAtTime(800, time + 0.1);
+    gain.gain.setValueAtTime(0.15, time);
+    gain.gain.exponentialRampToValueAtTime(0.01, time + 0.2);
+    osc.connect(gain);
+    gain.connect(masterGain);
+    osc.start(time);
+    osc.stop(time + 0.2);
+  }
+
+  function playWarpSound() {
+    if (!audioCtx) return;
+    const time = audioCtx.currentTime;
+    // Whoosh sound
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    const filter = audioCtx.createBiquadFilter();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(100, time);
+    osc.frequency.exponentialRampToValueAtTime(2000, time + 0.3);
+    osc.frequency.exponentialRampToValueAtTime(50, time + 0.6);
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(500, time);
+    filter.frequency.exponentialRampToValueAtTime(3000, time + 0.3);
+    filter.frequency.exponentialRampToValueAtTime(200, time + 0.6);
+    gain.gain.setValueAtTime(0.2, time);
+    gain.gain.linearRampToValueAtTime(0.3, time + 0.3);
+    gain.gain.exponentialRampToValueAtTime(0.01, time + 0.6);
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(masterGain);
+    osc.start(time);
+    osc.stop(time + 0.7);
+  }
+
+  // ---------- Ship Physics ----------
+  function updateShip(dt) {
+    const ship = state.ship;
+    const thrust = 200;
+    const rotSpeed = 3;
+    const drag = 0.98;
+    const maxSpeed = 300;
+    
+    // Rotation
+    if (state.keys['ArrowLeft'] || state.keys['KeyA']) {
+      ship.angle -= rotSpeed * dt;
+    }
+    if (state.keys['ArrowRight'] || state.keys['KeyD']) {
+      ship.angle += rotSpeed * dt;
+    }
+    
+    // Thrust
+    if (state.keys['ArrowUp'] || state.keys['KeyW']) {
+      if (ship.fuel > 0) {
+        ship.vx += Math.cos(ship.angle) * thrust * dt;
+        ship.vy += Math.sin(ship.angle) * thrust * dt;
+        ship.fuel = Math.max(0, ship.fuel - dt * 3);
+        if (Math.random() < 0.3) playThrusterSound();
+      }
+    }
+    
+    // Brake
+    if (state.keys['ArrowDown'] || state.keys['KeyS']) {
+      ship.vx *= 0.95;
+      ship.vy *= 0.95;
+    }
+    
+    // Apply drag
+    ship.vx *= drag;
+    ship.vy *= drag;
+    
+    // Clamp speed
+    const speed = Math.sqrt(ship.vx * ship.vx + ship.vy * ship.vy);
+    if (speed > maxSpeed) {
+      ship.vx = (ship.vx / speed) * maxSpeed;
+      ship.vy = (ship.vy / speed) * maxSpeed;
+    }
+    
+    // Update position
+    ship.x += ship.vx * dt;
+    ship.y += ship.vy * dt;
+    
+    // Refuel near sun
+    const sunDist = Math.sqrt(
+      Math.pow(ship.x + state.camera.x - state.sun.x, 2) +
+      Math.pow(ship.y + state.camera.y - state.sun.y, 2)
+    );
+    if (sunDist < 150 && sunDist > 70) {
+      ship.fuel = Math.min(100, ship.fuel + dt * 10);
+    }
+    
+    // Update camera to follow ship
+    const targetCamX = ship.x - 480;
+    const targetCamY = ship.y - 320;
+    state.camera.x += (targetCamX - state.camera.x) * 0.05;
+    state.camera.y += (targetCamY - state.camera.y) * 0.05;
+    
+    // Update UI
+    uiFuel.textContent = `Fuel: ${Math.floor(ship.fuel)}%`;
+    hudSpeed.textContent = Math.floor(speed);
+    
+    // Find nearest planet
+    let nearest = null;
+    let nearestDist = Infinity;
+    const worldX = ship.x + state.camera.x;
+    const worldY = ship.y + state.camera.y;
+    
+    for (const planet of state.planets) {
+      const dx = worldX - planet.x;
+      const dy = worldY - planet.y;
+      const dist = Math.sqrt(dx * dx + dy * dy) - planet.radius;
+      if (dist < nearestDist) {
+        nearestDist = dist;
+        nearest = planet;
+      }
+    }
+    
+    if (nearest) {
+      hudNearest.textContent = nearest.name;
+      hudDistance.textContent = nearestDist < 50 ? 'CLOSE!' : Math.floor(nearestDist);
+      
+      // Check if all planets visited
+      const allVisited = state.planetsVisited.size >= state.planets.length;
+      
+      if (nearestDist < 50) {
+        uiStatus.textContent = `Press SPACE to land on ${nearest.name}`;
+      } else if (allVisited) {
+        uiStatus.textContent = '🌌 All planets visited! Land anywhere to travel to a new system!';
+      } else {
+        uiStatus.textContent = `Explore the cosmos! (${state.planetsVisited.size}/${state.planets.length} visited)`;
+      }
+    }
+  }
+
+  // ---------- Update Planets ----------
+  function updatePlanets(tNow) {
+    for (const planet of state.planets) {
+      planet.orbitAngle += planet.orbitSpeed;
+      planet.x = state.sun.x + Math.cos(planet.orbitAngle) * planet.orbitRadius;
+      planet.y = state.sun.y + Math.sin(planet.orbitAngle) * planet.orbitRadius;
+    }
+  }
+
+  // ---------- Drawing ----------
+  function drawFrame(tNow) {
+    ctx.fillStyle = '#050510';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Draw stars (parallax)
+    ctx.save();
+    for (const star of state.stars) {
+      const parallax = 0.3;
+      const sx = star.x - state.camera.x * parallax;
+      const sy = star.y - state.camera.y * parallax;
+      
+      // Wrap stars
+      const wx = ((sx % canvas.width) + canvas.width) % canvas.width;
+      const wy = ((sy % canvas.height) + canvas.height) % canvas.height;
+      
+      const twinkle = 0.5 + 0.5 * Math.sin(tNow * star.speed * 0.001 + star.twinkle);
+      ctx.globalAlpha = twinkle;
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.arc(wx, wy, star.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+    
+    // Transform for camera
+    ctx.save();
+    ctx.translate(-state.camera.x, -state.camera.y);
+    
+    // Draw orbit lines
+    ctx.globalAlpha = 0.15;
+    ctx.strokeStyle = '#446';
+    ctx.lineWidth = 1;
+    for (const planet of state.planets) {
+      ctx.beginPath();
+      ctx.arc(state.sun.x, state.sun.y, planet.orbitRadius, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+    
+    // Draw sun
+    drawSun(tNow);
+    
+    // Draw planets
+    for (const planet of state.planets) {
+      drawPlanet(planet, tNow);
+    }
+    
+    // Draw ship
+    drawShip(tNow);
+    
+    ctx.restore();
+    
+    // Vignette
+    const vg = ctx.createRadialGradient(480, 320, 200, 480, 320, 500);
+    vg.addColorStop(0, 'rgba(0,0,0,0)');
+    vg.addColorStop(1, 'rgba(0,0,10,0.4)');
+    ctx.fillStyle = vg;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
+
+  function drawSun(tNow) {
+    const { x, y, r } = state.sun;
+    
+    // Corona
+    ctx.save();
+    for (let i = 0; i < 3; i++) {
+      const pulse = 1 + 0.1 * Math.sin(tNow * 0.002 + i);
+      ctx.globalAlpha = 0.2 - i * 0.05;
+      const grad = ctx.createRadialGradient(x, y, r, x, y, r * (2 + i) * pulse);
+      grad.addColorStop(0, '#fa0');
+      grad.addColorStop(0.5, '#f80');
+      grad.addColorStop(1, 'transparent');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(x, y, r * (2 + i) * pulse, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    
+    // Sun body
+    ctx.globalAlpha = 1;
+    const sunGrad = ctx.createRadialGradient(x - r * 0.3, y - r * 0.3, 0, x, y, r);
+    sunGrad.addColorStop(0, '#fff');
+    sunGrad.addColorStop(0.3, '#ffa');
+    sunGrad.addColorStop(0.7, '#f80');
+    sunGrad.addColorStop(1, '#a40');
+    ctx.fillStyle = sunGrad;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Surface details
+    ctx.globalAlpha = 0.3;
+    for (let i = 0; i < 5; i++) {
+      const angle = tNow * 0.0005 + i * 1.2;
+      const spotX = x + Math.cos(angle) * r * 0.5;
+      const spotY = y + Math.sin(angle * 0.7) * r * 0.4;
+      ctx.fillStyle = '#c60';
+      ctx.beginPath();
+      ctx.arc(spotX, spotY, 5 + Math.sin(tNow * 0.003 + i) * 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    
+    ctx.restore();
+  }
+
+  function drawPlanet(planet, tNow) {
+    const { x, y, radius, color, secondaryColor, type, hasRings, name } = planet;
+    
+    ctx.save();
+    ctx.translate(x, y);
+    
+    // Rings (draw behind for some angles)
+    if (hasRings) {
+      ctx.save();
+      ctx.globalAlpha = 0.6;
+      ctx.strokeStyle = '#ca9';
+      ctx.lineWidth = 8;
+      ctx.scale(1, 0.3);
+      ctx.beginPath();
+      ctx.arc(0, 0, radius * 1.8, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.strokeStyle = '#987';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.arc(0, 0, radius * 2.1, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+    
+    // Atmosphere glow
+    if (type === 'HABITABLE') {
+      ctx.globalAlpha = 0.3;
+      const atmoGrad = ctx.createRadialGradient(0, 0, radius, 0, 0, radius * 1.4);
+      atmoGrad.addColorStop(0, '#4af');
+      atmoGrad.addColorStop(1, 'transparent');
+      ctx.fillStyle = atmoGrad;
+      ctx.beginPath();
+      ctx.arc(0, 0, radius * 1.4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    
+    // Planet body
+    ctx.globalAlpha = 1;
+    const grad = ctx.createRadialGradient(-radius * 0.3, -radius * 0.3, 0, 0, 0, radius);
+    grad.addColorStop(0, '#fff');
+    grad.addColorStop(0.2, color);
+    grad.addColorStop(0.8, secondaryColor);
+    grad.addColorStop(1, '#111');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(0, 0, radius, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Surface details
+    ctx.globalAlpha = 0.3;
+    if (type === 'HABITABLE') {
+      // Continents
+      ctx.fillStyle = '#5a4';
+      for (let i = 0; i < 4; i++) {
+        const cx = Math.cos(i * 1.5 + tNow * 0.0001) * radius * 0.4;
+        const cy = Math.sin(i * 2.1) * radius * 0.3;
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, radius * 0.25, radius * 0.15, i, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      // Cloud wisps
+      ctx.fillStyle = 'rgba(255,255,255,0.4)';
+      for (let i = 0; i < 3; i++) {
+        const cx = Math.cos(tNow * 0.0002 + i * 2) * radius * 0.5;
+        const cy = Math.sin(i * 1.3) * radius * 0.6;
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, radius * 0.3, radius * 0.08, tNow * 0.0001, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    } else if (type === 'GAS_GIANT') {
+      // Cloud bands
+      for (let i = -3; i <= 3; i++) {
+        ctx.fillStyle = i % 2 === 0 ? 'rgba(255,200,150,0.3)' : 'rgba(200,150,100,0.3)';
+        ctx.fillRect(-radius, i * radius * 0.2 - 5, radius * 2, 10);
+      }
+      // Great spot
+      ctx.fillStyle = 'rgba(200,100,80,0.5)';
+      ctx.beginPath();
+      ctx.ellipse(radius * 0.3, radius * 0.1, radius * 0.3, radius * 0.15, 0, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      // Craters for uninhabitable
+      ctx.fillStyle = 'rgba(0,0,0,0.3)';
+      for (let i = 0; i < 6; i++) {
+        const cx = Math.cos(i * 1.1) * radius * 0.5;
+        const cy = Math.sin(i * 1.7) * radius * 0.4;
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius * 0.1, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    
+    // Name label
+    ctx.globalAlpha = 0.8;
+    ctx.fillStyle = '#fff';
+    ctx.font = '12px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(name, 0, radius + 18);
+    
+    // Visited indicator
+    if (state.planetsVisited.has(planet.id)) {
+      ctx.fillStyle = '#4f4';
+      ctx.fillText('✓', radius + 5, -radius + 5);
+    }
+    
+    ctx.restore();
+  }
+
+  function drawShip(tNow) {
+    const ship = state.ship;
+    const worldX = ship.x + state.camera.x;
+    const worldY = ship.y + state.camera.y;
+    
+    ctx.save();
+    ctx.translate(worldX, worldY);
+    ctx.rotate(ship.angle);
+    
+    // Thruster flame
+    if (state.keys['ArrowUp'] || state.keys['KeyW']) {
+      ctx.save();
+      const flicker = 0.7 + Math.random() * 0.3;
+      const grad = ctx.createLinearGradient(-25, 0, -10, 0);
+      grad.addColorStop(0, 'transparent');
+      grad.addColorStop(0.5, `rgba(255,150,50,${flicker})`);
+      grad.addColorStop(1, '#fff');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.moveTo(-10, -4);
+      ctx.lineTo(-25 - Math.random() * 10, 0);
+      ctx.lineTo(-10, 4);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+    
+    // Ship body
+    ctx.fillStyle = '#68f';
+    ctx.beginPath();
+    ctx.moveTo(15, 0);
+    ctx.lineTo(-8, -8);
+    ctx.lineTo(-5, 0);
+    ctx.lineTo(-8, 8);
+    ctx.closePath();
+    ctx.fill();
+    
+    // Cockpit
+    ctx.fillStyle = '#aef';
+    ctx.beginPath();
+    ctx.arc(5, 0, 4, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Wings
+    ctx.fillStyle = '#46a';
+    ctx.beginPath();
+    ctx.moveTo(-5, -6);
+    ctx.lineTo(-12, -12);
+    ctx.lineTo(-8, -6);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(-5, 6);
+    ctx.lineTo(-12, 12);
+    ctx.lineTo(-8, 6);
+    ctx.closePath();
+    ctx.fill();
+    
+    ctx.restore();
+  }
+
+  // ---------- Overlays ----------
+  function showIntro() {
+    state.mode = "intro";
+    bigMsg.innerHTML = `
+      <h2>🚀 Solar System Explorer</h2>
+      <p>Embark on an interstellar journey through procedurally generated star systems!</p>
+      
+      <div class="instructions">
+        <h3 style="color: #8cf; margin-bottom: 10px;">Controls</h3>
+        <ul>
+          <li><strong>↑ / W</strong> - Thrust forward</li>
+          <li><strong>↓ / S</strong> - Brake</li>
+          <li><strong>← → / A D</strong> - Rotate ship</li>
+          <li><strong>SPACE</strong> - Land on nearby planet</li>
+        </ul>
+      </div>
+      
+      <div class="instructions">
+        <h3 style="color: #fa8; margin-bottom: 10px;">Your Mission</h3>
+        <ul>
+          <li>🪐 Explore planets and collect resources</li>
+          <li>🦎 Scan alien lifeforms to log them in your Creature Codex</li>
+          <li>🌌 Visit all planets to unlock travel to new star systems</li>
+          <li>🌟 Fly close to the sun to refuel your ship</li>
+          <li>📖 Build the ultimate collection of creatures across the galaxy!</li>
+        </ul>
+      </div>
+      
+      <button onclick="window.startExploring()">Begin Exploration</button>
+    `;
+    overlay.classList.remove("hidden");
+  }
+
+  window.startExploring = function() {
+    // Reset for new game
+    state.systemNumber = 1;
+    state.totalSystemsExplored = 0;
+    state.creatureCodex = [];
+    state.resources = { minerals: 0, gas: 0, organic: 0, energy: 0 };
+    state.planetsVisited = new Set();
+    
+    generateSolarSystem();
+    state.ship = { x: 480, y: 320, vx: 0, vy: 0, angle: 0, fuel: 100 };
+    state.camera = { x: 0, y: 0 };
+    state.mode = "exploring";
+    
+    // Update UI
+    hudSystem.textContent = '1';
+    updateResourceDisplay();
+    updateCreatureLog();
+    
+    overlay.classList.add("hidden");
+    startMusic();
+  };
+
+  // Change system size
+  document.getElementById("systemSize").addEventListener("change", () => {
+    if (state.mode === "exploring") {
+      generateSolarSystem();
+      state.ship = { x: 480, y: 320, vx: 0, vy: 0, angle: state.ship.angle, fuel: 100 };
+      state.camera = { x: 0, y: 0 };
+    }
+  });
+
+  // ---------- Main Loop ----------
+  function tick(tNow) {
+    if (!state.lastT) state.lastT = tNow;
+    const dt = Math.min(0.033, (tNow - state.lastT) / 1000);
+    state.lastT = tNow;
+
+    if (state.mode === "exploring") {
+      updateShip(dt);
+      updatePlanets(tNow);
+    }
+
+    drawFrame(tNow);
+    requestAnimationFrame(tick);
+  }
+
+  // ---------- Init ----------
+  function init() {
+    resizeCanvas();
+    initStars();
+    generateSolarSystem();
+    showIntro();
+    requestAnimationFrame(tick);
+  }
+
+  init();
+  
+  canvas.addEventListener("pointerdown", () => canvas.focus?.());
+})();
+</script>
+</body>
+</html>
