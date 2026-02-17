@@ -1,0 +1,13 @@
+=== HTML Validity ===
+--- HEAD ---
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+--- TAIL ---
+    By: Caleb Robinson, 2026
+  </footer>
+
+</body>
+</html>

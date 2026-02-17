@@ -1,0 +1,11 @@
+=== File Structure ===
+902 /home/caleb/calebrob6.github.io/static/calibration_playground.html
+
+Keywords:
+ECE: 28
+Brier: 18
+isotonic/PAVA: 10
+Platt/sigmoid: 15
+reliability: 8
+calibration: 24
+canvas: 1

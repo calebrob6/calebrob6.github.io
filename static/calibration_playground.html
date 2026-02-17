@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Probability Calibration for Area Estimation — Interactive Demo</title>
+
+  <!-- Open Graph metadata -->
+  <meta property="og:title" content="Probability Calibration for Area Estimation — Interactive Demo" />
+  <meta property="og:description" content="Interactive demo showing how probability calibration (isotonic regression, Platt scaling) corrects biased models for better area estimation." />
+  <meta property="og:author" content="Caleb Robinson" />
+  <meta property="og:image" content="https://calebrob.com/images/face.jpg" />
+  <meta property="og:type" content="website" />
+  <style>
+    :root{
+      --bg:#f8fafc;
+      --text:#0f172a;
+      --muted:#475569;
+      --border:#e5e7eb;
+      --card:#ffffff;
+      --shadow:0 6px 20px rgba(15,23,42,0.06);
+      --blue:#3b82f6;
+      --blue-stroke:#2563eb;
+      --violet:#a855f7;
+      --violet-stroke:#7c3aed;
+      --amber:#f59e0b;
+      --amber-stroke:#b45309;
+      --grid:#94a3b31a;
+      --poscell:#a855f719;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Apple Color Emoji","Segoe UI Emoji";background:var(--bg);color:var(--text)}
+    .wrap{max-width:1400px;margin:24px auto;padding:0 16px}
+
+    header{display:flex;flex-direction:column;gap:10px;margin-bottom:16px}
+    h1{font-size:24px;letter-spacing:.2px;margin:0}
+    .desc{color:var(--muted);line-height:1.45}
+
+    .grid{display:grid;grid-template-columns:1fr minmax(360px, 480px);gap:16px}
+    @media (max-width: 1024px){.grid{grid-template-columns:1fr}}
+
+    .card{background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow);overflow:hidden}
+    .head{padding:12px 14px;border-bottom:1px solid var(--border)}
+    .head h2{margin:0;font-size:16px}
+    .body{padding:14px}
+
+    .stage-wrap{display:flex;justify-content:center}
+    svg.stage{border:1px solid var(--border);border-radius:12px;background:#fff;touch-action:none}
+
+    .metrics{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .metric{border:1px solid var(--border);border-radius:12px;background:#fff;padding:10px}
+    .metric small{display:block;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;font-size:11px}
+    .metric .val{font-weight:700;font-size:18px;word-break:break-word;overflow-wrap:anywhere}
+    .metric.accent{background:#fff7ed;border-color:#fed7aa}
+    .metric.accent .val{color:#b45309}
+
+    .metric.status-good{background:#ecfdf5;border-color:#a7f3d0}
+    .metric.status-good .val{color:#047857}
+    .metric.status-warn{background:#fffbeb;border-color:#fde68a}
+    .metric.status-warn .val{color:#92400e}
+    .metric.status-bad{background:#fef2f2;border-color:#fecaca}
+    .metric.status-bad .val{color:#991b1b}
+
+    .row label{flex:0 0 120px}
+    .row select,.row input[type="number"],.row span{flex:0 0 auto}
+
+    .ctrl{display:flex;align-items:center;gap:8px;margin-top:8px}
+    .ctrl label{font-size:13px;color:var(--muted)}
+    .row{display:flex;gap:8px;align-items:center;margin:10px 0;min-width:0;flex-wrap:wrap}
+    .row input[type="range"]{flex:1 1 auto;width:100%}
+    .row select, .row input[type="number"]{border:1px solid var(--border);border-radius:10px;padding:6px 8px;background:#fff}
+
+    .legend{display:flex;gap:12px;align-items:center;color:var(--muted);font-size:13px;flex-wrap:wrap}
+    .chip{display:inline-flex;gap:6px;align-items:center}
+    .sw{width:14px;height:14px;border-radius:3px;border:1px solid var(--border)}
+
+    .hint{color:var(--muted);font-size:13px;margin-top:10px}
+    .btn{border:1px solid var(--border);background:#fff;border-radius:10px;padding:8px 10px;cursor:pointer}
+    .btn:active{transform:translateY(1px)}
+
+    .calc-details summary{cursor:pointer; user-select:none; font-weight:600}
+    .mathbox{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      background:#f8fafc; border:1px solid var(--border);
+      border-radius:10px; padding:10px; margin-top:8px; overflow:auto
+    }
+    .mathbox .row{display:block; margin:4px 0}
+    .mathbox code{background:transparent; padding:0}
+    .mathbox .muted{color:var(--muted)}
+    .mathbox .hr{height:1px;background:var(--border);margin:8px 0}
+
+    .span-all { grid-column: 1 / -1; }
+
+    .canvas-wrap{position:relative;width:100%;max-width:420px;margin:10px auto 0}
+    .canvas-wrap canvas{display:block;width:100%;border:1px solid var(--border);border-radius:10px;background:#fff}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>Probability Calibration for Area Estimation — Interactive Demo</h1>
+      <div class="desc">
+        <p style="margin:0 0 8px 0">
+          <b>Overview.</b> A probabilistic model assigns each grid cell a probability of being inside a polygon.
+          When the model is <em>miscalibrated</em> (e.g., overconfident or underconfident), summing raw probabilities
+          gives biased area estimates. <b>Calibration</b> corrects these probabilities using a held-out reference sample
+          so that predicted probabilities match observed frequencies.
+        </p>
+        <ul style="margin:8px 0 0 18px;color:var(--muted)">
+          <li><b>Bias model</b>: applies a sigmoid/logit transform with adjustable strength to create miscalibration.</li>
+          <li><b>Isotonic regression (PAVA)</b>: non-parametric monotone recalibration — fits a step function to training data.</li>
+          <li><b>Platt scaling</b>: fits a sigmoid (logistic) function <code>σ(Ax + B)</code> via gradient descent to recalibrate predictions.</li>
+          <li><b>Reliability diagram</b>: plots predicted probability vs. observed frequency — perfectly calibrated models lie on the diagonal.</li>
+          <li><b>ECE</b> (Expected Calibration Error) and <b>Brier score</b> quantify calibration quality on the test set.</li>
+        </ul>
+      </div>
+    </header>
+
+    <div class="grid">
+      <div class="card"><div class="body">
+          <div class="stage-wrap">
+            <svg id="stage" class="stage" width="900" height="540"></svg>
+          </div>
+          <div class="legend" style="margin-top:10px">
+            <span class="chip"><span class="sw" style="background:#3b82f612;border-color:#2563eb"></span>GT polygon</span>
+            <span class="chip"><span class="sw" style="background:var(--violet);opacity:0.5;border-color:#7c3aed"></span>Raw probability</span>
+            <span class="chip"><span class="sw" style="background:#3b82f6;border-color:#3b82f6"></span>Train dot</span>
+            <span class="chip"><span class="sw" style="background:#f59e0b;border-color:#f59e0b"></span>Test dot</span>
+            <button id="resetBtn" class="btn" title="Reset shapes">Reset</button>
+          </div>
+          <div class="hint">Drag inside the polygon to move it; drag circular handles to edit vertices. Cells are colored by raw probability (white→violet).</div>
+        </div></div>
+
+      <div class="card">
+        <div class="body">
+          <div class="row"><label style="min-width:120px">Cell size</label>
+            <input id="cellSlider" type="range" min="10" max="200" step="2" value="80">
+            <span id="cellVal" style="width:44px;text-align:right">80</span>
+          </div>
+          <div class="row"><label style="min-width:120px">Bias strength</label>
+            <input id="biasSlider" type="range" min="0.2" max="5.0" step="0.1" value="1.0">
+            <span id="biasVal" style="width:44px;text-align:right">1.0</span>
+          </div>
+          <div class="row"><label style="min-width:120px">Calibration</label>
+            <select id="calMethodSel">
+              <option value="isotonic">Isotonic Regression</option>
+              <option value="platt">Platt Scaling</option>
+            </select>
+            <button id="resampleBtn" class="btn">Resample</button>
+          </div>
+
+          <div class="metrics" style="margin-top:8px">
+            <div class="metric"><small>True area</small><div id="trueArea" class="val">—</div></div>
+            <div class="metric"><small>Pixel-count area</small><div id="pcArea" class="val">—</div></div>
+            <div class="metric"><small>Raw prob area</small><div id="rawArea" class="val">—</div></div>
+            <div class="metric"><small>Calibrated area</small><div id="calArea" class="val">—</div></div>
+          </div>
+
+          <div class="metrics" style="margin-top:8px">
+            <div class="metric"><small>ECE (raw)</small><div id="eceRaw" class="val">—</div></div>
+            <div class="metric"><small>ECE (calibrated)</small><div id="eceCal" class="val">—</div></div>
+            <div class="metric"><small>Brier (raw)</small><div id="brierRaw" class="val">—</div></div>
+            <div class="metric"><small>Brier (calibrated)</small><div id="brierCal" class="val">—</div></div>
+          </div>
+
+          <div class="legend" style="margin-top:10px">
+            <span class="chip"><span class="sw" style="background:#ecfdf5;border-color:#a7f3d0"></span>≤ 2% err</span>
+            <span class="chip"><span class="sw" style="background:#fffbeb;border-color:#fde68a"></span>≤ 10% err</span>
+            <span class="chip"><span class="sw" style="background:#fef2f2;border-color:#fecaca"></span>&gt; 10% err</span>
+          </div>
+
+          <div class="canvas-wrap">
+            <canvas id="reliabilityCanvas"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Full-width computation details row -->
+      <div class="card span-all">
+        <div class="head"><h2>Computation Details — Calibration</h2></div>
+        <div class="body">
+          <details class="calc-details" open>
+            <summary>Step-by-step: Calibration parameters &amp; metrics</summary>
+            <div id="calcBox" class="mathbox"><!-- populated by JS --></div>
+          </details>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- Config ---
+    const W = 900, H = 540;
+    const HANDLE_R = 7;
+
+    // --- SVG helpers ---
+    const stage = document.getElementById('stage');
+    function ns(tag){ return document.createElementNS('http://www.w3.org/2000/svg', tag) }
+
+    const gridG = ns('g');
+    const cellsG = ns('g');
+    const dotsG = ns('g'); dotsG.setAttribute('opacity','0.8');
+    const polyG = ns('g');
+    const handleG = ns('g');
+    stage.appendChild(gridG);
+    stage.appendChild(cellsG);
+    stage.appendChild(polyG);
+    stage.appendChild(dotsG);
+    stage.appendChild(handleG);
+
+    // draw background grid for visual scale
+    ;(function(){
+      const step=40; for(let x=step;x<W;x+=step) addLine(x,0,x,H); for(let y=step;y<H;y+=step) addLine(0,y,W,y);
+      function addLine(x1,y1,x2,y2){ const l=ns('line'); l.setAttribute('x1',x1); l.setAttribute('y1',y1); l.setAttribute('x2',x2); l.setAttribute('y2',y2); l.setAttribute('stroke','#00000010'); l.setAttribute('stroke-width','1'); gridG.appendChild(l); }
+    })();
+
+    // --- Geometry utils ---
+    const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
+    const areaSigned = (pts)=>{ let a=0; for(let i=0,j=pts.length-1;i<pts.length;j=i++) a+=pts[j].x*pts[i].y-pts[i].x*pts[j].y; return a/2 };
+    const polyArea = (pts)=>Math.abs(areaSigned(pts));
+    function pointInPoly(p,poly){
+      let inside=false; for(let i=0,j=poly.length-1;i<poly.length;j=i++){
+        const xi=poly[i].x, yi=poly[i].y, xj=poly[j].x, yj=poly[j].y;
+        const inter = (yi>p.y)!=(yj>p.y) && p.x < (xj-xi)*(p.y-yi)/(yj-yi)+xi; if(inter) inside=!inside;
+      } return inside;
+    }
+    function segInter(a,b,c,d){
+      const cross=(x1,y1,x2,y2)=>x1*y2 - y1*x2;
+      const sub=(u,v)=>({x:u.x-v.x,y:u.y-v.y});
+      const ab=sub(b,a), ca=sub(c,a), da=sub(d,a), cd=sub(d,c), ac=sub(a,c), bc=sub(b,c);
+      const d1=cross(ab.x,ab.y,ca.x,ca.y), d2=cross(ab.x,ab.y,da.x,da.y);
+      const d3=cross(cd.x,cd.y,ac.x,ac.y), d4=cross(cd.x,cd.y,bc.x,bc.y);
+      if(((d1>0&&d2<0)||(d1<0&&d2>0)) && ((d3>0&&d4<0)||(d3<0&&d4>0))) return true;
+      const onSeg=(p,q,r)=> Math.min(p.x,r.x)-1e-9<=q.x && q.x<=Math.max(p.x,r.x)+1e-9 && Math.min(p.y,r.y)-1e-9<=q.y && q.y<=Math.max(p.y,r.y)+1e-9;
+      if(Math.abs(d1)<1e-9 && onSeg(a,c,b)) return true; if(Math.abs(d2)<1e-9 && onSeg(a,d,b)) return true;
+      if(Math.abs(d3)<1e-9 && onSeg(c,a,d)) return true; if(Math.abs(d4)<1e-9 && onSeg(c,b,d)) return true;
+      return false;
+    }
+    function rectCorners(x,y,w,h){ return [ {x:x,y:y},{x:x+w,y:y},{x:x+w,y:y+h},{x:x,y:y+h} ]; }
+    function rectIntersectsPoly(x,y,w,h,poly){
+      const corners=rectCorners(x,y,w,h);
+      for(const v of poly){ if(v.x>=x && v.x<=x+w && v.y>=y && v.y<=y+h) return true; }
+      for(const c of corners){ if(pointInPoly(c,poly)) return true; }
+      const edgesRect=[[corners[0],corners[1]],[corners[1],corners[2]],[corners[2],corners[3]],[corners[3],corners[0]]];
+      for(let i=0;i<poly.length;i++){
+        const a=poly[i], b=poly[(i+1)%poly.length];
+        for(const [r1,r2] of edgesRect) if(segInter(a,b,r1,r2)) return true;
+      }
+      return false;
+    }
+
+    // --- Ground truth polygon (single, editable) ---
+    let GT = [
+      {x:200,y:120},{x:360,y:110},{x:420,y:180},{x:430,y:300},{x:320,y:360},{x:220,y:300}
+    ];
+    let dragging=null;
+
+    const gtPath = ns('path'); gtPath.setAttribute('fill','#3b82f615'); gtPath.setAttribute('stroke','#2563eb'); gtPath.setAttribute('stroke-width','2');
+    polyG.appendChild(gtPath);
+
+    function drawGT(){
+      let d=''; for(let i=0;i<GT.length;i++){ const p=GT[i]; d+=(i?` L ${p.x} ${p.y}`:`M ${p.x} ${p.y}`)} d+=' Z'; gtPath.setAttribute('d',d);
+      while(handleG.firstChild) handleG.removeChild(handleG.firstChild);
+      for(let i=0;i<GT.length;i++){ const c=ns('circle'); c.setAttribute('cx',GT[i].x); c.setAttribute('cy',GT[i].y); c.setAttribute('r',HANDLE_R); c.setAttribute('fill','#2563eb'); c.setAttribute('stroke','#fff'); c.setAttribute('stroke-width','2'); c.dataset.idx=i; handleG.appendChild(c); }
+    }
+
+    function centroid(poly){ let a=areaSigned(poly)*6, cx=0, cy=0; for(let i=0,j=poly.length-1;i<poly.length;j=i++){ const f=(poly[j].x*poly[i].y - poly[i].x*poly[j].y); cx+=(poly[j].x+poly[i].x)*f; cy+=(poly[j].y+poly[i].y)*f; } return {x:cx/a, y:cy/a}; }
+
+    function getPointer(evt){ const r=stage.getBoundingClientRect(); return { x:clamp(evt.clientX-r.left,0,W), y:clamp(evt.clientY-r.top,0,H) }; }
+    function insideGT(p){ return pointInPoly(p,GT) }
+
+    stage.addEventListener('pointerdown', (e)=>{
+      const p=getPointer(e);
+      for(let i=0;i<GT.length;i++){
+        const v=GT[i]; const dx=p.x-v.x, dy=p.y-v.y; if(dx*dx+dy*dy <= (HANDLE_R+3)**2){ dragging={mode:'vertex', idx:i}; stage.setPointerCapture(e.pointerId); return; }
+      }
+      if(insideGT(p)){ dragging={mode:'translate', prev:p}; stage.setPointerCapture(e.pointerId); return; }
+    });
+    stage.addEventListener('pointermove', (e)=>{
+      if(!dragging) return; const p=getPointer(e);
+      if(dragging.mode==='vertex'){
+        const i=dragging.idx; GT[i]={x:p.x,y:p.y}; drawGT(); scheduleUpdate('geometry');
+      } else if(dragging.mode==='translate'){
+        const dx=p.x-dragging.prev.x, dy=p.y-dragging.prev.y; for(const v of GT){ v.x=clamp(v.x+dx,0,W); v.y=clamp(v.y+dy,0,H); } dragging.prev=p; drawGT(); scheduleUpdate('geometry');
+      }
+    });
+    stage.addEventListener('pointerup', (e)=>{ dragging=null; try{stage.releasePointerCapture(e.pointerId)}catch{} });
+    stage.addEventListener('pointerleave', ()=>{ dragging=null });
+
+    document.getElementById('resetBtn').addEventListener('click', ()=>{
+      GT = [ {x:200,y:120},{x:360,y:110},{x:420,y:180},{x:430,y:300},{x:320,y:360},{x:220,y:300} ];
+      drawGT(); scheduleUpdate('geometry');
+    });
+
+    // --- Controls ---
+    const cellSlider = document.getElementById('cellSlider');
+    const cellVal = document.getElementById('cellVal');
+    const biasSlider = document.getElementById('biasSlider');
+    const biasVal = document.getElementById('biasVal');
+    const calMethodSel = document.getElementById('calMethodSel');
+    const resampleBtn = document.getElementById('resampleBtn');
+
+    cellSlider.addEventListener('input', ()=>{ cellVal.textContent = cellSlider.value; scheduleUpdate('geometry'); });
+    biasSlider.addEventListener('input', ()=>{ biasVal.textContent = parseFloat(biasSlider.value).toFixed(1); scheduleUpdate('bias'); });
+    calMethodSel.addEventListener('change', ()=>{ scheduleUpdate('calibration'); });
+    resampleBtn.addEventListener('click', ()=>{ scheduleUpdate('resample'); });
+
+    // --- Metric elements ---
+    const trueAreaEl=document.getElementById('trueArea');
+    const pcAreaEl=document.getElementById('pcArea');
+    const rawAreaEl=document.getElementById('rawArea');
+    const calAreaEl=document.getElementById('calArea');
+    const eceRawEl=document.getElementById('eceRaw');
+    const eceCalEl=document.getElementById('eceCal');
+    const brierRawEl=document.getElementById('brierRaw');
+    const brierCalEl=document.getElementById('brierCal');
+
+    function setMetricStatus(box, pct){
+      box.classList.remove('status-good','status-warn','status-bad');
+      if(!isFinite(pct)) return;
+      const ap = Math.abs(pct);
+      if(ap <= 2) box.classList.add('status-good');
+      else if(ap <= 10) box.classList.add('status-warn');
+      else box.classList.add('status-bad');
+    }
+
+    // --- Bias model ---
+    function logit(p) { return Math.log(p / (1 - p)); }
+    function sigmoid(x) { return 1 / (1 + Math.exp(-x)); }
+
+    function applyBias(overlap, biasStrength) {
+      const clamped = Math.max(0.001, Math.min(0.999, overlap));
+      return sigmoid(biasStrength * logit(clamped));
+    }
+
+    // --- Sub-grid overlap computation ---
+    function computeOverlap(cell) {
+      let inside = 0;
+      for (let dy = 0; dy < 8; dy++) {
+        for (let dx = 0; dx < 8; dx++) {
+          const px = cell.x + (dx + 0.5) * cell.w / 8;
+          const py = cell.y + (dy + 0.5) * cell.h / 8;
+          if (pointInPoly({x: px, y: py}, GT)) inside++;
+        }
+      }
+      return inside / 64;
+    }
+
+    // --- PAVA (Isotonic Regression) ---
+    function pavaCalibration(trainCells) {
+      if (trainCells.length === 0) return function(p){ return p; };
+      const allSame = trainCells.every(c => c.trueLabel === trainCells[0].trueLabel);
+      if (allSame) {
+        const constVal = trainCells[0].trueLabel;
+        return function(p){ return constVal; };
+      }
+
+      const sorted = [...trainCells].sort((a, b) => a.rawProb - b.rawProb);
+      const blocks = sorted.map((cell) => ({
+        sum: cell.trueLabel,
+        weight: 1,
+        value() { return this.sum / this.weight; }
+      }));
+
+      // Merge adjacent violators
+      let i = 1;
+      while (i < blocks.length) {
+        if (i > 0 && blocks[i-1].value() > blocks[i].value()) {
+          blocks[i-1].sum += blocks[i].sum;
+          blocks[i-1].weight += blocks[i].weight;
+          blocks.splice(i, 1);
+          if (i > 1) i--;
+        } else {
+          i++;
+        }
+      }
+
+      // Build lookup: for each original sorted index, find its block value
+      const calValues = [];
+      let idx = 0;
+      for (const block of blocks) {
+        const v = block.value();
+        for (let k = 0; k < block.weight; k++) {
+          calValues.push({ rawProb: sorted[idx].rawProb, calProb: v });
+          idx++;
+        }
+      }
+
+      const numBreakpoints = blocks.length;
+      const valueRange = [blocks[0].value(), blocks[blocks.length-1].value()];
+
+      const fn = function calibrate(prob) {
+        // Binary search for closest rawProb
+        let lo = 0, hi = calValues.length - 1;
+        if (prob <= calValues[0].rawProb) return calValues[0].calProb;
+        if (prob >= calValues[hi].rawProb) return calValues[hi].calProb;
+        while (lo < hi) {
+          const mid = (lo + hi) >> 1;
+          if (calValues[mid].rawProb < prob) lo = mid + 1;
+          else hi = mid;
+        }
+        // Interpolate between lo-1 and lo
+        if (lo > 0 && calValues[lo].rawProb !== calValues[lo-1].rawProb) {
+          const t = (prob - calValues[lo-1].rawProb) / (calValues[lo].rawProb - calValues[lo-1].rawProb);
+          return calValues[lo-1].calProb + t * (calValues[lo].calProb - calValues[lo-1].calProb);
+        }
+        return calValues[lo].calProb;
+      };
+      fn._info = { method: 'isotonic', numBreakpoints, valueRange };
+      return fn;
+    }
+
+    // --- Platt Scaling ---
+    function plattCalibration(trainCells) {
+      if (trainCells.length === 0) return function(p){ return p; };
+      const allSame = trainCells.every(c => c.trueLabel === trainCells[0].trueLabel);
+      if (allSame) {
+        const meanLabel = trainCells[0].trueLabel;
+        const A = 0;
+        const B = logit(Math.max(0.001, Math.min(0.999, meanLabel)));
+        const fn = function calibrate(prob) { return sigmoid(A * prob + B); };
+        fn._info = { method: 'platt', A, B, iterations: 0 };
+        return fn;
+      }
+
+      let A = 1, B = 0;
+      const lr = 0.01;
+      const maxIter = 200;
+      const threshold = 1e-6;
+      let iter = 0;
+
+      for (iter = 0; iter < maxIter; iter++) {
+        let gradA = 0, gradB = 0;
+        for (const cell of trainCells) {
+          const z = A * cell.rawProb + B;
+          const pred = sigmoid(z);
+          const error = pred - cell.trueLabel;
+          gradA += error * cell.rawProb;
+          gradB += error;
+        }
+        gradA /= trainCells.length;
+        gradB /= trainCells.length;
+        A -= lr * gradA;
+        B -= lr * gradB;
+        if (Math.abs(gradA) < threshold && Math.abs(gradB) < threshold) break;
+      }
+
+      const fn = function calibrate(prob) {
+        return clamp(sigmoid(A * prob + B), 0, 1);
+      };
+      fn._info = { method: 'platt', A, B, iterations: iter + 1 };
+      return fn;
+    }
+
+    // --- ECE & Brier ---
+    function computeECE(testCells, probKey) {
+      const nBins = 10;
+      const bins = Array.from({length: nBins}, () => ({ preds: [], labels: [] }));
+      for (const c of testCells) {
+        const p = c[probKey];
+        const idx = Math.min(Math.floor(p * nBins), nBins - 1);
+        bins[idx].preds.push(p);
+        bins[idx].labels.push(c.trueLabel);
+      }
+      let ece = 0;
+      const n = testCells.length;
+      const binDetails = [];
+      for (let i = 0; i < nBins; i++) {
+        const bin = bins[i];
+        if (bin.preds.length === 0) { binDetails.push(null); continue; }
+        const meanPred = bin.preds.reduce((a,b)=>a+b,0) / bin.preds.length;
+        const fracPos = bin.labels.reduce((a,b)=>a+b,0) / bin.labels.length;
+        const gap = Math.abs(meanPred - fracPos);
+        ece += (bin.preds.length / n) * gap;
+        binDetails.push({ count: bin.preds.length, meanPred, fracPos, gap });
+      }
+      return { ece, binDetails };
+    }
+
+    function computeBrier(testCells, probKey) {
+      if (testCells.length === 0) return 0;
+      let sum = 0;
+      for (const c of testCells) {
+        const diff = c[probKey] - c.trueLabel;
+        sum += diff * diff;
+      }
+      return sum / testCells.length;
+    }
+
+    // --- State ---
+    let cells = [];
+    let calibrateFn = null;
+    let lastCalInfo = null;
+    let needSplit = true;
+
+    function recompute(reason) {
+      const cs = parseInt(cellSlider.value, 10);
+      const bias = parseFloat(biasSlider.value);
+      const method = calMethodSel.value;
+
+      const doGeometry = reason === 'geometry' || reason === 'init';
+      const doBias = doGeometry || reason === 'bias';
+      const doResample = reason === 'resample' || needSplit;
+      const doCalibration = doBias || doResample || reason === 'calibration';
+
+      // 1) Rebuild cells if geometry changed
+      if (doGeometry) {
+        cells.length = 0;
+        const nx = Math.floor(W / cs), ny = Math.floor(H / cs);
+        for (let j = 0; j < ny; j++) {
+          for (let i = 0; i < nx; i++) {
+            cells.push({ x: i*cs, y: j*cs, w: cs, h: cs, overlap: 0, rawProb: 0, calibratedProb: 0, split: 'train', trueLabel: 0 });
+          }
+        }
+        // Compute overlap fractions
+        for (const cell of cells) {
+          cell.overlap = computeOverlap(cell);
+          cell.trueLabel = cell.overlap > 0.5 ? 1 : 0;
+        }
+        needSplit = true;
+      }
+
+      // 2) Apply bias
+      if (doBias) {
+        for (const cell of cells) {
+          cell.rawProb = applyBias(cell.overlap, bias);
+        }
+      }
+
+      // 3) Train/test split
+      if (doResample || needSplit) {
+        for (const cell of cells) {
+          cell.split = Math.random() < 0.5 ? 'train' : 'test';
+        }
+        needSplit = false;
+      }
+
+      // 4) Fit calibration
+      if (doCalibration) {
+        const trainCells = cells.filter(c => c.split === 'train');
+        if (method === 'isotonic') {
+          calibrateFn = pavaCalibration(trainCells);
+        } else {
+          calibrateFn = plattCalibration(trainCells);
+        }
+        lastCalInfo = calibrateFn._info || null;
+
+        // Apply calibration to all cells
+        for (const cell of cells) {
+          cell.calibratedProb = clamp(calibrateFn(cell.rawProb), 0, 1);
+        }
+      }
+
+      // 5) Draw cells
+      while (cellsG.firstChild) cellsG.removeChild(cellsG.firstChild);
+      const frag = document.createDocumentFragment();
+      for (const c of cells) {
+        if (c.rawProb < 0.005) continue;
+        const r = ns('rect');
+        r.setAttribute('x', c.x);
+        r.setAttribute('y', c.y);
+        r.setAttribute('width', c.w);
+        r.setAttribute('height', c.h);
+        r.setAttribute('fill', 'var(--violet)');
+        r.setAttribute('fill-opacity', c.rawProb.toFixed(3));
+        if (c.rawProb > 0.01) {
+          r.setAttribute('stroke', 'var(--violet-stroke)');
+          r.setAttribute('stroke-width', '0.5');
+          r.setAttribute('stroke-opacity', '0.3');
+        }
+        frag.appendChild(r);
+      }
+      cellsG.appendChild(frag);
+
+      // 6) Draw train/test dots
+      while (dotsG.firstChild) dotsG.removeChild(dotsG.firstChild);
+      const dotFrag = document.createDocumentFragment();
+      for (const c of cells) {
+        if (c.overlap <= 0) continue;
+        const dot = ns('circle');
+        dot.setAttribute('cx', c.x + c.w / 2);
+        dot.setAttribute('cy', c.y + c.h / 2);
+        dot.setAttribute('r', 2.5);
+        dot.setAttribute('fill', c.split === 'train' ? '#3b82f6' : '#f59e0b');
+        dot.setAttribute('fill-opacity', '0.7');
+        dotFrag.appendChild(dot);
+      }
+      dotsG.appendChild(dotFrag);
+
+      // 7) Compute metrics
+      const Atrue = polyArea(GT);
+      const cellArea = cs * cs;
+      let pcCount = 0, rawSum = 0, calSum = 0;
+      for (const c of cells) {
+        if (c.rawProb > 0.5) pcCount++;
+        rawSum += c.rawProb;
+        calSum += c.calibratedProb;
+      }
+      const Apixel = pcCount * cellArea;
+      const Araw = rawSum * cellArea;
+      const Acal = calSum * cellArea;
+
+      trueAreaEl.textContent = Atrue.toFixed(1);
+      pcAreaEl.textContent = Apixel.toFixed(1);
+      rawAreaEl.textContent = Araw.toFixed(1);
+      calAreaEl.textContent = Acal.toFixed(1);
+
+      // Error color-coding for pixel-count
+      if (Atrue > 0) {
+        const pcErr = (Apixel - Atrue) / Atrue * 100;
+        pcAreaEl.textContent = Apixel.toFixed(1) + ' (' + (pcErr >= 0 ? '+' : '') + pcErr.toFixed(1) + '%)';
+        setMetricStatus(pcAreaEl.parentElement, pcErr);
+
+        const rawErr = (Araw - Atrue) / Atrue * 100;
+        rawAreaEl.textContent = Araw.toFixed(1) + ' (' + (rawErr >= 0 ? '+' : '') + rawErr.toFixed(1) + '%)';
+        setMetricStatus(rawAreaEl.parentElement, rawErr);
+
+        const calErr = (Acal - Atrue) / Atrue * 100;
+        calAreaEl.textContent = Acal.toFixed(1) + ' (' + (calErr >= 0 ? '+' : '') + calErr.toFixed(1) + '%)';
+        setMetricStatus(calAreaEl.parentElement, calErr);
+      } else {
+        pcAreaEl.parentElement.classList.remove('status-good','status-warn','status-bad');
+        rawAreaEl.parentElement.classList.remove('status-good','status-warn','status-bad');
+        calAreaEl.parentElement.classList.remove('status-good','status-warn','status-bad');
+      }
+
+      // 8) ECE & Brier on test set
+      const testCells = cells.filter(c => c.split === 'test');
+      const eceRawResult = computeECE(testCells, 'rawProb');
+      const eceCalResult = computeECE(testCells, 'calibratedProb');
+      const brierRawVal = computeBrier(testCells, 'rawProb');
+      const brierCalVal = computeBrier(testCells, 'calibratedProb');
+
+      eceRawEl.textContent = eceRawResult.ece.toFixed(4);
+      eceCalEl.textContent = eceCalResult.ece.toFixed(4);
+      brierRawEl.textContent = brierRawVal.toFixed(4);
+      brierCalEl.textContent = brierCalVal.toFixed(4);
+
+      // Color-code ECE/Brier (lower is better)
+      setMetricStatus(eceRawEl.parentElement, eceRawResult.ece * 100 / 0.02);
+      setMetricStatus(eceCalEl.parentElement, eceCalResult.ece * 100 / 0.02);
+      setMetricStatus(brierRawEl.parentElement, brierRawVal * 100 / 0.02);
+      setMetricStatus(brierCalEl.parentElement, brierCalVal * 100 / 0.02);
+
+      // 9) Reliability diagram
+      drawReliabilityDiagram(testCells);
+
+      // 10) Computation details
+      updateCalcDetails({
+        cs, bias, method,
+        nx: Math.floor(W/cs), ny: Math.floor(H/cs),
+        nCells: cells.length,
+        cellArea,
+        totalArea: W*H,
+        Atrue, Apixel, Araw, Acal,
+        eceRaw: eceRawResult, eceCal: eceCalResult,
+        brierRaw: brierRawVal, brierCal: brierCalVal,
+        nTrain: cells.filter(c => c.split === 'train').length,
+        nTest: testCells.length,
+        calInfo: lastCalInfo
+      });
+    }
+
+    // --- Reliability Diagram (Canvas) ---
+    function drawReliabilityDiagram(testCells) {
+      const canvas = document.getElementById('reliabilityCanvas');
+      const ctx = canvas.getContext('2d');
+      const dpr = window.devicePixelRatio || 1;
+      const logW = 400, logH = 300;
+
+      canvas.width = logW * dpr;
+      canvas.height = logH * dpr;
+      canvas.style.width = logW + 'px';
+      canvas.style.height = logH + 'px';
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      ctx.clearRect(0, 0, logW, logH);
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, logW, logH);
+
+      const mL = 50, mR = 20, mT = 30, mB = 40;
+      const x0 = mL, x1 = logW - mR, y0 = logH - mB, y1 = mT;
+      const plotW = x1 - x0, plotH = y0 - y1;
+
+      function Xp(v) { return x0 + v * plotW; }
+      function Yp(v) { return y0 - v * plotH; }
+
+      // Title
+      ctx.fillStyle = '#0f172a';
+      ctx.font = 'bold 12px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('Reliability Diagram (Test Set)', logW / 2, 16);
+
+      // Grid lines
+      ctx.strokeStyle = '#f3f4f6';
+      ctx.lineWidth = 1;
+      for (let i = 0; i <= 10; i++) {
+        const v = i / 10;
+        ctx.beginPath(); ctx.moveTo(Xp(v), y0); ctx.lineTo(Xp(v), y1); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x0, Yp(v)); ctx.lineTo(x1, Yp(v)); ctx.stroke();
+      }
+
+      // Axes
+      ctx.strokeStyle = '#e5e7eb';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(x0, y1); ctx.lineTo(x0, y0); ctx.lineTo(x1, y0); ctx.stroke();
+
+      // Diagonal (perfect calibration)
+      ctx.strokeStyle = '#94a3b8';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([5, 5]);
+      ctx.beginPath(); ctx.moveTo(Xp(0), Yp(0)); ctx.lineTo(Xp(1), Yp(1)); ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Axis labels
+      ctx.fillStyle = '#6b7280';
+      ctx.font = '10px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      for (let i = 0; i <= 10; i += 2) {
+        ctx.fillText((i/10).toFixed(1), Xp(i/10), y0 + 14);
+      }
+      ctx.textAlign = 'right';
+      for (let i = 0; i <= 10; i += 2) {
+        ctx.fillText((i/10).toFixed(1), x0 - 4, Yp(i/10) + 3);
+      }
+      ctx.textAlign = 'center';
+      ctx.fillText('Mean predicted probability', (x0 + x1) / 2, logH - 4);
+      ctx.save();
+      ctx.translate(12, (y0 + y1) / 2);
+      ctx.rotate(-Math.PI / 2);
+      ctx.fillText('Fraction of positives', 0, 0);
+      ctx.restore();
+
+      // Bin data
+      const nBins = 10;
+      const rawBins = Array.from({length: nBins}, () => ({ preds: [], labels: [] }));
+      const calBins = Array.from({length: nBins}, () => ({ preds: [], labels: [] }));
+
+      for (const c of testCells) {
+        const rawIdx = Math.min(Math.floor(c.rawProb * nBins), nBins - 1);
+        rawBins[rawIdx].preds.push(c.rawProb);
+        rawBins[rawIdx].labels.push(c.trueLabel);
+
+        const calIdx = Math.min(Math.floor(c.calibratedProb * nBins), nBins - 1);
+        calBins[calIdx].preds.push(c.calibratedProb);
+        calBins[calIdx].labels.push(c.trueLabel);
+      }
+
+      // Draw raw model points (blue) with connecting line
+      ctx.strokeStyle = '#3b82f680';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      let started = false;
+      for (let i = 0; i < nBins; i++) {
+        const bin = rawBins[i];
+        if (bin.preds.length === 0) continue;
+        const meanPred = bin.preds.reduce((a,b)=>a+b,0) / bin.preds.length;
+        const fracPos = bin.labels.reduce((a,b)=>a+b,0) / bin.labels.length;
+        const px = Xp(meanPred), py = Yp(fracPos);
+        if (!started) { ctx.moveTo(px, py); started = true; } else { ctx.lineTo(px, py); }
+      }
+      ctx.stroke();
+
+      ctx.fillStyle = '#3b82f6';
+      for (let i = 0; i < nBins; i++) {
+        const bin = rawBins[i];
+        if (bin.preds.length === 0) continue;
+        const meanPred = bin.preds.reduce((a,b)=>a+b,0) / bin.preds.length;
+        const fracPos = bin.labels.reduce((a,b)=>a+b,0) / bin.labels.length;
+        ctx.beginPath();
+        ctx.arc(Xp(meanPred), Yp(fracPos), 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Draw calibrated model points (green) with connecting line
+      ctx.strokeStyle = '#22c55e80';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      started = false;
+      for (let i = 0; i < nBins; i++) {
+        const bin = calBins[i];
+        if (bin.preds.length === 0) continue;
+        const meanPred = bin.preds.reduce((a,b)=>a+b,0) / bin.preds.length;
+        const fracPos = bin.labels.reduce((a,b)=>a+b,0) / bin.labels.length;
+        const px = Xp(meanPred), py = Yp(fracPos);
+        if (!started) { ctx.moveTo(px, py); started = true; } else { ctx.lineTo(px, py); }
+      }
+      ctx.stroke();
+
+      ctx.fillStyle = '#22c55e';
+      for (let i = 0; i < nBins; i++) {
+        const bin = calBins[i];
+        if (bin.preds.length === 0) continue;
+        const meanPred = bin.preds.reduce((a,b)=>a+b,0) / bin.preds.length;
+        const fracPos = bin.labels.reduce((a,b)=>a+b,0) / bin.labels.length;
+        ctx.beginPath();
+        ctx.arc(Xp(meanPred), Yp(fracPos), 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Legend
+      ctx.fillStyle = '#3b82f6';
+      ctx.fillRect(x1 - 120, y1 + 4, 10, 10);
+      ctx.fillStyle = '#0f172a';
+      ctx.font = '10px system-ui, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText('Raw model', x1 - 106, y1 + 13);
+
+      ctx.fillStyle = '#22c55e';
+      ctx.fillRect(x1 - 120, y1 + 18, 10, 10);
+      ctx.fillStyle = '#0f172a';
+      ctx.fillText('Calibrated', x1 - 106, y1 + 27);
+    }
+
+    // --- Computation details ---
+    function updateCalcDetails(d) {
+      const box = document.getElementById('calcBox');
+      if (!box) return;
+      const f = (x, k=3) => (Number.isFinite(x) ? x.toFixed(k) : '—');
+
+      let calDetails = '';
+      if (d.calInfo) {
+        if (d.calInfo.method === 'isotonic') {
+          calDetails = `
+            <div class="row"><code>Method: Isotonic Regression (PAVA algorithm)</code></div>
+            <div class="row"><code>Breakpoints: ${d.calInfo.numBreakpoints}</code></div>
+            <div class="row"><code>Value range: [${f(d.calInfo.valueRange[0],4)}, ${f(d.calInfo.valueRange[1],4)}]</code></div>
+          `;
+        } else {
+          calDetails = `
+            <div class="row"><code>Method: Platt Scaling (sigmoid / logistic)</code></div>
+            <div class="row"><code>Fitted: σ(A·x + B) where A = ${f(d.calInfo.A,4)}, B = ${f(d.calInfo.B,4)}</code></div>
+            <div class="row"><code>Gradient descent converged in ${d.calInfo.iterations} iterations</code></div>
+          `;
+        }
+      }
+
+      let eceBins = '';
+      if (d.eceRaw && d.eceRaw.binDetails) {
+        eceBins = '<div class="row"><code>ECE per-bin (raw): ';
+        for (let i = 0; i < 10; i++) {
+          const b = d.eceRaw.binDetails[i];
+          if (b) eceBins += `[${(i/10).toFixed(1)}-${((i+1)/10).toFixed(1)}]: n=${b.count}, gap=${f(b.gap,3)}  `;
+        }
+        eceBins += '</code></div>';
+      }
+
+      box.innerHTML = `
+        <div class="row"><span class="muted">Grid</span></div>
+        <div class="row"><code>cell size = ${f(d.cs,0)} px → cell area = ${f(d.cellArea,0)} px²</code></div>
+        <div class="row"><code>nx × ny = ${d.nx} × ${d.ny} → n<sub>cells</sub> = ${d.nCells}</code></div>
+        <div class="row"><code>total area = ${f(d.totalArea,0)} px²</code></div>
+        <div class="hr"></div>
+
+        <div class="row"><span class="muted">Bias model</span></div>
+        <div class="row"><code>rawProb = σ(β · logit(overlap)),  β = ${f(d.bias,1)}</code></div>
+        <div class="row"><code>β = 1.0 → perfect calibration; β &gt; 1 → overconfident; β &lt; 1 → underconfident</code></div>
+        <div class="hr"></div>
+
+        <div class="row"><span class="muted">Train/test split</span></div>
+        <div class="row"><code>n<sub>train</sub> = ${d.nTrain}, n<sub>test</sub> = ${d.nTest} (50/50 random)</code></div>
+        <div class="hr"></div>
+
+        <div class="row"><span class="muted">Calibration fit</span></div>
+        ${calDetails}
+        <div class="hr"></div>
+
+        <div class="row"><span class="muted">Area estimates</span></div>
+        <div class="row"><code>True area = polyArea(GT) = ${f(d.Atrue,1)} px²</code></div>
+        <div class="row"><code>Pixel-count = #{rawProb &gt; 0.5} × cellArea = ${f(d.Apixel,1)} px²</code></div>
+        <div class="row"><code>Raw prob = Σ cellArea × rawProb = ${f(d.Araw,1)} px²</code></div>
+        <div class="row"><code>Calibrated = Σ cellArea × calibratedProb = ${f(d.Acal,1)} px²</code></div>
+        <div class="hr"></div>
+
+        <div class="row"><span class="muted">Calibration metrics (test set)</span></div>
+        <div class="row"><code>ECE (raw) = Σ (|bin|/n) × |meanPred − fracPos| = ${f(d.eceRaw.ece,4)}</code></div>
+        <div class="row"><code>ECE (cal) = ${f(d.eceCal.ece,4)}</code></div>
+        ${eceBins}
+        <div class="row"><code>Brier (raw) = (1/n) Σ (pred − label)² = ${f(d.brierRaw,4)}</code></div>
+        <div class="row"><code>Brier (cal) = ${f(d.brierCal,4)}</code></div>
+      `;
+    }
+
+    // --- Throttled recompute ---
+    let raf = 0;
+    function scheduleUpdate(reason) {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => recompute(reason));
+    }
+
+    // init
+    drawGT();
+    recompute('init');
+  </script>
+
+  <footer style="text-align:center; padding:24px 16px; color:#6b7280; font-size:13px;">
+    By: Caleb Robinson, 2026
+  </footer>
+
+</body>
+</html>
