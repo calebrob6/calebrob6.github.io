@@ -161,8 +161,8 @@
     <div id="hud">
       <div class="panel">
         <div id="hint">
-          <div><b>Controls:</b> <span class="kbd">←</span> <span class="kbd">↑</span> <span class="kbd">→</span> <span class="kbd">↓</span> (or WASD) &nbsp; <span class="kbd">Space</span> Turbo Boost</div>
-          <div class="subtle">Goal: fly through the maze to reach the planet 🪐</div>
+          <div><b>Controls:</b> <span class="kbd">←</span> <span class="kbd">↑</span> <span class="kbd">→</span> <span class="kbd">↓</span> (or WASD) &nbsp; <span class="kbd">Space</span> Turbo Boost &nbsp; <span class="kbd">🖱️</span> Click to capture mouse</div>
+          <div class="subtle">Goal: fly through the maze to reach the planet 🪐 (Press Esc to release mouse)</div>
         </div>
       </div>
       <div class="panel right">
@@ -776,6 +776,107 @@
   });
   window.addEventListener("keyup", (e)=> keys.delete(e.key));
 
+  // ---------- Mouse navigation (Pointer Lock) ----------
+  let mouseDeltaX = 0, mouseDeltaY = 0;
+  let pointerLocked = false;
+
+  function getCanvasScale() {
+    const rect = canvas.getBoundingClientRect();
+    return {
+      scaleX: canvas.width / rect.width,
+      scaleY: canvas.height / rect.height
+    };
+  }
+
+  canvas.addEventListener("click", (e) => {
+    if (state.mode === "intro" || state.mode === "gameover") {
+      startGame();
+      return;
+    } else if (state.mode === "levelclear") {
+      nextLevel();
+      return;
+    }
+    
+    // Request pointer lock when clicking on canvas during gameplay
+    if (!pointerLocked && state.mode === "playing") {
+      canvas.requestPointerLock();
+    }
+  });
+
+  document.addEventListener("pointerlockchange", () => {
+    pointerLocked = document.pointerLockElement === canvas;
+    if (pointerLocked) {
+      canvas.style.cursor = "none";
+    } else {
+      canvas.style.cursor = "default";
+    }
+  });
+
+  document.addEventListener("pointerlockerror", () => {
+    console.warn("Pointer lock failed");
+  });
+
+  canvas.addEventListener("mousemove", (e) => {
+    if (pointerLocked) {
+      const scale = getCanvasScale();
+      // Accumulate mouse delta for next frame
+      mouseDeltaX += e.movementX * scale.scaleX;
+      mouseDeltaY += e.movementY * scale.scaleY;
+    }
+  });
+
+  // Press Escape to exit pointer lock (browser handles this automatically)
+  // but we can also exit on game over or level clear
+  function exitPointerLock() {
+    if (document.pointerLockElement === canvas) {
+      document.exitPointerLock();
+    }
+  }
+
+  // Touch support for mobile (touch moves toward finger position)
+  let touchX = -1, touchY = -1;
+  let touchActive = false;
+
+  function getCanvasMousePos(e) {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    return {
+      x: (e.clientX - rect.left) * scaleX,
+      y: (e.clientY - rect.top) * scaleY
+    };
+  }
+
+  canvas.addEventListener("touchstart", (e) => {
+    e.preventDefault();
+    const touch = e.touches[0];
+    const pos = getCanvasMousePos(touch);
+    touchX = pos.x;
+    touchY = pos.y;
+    touchActive = true;
+    if (state.mode === "intro" || state.mode === "gameover") {
+      startGame();
+    } else if (state.mode === "levelclear") {
+      nextLevel();
+    }
+  });
+
+  canvas.addEventListener("touchmove", (e) => {
+    e.preventDefault();
+    const touch = e.touches[0];
+    const pos = getCanvasMousePos(touch);
+    touchX = pos.x;
+    touchY = pos.y;
+  });
+
+  canvas.addEventListener("touchend", () => {
+    touchActive = false;
+  });
+
+  canvas.addEventListener("touchcancel", () => {
+    touchActive = false;
+  });
+
   const state = {
     mode: "intro", // intro | playing | levelclear | gameover
     level: 1,
@@ -788,6 +889,7 @@
     pr: 10,
     vx: 0, vy: 0,
     speed: 220,
+    angle: -Math.PI/2, // ship facing direction (radians)
     // target (planet)
     tx: 0, ty: 0,
     tr: 16,
@@ -1231,27 +1333,98 @@
     if (state.speedBoostActive) turbo *= 1.4;
     const sp = state.speed * turbo;
     let dx = 0, dy = 0;
+    let stepX = 0, stepY = 0;
+    let moved = false;
 
     const up = keys.has("ArrowUp") || keys.has("w") || keys.has("W");
     const dn = keys.has("ArrowDown") || keys.has("s") || keys.has("S");
     const lt = keys.has("ArrowLeft") || keys.has("a") || keys.has("A");
     const rt = keys.has("ArrowRight") || keys.has("d") || keys.has("D");
 
-    if (up) dy -= 1;
-    if (dn) dy += 1;
-    if (lt) dx -= 1;
-    if (rt) dx += 1;
+    // Check if using keyboard
+    const usingKeyboard = up || dn || lt || rt;
 
-    // normalize for diagonal
-    const mag = Math.hypot(dx,dy);
-    if (mag > 0) { dx /= mag; dy /= mag; }
+    // Pointer lock: spaceship follows mouse directly
+    if (pointerLocked && !usingKeyboard) {
+      // Use accumulated mouse delta with sensitivity reduction
+      const sensitivity = 0.35; // Reduce mouse speed
+      stepX = mouseDeltaX * sensitivity;
+      stepY = mouseDeltaY * sensitivity;
+      // Apply turbo/speed boost multiplier to mouse movement
+      stepX *= turbo;
+      stepY *= turbo;
+      // Clamp max movement per frame to prevent wall tunneling
+      const maxMouseMove = state.pr * 0.8;
+      const mouseDist = Math.hypot(stepX, stepY);
+      if (mouseDist > maxMouseMove) {
+        stepX = (stepX / mouseDist) * maxMouseMove;
+        stepY = (stepY / mouseDist) * maxMouseMove;
+      }
+      // Clear the delta
+      mouseDeltaX = 0;
+      mouseDeltaY = 0;
+      moved = Math.abs(stepX) > 0.5 || Math.abs(stepY) > 0.5;
+    } else if (touchActive && !usingKeyboard) {
+      // Touch: move toward finger position
+      dx = touchX - state.px;
+      dy = touchY - state.py;
+      const dist = Math.hypot(dx, dy);
+      if (dist > state.pr) {
+        dx /= dist;
+        dy /= dist;
+        moved = true;
+      } else {
+        dx = 0;
+        dy = 0;
+      }
+      stepX = dx * sp * dt;
+      stepY = dy * sp * dt;
+    } else {
+      // Keyboard navigation
+      if (up) dy -= 1;
+      if (dn) dy += 1;
+      if (lt) dx -= 1;
+      if (rt) dx += 1;
 
-    const stepX = dx * sp * dt;
-    const stepY = dy * sp * dt;
+      // normalize for diagonal
+      const mag = Math.hypot(dx,dy);
+      if (mag > 0) { dx /= mag; dy /= mag; moved = true; }
+      stepX = dx * sp * dt;
+      stepY = dy * sp * dt;
+    }
 
-    // move X then resolve by wall checks
-    attemptAxisMove("x", stepX);
-    attemptAxisMove("y", stepY);
+    // Update ship angle based on movement direction
+    if (moved && (Math.abs(stepX) > 0.1 || Math.abs(stepY) > 0.1)) {
+      const targetAngle = Math.atan2(stepY, stepX);
+      // Smooth angle interpolation
+      let angleDiff = targetAngle - state.angle;
+      // Normalize to [-PI, PI]
+      while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+      while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+      // Lerp toward target angle
+      state.angle += angleDiff * Math.min(1, dt * 15);
+    }
+
+    // Break large movements into smaller substeps to prevent wall tunneling
+    // Max step should be less than half the tile size to ensure wall checks work
+    const maxStep = (state.tile - state.pr * 2) * 0.4;
+    const totalDist = Math.hypot(stepX, stepY);
+    
+    if (totalDist > maxStep && totalDist > 0) {
+      // Subdivide into smaller steps
+      const numSteps = Math.ceil(totalDist / maxStep);
+      const subStepX = stepX / numSteps;
+      const subStepY = stepY / numSteps;
+      
+      for (let i = 0; i < numSteps; i++) {
+        attemptAxisMove("x", subStepX);
+        attemptAxisMove("y", subStepY);
+      }
+    } else {
+      // move X then resolve by wall checks
+      attemptAxisMove("x", stepX);
+      attemptAxisMove("y", stepY);
+    }
   }
 
   function attemptAxisMove(axis, delta) {
@@ -1485,13 +1658,8 @@
     const x = state.px, y = state.py;
     const r = state.pr;
 
-    // face direction based on input
-    let dx = 0, dy = 0;
-    if (keys.has("ArrowUp")||keys.has("w")||keys.has("W")) dy -= 1;
-    if (keys.has("ArrowDown")||keys.has("s")||keys.has("S")) dy += 1;
-    if (keys.has("ArrowLeft")||keys.has("a")||keys.has("A")) dx -= 1;
-    if (keys.has("ArrowRight")||keys.has("d")||keys.has("D")) dx += 1;
-    const ang = (dx||dy) ? Math.atan2(dy,dx) : -Math.PI/2;
+    // Use the stored angle from state (updated in movePlayer)
+    const ang = state.angle;
 
     ctx.save();
     ctx.translate(x,y);
@@ -1542,7 +1710,11 @@
     ctx.fill();
 
     // thruster flame (if moving)
-    const moving = (dx||dy);
+    const up = keys.has("ArrowUp")||keys.has("w")||keys.has("W");
+    const dn = keys.has("ArrowDown")||keys.has("s")||keys.has("S");
+    const lt = keys.has("ArrowLeft")||keys.has("a")||keys.has("A");
+    const rt = keys.has("ArrowRight")||keys.has("d")||keys.has("D");
+    const moving = (up||dn||lt||rt) || pointerLocked || touchActive;
     const turbo = keys.has(" ");
     if (moving) {
       const flick = 0.7 + 0.3*Math.sin(tNow*0.03);
@@ -1857,6 +2029,7 @@
     uiLives.textContent = `Lives: ${state.lives}`;
     if (state.lives <= 0) {
       state.mode = "gameover";
+      exitPointerLock();
       uiStatus.textContent = "Oh no!";
       stopMusic();
       setOverlay(`
@@ -1884,6 +2057,7 @@
 
   function winLevel() {
     state.mode = "levelclear";
+    exitPointerLock();
     uiStatus.textContent = "Level cleared!";
     const harder = state.level + 1;
     setOverlay(`

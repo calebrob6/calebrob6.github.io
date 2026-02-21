@@ -114,6 +114,18 @@
     .subtle{opacity:0.85; font-size:13px;}
     .danger{color:#ffd1d1}
     .ok{color:#d5ffe1}
+    .shop-grid{display:grid; grid-template-columns: repeat(5, 1fr); gap:8px; margin:12px 0; pointer-events:auto;}
+    .shop-btn{background:rgba(124,247,255,0.15); border:1px solid rgba(124,247,255,0.4); border-radius:10px; padding:8px 6px; cursor:pointer; color:var(--text); font-size:11px; transition:all 0.2s; text-align:center; display:flex; flex-direction:column; align-items:center; gap:2px; min-height:90px;}
+    .shop-btn:hover:not(:disabled){background:rgba(124,247,255,0.3); transform:scale(1.02);}
+    .shop-btn:disabled{opacity:0.4; cursor:not-allowed;}
+    .shop-btn.owned{background:rgba(109,255,138,0.2); border-color:rgba(109,255,138,0.5); opacity:0.8;}
+    .shop-btn.locked{background:rgba(255,100,100,0.1); border-color:rgba(255,100,100,0.3);}
+    .shop-icon{font-size:20px; display:block;}
+    .shop-name{font-weight:bold; font-size:10px;}
+    .shop-desc{font-size:9px; opacity:0.8;}
+    .shop-cost{color:var(--accent); font-weight:bold; font-size:10px; margin-top:auto;}
+    .shop-continue{background:rgba(109,255,138,0.3); border:2px solid rgba(109,255,138,0.6); border-radius:12px; padding:12px 24px; cursor:pointer; color:var(--text); font-size:14px; font-weight:bold; margin-top:10px; pointer-events:auto;}
+    .shop-continue:hover{background:rgba(109,255,138,0.5);}
     @media (max-width:520px){
       header{flex-direction:column; align-items:flex-start;}
       #hud{flex-direction:column; align-items:stretch;}
@@ -144,7 +156,7 @@
     <div id="hud">
       <div class="panel">
         <div id="hint">
-          <div><b>Controls:</b> <span class="kbd">←</span> <span class="kbd">→</span> (or A/D) to move &nbsp; <span class="kbd">Space</span> to shoot</div>
+          <div><b>Controls:</b> <span class="kbd">←</span><span class="kbd">→</span><span class="kbd">↑</span><span class="kbd">↓</span> (or WASD) to move &nbsp; <span class="kbd">Space</span> to shoot</div>
           <div class="subtle">Goal: Destroy asteroids and survive each 60-second mission!</div>
         </div>
       </div>
@@ -725,7 +737,17 @@
     if (e.key === " " && (state.mode === "intro" || state.mode === "gameover")) {
       startGame();
     } else if (e.key === " " && state.mode === "missioncomplete") {
+      showShop();
+    } else if (e.key === " " && state.mode === "shop") {
       nextMission();
+    } else if (state.mode === "shop" && e.key >= "1" && e.key <= "9") {
+      const idx = parseInt(e.key) - 1;
+      const upgrades = Object.keys(UPGRADES);
+      if (idx < upgrades.length) {
+        buyUpgrade(upgrades[idx]);
+      }
+    } else if (state.mode === "shop" && e.key === "0") {
+      buyUpgrade(Object.keys(UPGRADES)[9]);
     }
   });
   window.addEventListener("keyup", (e)=> keys.delete(e.key));
@@ -750,6 +772,8 @@
     if (state.mode === "intro" || state.mode === "gameover") {
       startGame();
     } else if (state.mode === "missioncomplete") {
+      showShop();
+    } else if (state.mode === "shop") {
       nextMission();
     }
   });
@@ -769,7 +793,7 @@
     if (state.mode === "intro" || state.mode === "gameover") {
       startGame();
     } else if (state.mode === "missioncomplete") {
-      nextMission();
+      showShop();
     }
   });
 
@@ -784,10 +808,35 @@
     BOMB: { color: '#f84', icon: '💥', duration: 0, name: 'Screen Clear' }
   };
 
+  // Asteroid types (increasing HP)
+  const ASTEROID_TYPES = {
+    NORMAL: { color1: 'rgb(180,160,130)', color2: 'rgb(90,70,50)', points: 1, hp: 1, name: 'Rock' },
+    ICE: { color1: 'rgb(180,220,255)', color2: 'rgb(80,140,200)', points: 1.5, hp: 2, splits: 3, name: 'Ice' },
+    METALLIC: { color1: 'rgb(200,200,210)', color2: 'rgb(100,100,120)', points: 2, hp: 3, name: 'Metallic' },
+    EXPLOSIVE: { color1: 'rgb(255,180,100)', color2: 'rgb(180,80,40)', points: 2.5, hp: 2, explodes: true, name: 'Explosive' },
+    CRYSTAL: { color1: 'rgb(220,150,255)', color2: 'rgb(140,60,180)', points: 3, hp: 4, bonus: true, name: 'Crystal' },
+    GOLD: { color1: 'rgb(255,220,100)', color2: 'rgb(180,140,40)', points: 4, hp: 5, name: 'Gold' }
+  };
+
+  // Ship upgrades
+  const UPGRADES = {
+    DUAL_CANNON: { cost: 100, icon: '🔫', name: 'Dual Cannons', desc: '+1 side laser' },
+    TRIPLE_CANNON: { cost: 250, icon: '💥', name: 'Triple Cannons', desc: '+2 side lasers', requires: 'DUAL_CANNON' },
+    SPEED_BOOST: { cost: 80, icon: '🚀', name: 'Speed Boost', desc: '+25% move speed' },
+    SPEED_BOOST2: { cost: 200, icon: '⚡', name: 'Hyper Speed', desc: '+25% more speed', requires: 'SPEED_BOOST' },
+    RAPID_FIRE: { cost: 120, icon: '🔥', name: 'Rapid Fire', desc: '+30% fire rate' },
+    RAPID_FIRE2: { cost: 280, icon: '💫', name: 'Ultra Rapid', desc: '+30% more rate', requires: 'RAPID_FIRE' },
+    ARMOR: { cost: 150, icon: '🛡️', name: 'Hull Armor', desc: '+1 max life' },
+    ARMOR2: { cost: 350, icon: '🏰', name: 'Heavy Armor', desc: '+1 more life', requires: 'ARMOR' },
+    REAR_GUN: { cost: 200, icon: '↩️', name: 'Rear Gun', desc: 'Shoot backwards' },
+    BIG_LASERS: { cost: 180, icon: '📏', name: 'Big Lasers', desc: 'Larger hitbox' }
+  };
+
   const state = {
-    mode: "intro", // intro | playing | missioncomplete | transition | gameover
+    mode: "intro", // intro | playing | missioncomplete | transition | gameover | shop
     mission: 1,
     lives: 3,
+    maxLives: 3,
     score: 0,
     // Timer
     missionTime: 60,
@@ -797,7 +846,11 @@
     py: 580,
     pr: 18,
     vx: 0,
+    vy: 0,
+    baseSpeed: 400,
     speed: 400,
+    // Upgrades owned
+    upgrades: new Set(),
     // Lasers
     lasers: [],
     lastShot: 0,
@@ -873,7 +926,7 @@
     state.invulnerable = 0;
     
     uiMission.textContent = `Mission ${state.mission}`;
-    uiLives.textContent = `Lives: ${state.lives}`;
+    uiLives.textContent = `Lives: ${'❤️'.repeat(state.lives)}`;
     uiScore.textContent = state.score;
     uiTimer.textContent = Math.ceil(state.timeRemaining);
     uiStatus.textContent = "Destroy the asteroids!";
@@ -882,12 +935,15 @@
   // ---------- Player movement ----------
   function movePlayer(dt) {
     let dx = 0;
+    let dy = 0;
     
     const lt = keys.has("ArrowLeft") || keys.has("a") || keys.has("A");
     const rt = keys.has("ArrowRight") || keys.has("d") || keys.has("D");
+    const up = keys.has("ArrowUp") || keys.has("w") || keys.has("W");
+    const dn = keys.has("ArrowDown") || keys.has("s") || keys.has("S");
     
     if (touchActive) {
-      // Move toward touch position
+      // Move toward touch position (horizontal only for touch)
       const diff = touchX - state.px;
       if (Math.abs(diff) > 10) {
         dx = diff > 0 ? 1 : -1;
@@ -895,20 +951,43 @@
     } else {
       if (lt) dx -= 1;
       if (rt) dx += 1;
+      if (up) dy -= 1;
+      if (dn) dy += 1;
     }
     
+    // Normalize diagonal movement so it's not faster
+    if (dx !== 0 && dy !== 0) {
+      const mag = Math.sqrt(dx * dx + dy * dy);
+      dx /= mag;
+      dy /= mag;
+    }
+    
+    // Calculate speed with upgrades
+    let speed = state.speed;
+    if (state.upgrades.has('SPEED_BOOST')) speed *= 1.25;
+    if (state.upgrades.has('SPEED_BOOST2')) speed *= 1.25;
+    
     // Smooth acceleration
-    const targetVx = dx * state.speed;
+    const targetVx = dx * speed;
+    const targetVy = dy * speed;
     state.vx += (targetVx - state.vx) * Math.min(1, dt * 12);
+    state.vy += (targetVy - state.vy) * Math.min(1, dt * 12);
     
     state.px += state.vx * dt;
+    state.py += state.vy * dt;
     state.px = clamp(state.px, state.pr + 10, canvas.width - state.pr - 10);
+    state.py = clamp(state.py, canvas.height * 0.4, canvas.height - state.pr - 10);
   }
 
   // ---------- Shooting ----------
   function shoot() {
     const now = performance.now();
-    const fireRate = state.rapidActive ? state.fireRate * 0.4 : state.fireRate;
+    // Calculate fire rate with upgrades
+    let fireRateMult = 1;
+    if (state.rapidActive) fireRateMult *= 0.4;
+    if (state.upgrades.has('RAPID_FIRE')) fireRateMult *= 0.7;
+    if (state.upgrades.has('RAPID_FIRE2')) fireRateMult *= 0.7;
+    const fireRate = state.fireRate * fireRateMult;
     
     if (now - state.lastShot < fireRate) return;
     state.lastShot = now;
@@ -916,6 +995,12 @@
     playLaserSound();
     
     const laserSpeed = 600;
+    const laserSize = state.upgrades.has('BIG_LASERS') ? 6 : 4;
+    
+    // Determine cannon configuration
+    const hasDual = state.upgrades.has('DUAL_CANNON');
+    const hasTriple = state.upgrades.has('TRIPLE_CANNON');
+    const hasRear = state.upgrades.has('REAR_GUN');
     
     if (state.spreadActive) {
       // 5-way spread
@@ -926,41 +1011,34 @@
           y: state.py - state.pr,
           vx: Math.cos(angle) * laserSpeed,
           vy: Math.sin(angle) * laserSpeed,
-          r: 4
+          r: laserSize
         });
       }
     } else if (state.tripleActive) {
-      // Triple shot
-      state.lasers.push({
-        x: state.px - 15,
-        y: state.py - state.pr,
-        vx: 0,
-        vy: -laserSpeed,
-        r: 4
-      });
-      state.lasers.push({
-        x: state.px,
-        y: state.py - state.pr,
-        vx: 0,
-        vy: -laserSpeed,
-        r: 4
-      });
-      state.lasers.push({
-        x: state.px + 15,
-        y: state.py - state.pr,
-        vx: 0,
-        vy: -laserSpeed,
-        r: 4
-      });
+      // Triple shot powerup
+      state.lasers.push({ x: state.px - 15, y: state.py - state.pr, vx: 0, vy: -laserSpeed, r: laserSize });
+      state.lasers.push({ x: state.px, y: state.py - state.pr, vx: 0, vy: -laserSpeed, r: laserSize });
+      state.lasers.push({ x: state.px + 15, y: state.py - state.pr, vx: 0, vy: -laserSpeed, r: laserSize });
     } else {
-      // Single shot
-      state.lasers.push({
-        x: state.px,
-        y: state.py - state.pr,
-        vx: 0,
-        vy: -laserSpeed,
-        r: 4
-      });
+      // Base cannon (center)
+      state.lasers.push({ x: state.px, y: state.py - state.pr, vx: 0, vy: -laserSpeed, r: laserSize });
+      
+      // Dual cannons (sides)
+      if (hasDual || hasTriple) {
+        state.lasers.push({ x: state.px - 12, y: state.py - state.pr * 0.5, vx: 0, vy: -laserSpeed, r: laserSize * 0.8 });
+        state.lasers.push({ x: state.px + 12, y: state.py - state.pr * 0.5, vx: 0, vy: -laserSpeed, r: laserSize * 0.8 });
+      }
+      
+      // Triple cannons (extra outer)
+      if (hasTriple) {
+        state.lasers.push({ x: state.px - 22, y: state.py, vx: -30, vy: -laserSpeed, r: laserSize * 0.7 });
+        state.lasers.push({ x: state.px + 22, y: state.py, vx: 30, vy: -laserSpeed, r: laserSize * 0.7 });
+      }
+    }
+    
+    // Rear gun
+    if (hasRear) {
+      state.lasers.push({ x: state.px, y: state.py + state.pr, vx: 0, vy: laserSpeed * 0.8, r: laserSize * 0.7 });
     }
   }
 
@@ -979,22 +1057,47 @@
   }
 
   // ---------- Asteroids ----------
-  function spawnAsteroid(size = null) {
+  function spawnAsteroid(size = null, type = null) {
     const cfg = missionConfig(state.mission);
     const sz = size !== null ? size : randi(1, cfg.asteroidMaxSize);
     const radius = 15 + sz * 12;
     
+    // Choose asteroid type (higher missions = more special types)
+    let astType = type;
+    if (!astType) {
+      const roll = Math.random();
+      const specialChance = Math.min(0.5, 0.1 + state.mission * 0.05);
+      if (roll < specialChance) {
+        const types = ['ICE', 'METALLIC', 'EXPLOSIVE', 'CRYSTAL', 'GOLD'];
+        const weights = [0.3, 0.25, 0.2, 0.15, 0.1];
+        let sum = 0;
+        const r = Math.random();
+        for (let i = 0; i < types.length; i++) {
+          sum += weights[i];
+          if (r < sum) { astType = types[i]; break; }
+        }
+        if (!astType) astType = 'NORMAL';
+      } else {
+        astType = 'NORMAL';
+      }
+    }
+    
+    const typeInfo = ASTEROID_TYPES[astType];
+    
     state.asteroids.push({
       x: rand(radius, canvas.width - radius),
       y: -radius - 20,
-      vx: rand(-30, 30),
+      vx: rand(-30, 30) * (astType === 'ICE' ? 1.3 : 1),
       vy: cfg.asteroidSpeed + rand(-20, 40) + sz * 10,
       r: radius,
-      size: sz, // 1 = small, 2 = medium, 3 = large
+      size: sz,
       rot: rand(0, Math.PI * 2),
       spin: rand(-2, 2),
-      shape: randi(0, 2), // Different asteroid shapes
-      points: sz * 10 // Points for destroying
+      shape: randi(0, 2),
+      points: Math.floor(sz * 10 * typeInfo.points),
+      type: astType,
+      hp: (typeInfo.hp || 1) + Math.max(0, sz - 1),
+      maxHp: (typeInfo.hp || 1) + Math.max(0, sz - 1)
     });
   }
 
@@ -1026,41 +1129,99 @@
   }
 
   function breakAsteroid(ast, index) {
+    const typeInfo = ASTEROID_TYPES[ast.type] || ASTEROID_TYPES.NORMAL;
+    
+    // Metallic asteroids need multiple hits
+    if (ast.hp > 1) {
+      ast.hp--;
+      // Spark effect
+      for (let i = 0; i < 5; i++) {
+        state.particles.push({
+          x: ast.x, y: ast.y,
+          vx: rand(-100, 100), vy: rand(-100, 100),
+          r: rand(2, 4), life: 0.3, maxLife: 0.3,
+          color: '#fff'
+        });
+      }
+      playExplosionSound(false);
+      return false; // Don't remove yet
+    }
+    
     state.score += ast.points;
     uiScore.textContent = state.score;
     
     // Create explosion
     createExplosion(ast.x, ast.y, ast.r);
     
+    // Explosive asteroids create shockwave
+    if (ast.type === 'EXPLOSIVE') {
+      // Damage nearby asteroids
+      for (let i = state.asteroids.length - 1; i >= 0; i--) {
+        if (i === index) continue;
+        const other = state.asteroids[i];
+        const dist = Math.hypot(ast.x - other.x, ast.y - other.y);
+        if (dist < ast.r * 3) {
+          breakAsteroid(other, i);
+        }
+      }
+      // Extra explosion effects
+      for (let i = 0; i < 15; i++) {
+        state.particles.push({
+          x: ast.x, y: ast.y,
+          vx: rand(-200, 200), vy: rand(-200, 200),
+          r: rand(3, 6), life: 0.5, maxLife: 0.5,
+          color: ['#f80', '#ff0', '#f00'][randi(0, 2)]
+        });
+      }
+    }
+    
+    // Crystal asteroids give bonus points
+    if (ast.type === 'CRYSTAL') {
+      state.score += ast.points; // Double points
+      uiScore.textContent = state.score;
+    }
+    
     // Break into smaller pieces
     if (ast.size > 1) {
-      const cfg = missionConfig(state.mission);
-      for (let i = 0; i < 2; i++) {
+      const splitCount = (ast.type === 'ICE') ? 3 : 2;
+      for (let i = 0; i < splitCount; i++) {
         const newSize = ast.size - 1;
         const newRadius = 15 + newSize * 12;
+        const newType = ast.type === 'EXPLOSIVE' ? 'NORMAL' : ast.type;
+        const newTypeInfo = ASTEROID_TYPES[newType];
+        const childHp = (newTypeInfo.hp || 1) + Math.max(0, newSize - 1);
         state.asteroids.push({
           x: ast.x + rand(-10, 10),
           y: ast.y + rand(-10, 10),
-          vx: rand(-60, 60),
+          vx: rand(-60, 60) * (ast.type === 'ICE' ? 1.5 : 1),
           vy: ast.vy * 0.8 + rand(-20, 20),
           r: newRadius,
           size: newSize,
           rot: rand(0, Math.PI * 2),
           spin: rand(-3, 3),
           shape: randi(0, 2),
-          points: newSize * 10
+          points: Math.floor(newSize * 10 * newTypeInfo.points),
+          type: newType,
+          hp: childHp,
+          maxHp: childHp
         });
       }
     }
     
-    // Chance to spawn powerup
-    const cfg = missionConfig(state.mission);
-    if (Math.random() < cfg.powerupChance) {
+    // Gold asteroids always drop powerups
+    if (ast.type === 'GOLD') {
       spawnPowerup(ast.x, ast.y);
+    } else {
+      // Chance to spawn powerup
+      const cfg = missionConfig(state.mission);
+      if (Math.random() < cfg.powerupChance) {
+        spawnPowerup(ast.x, ast.y);
+      }
     }
     
     state.asteroids.splice(index, 1);
     playExplosionSound(ast.size >= 2);
+    return true;
   }
 
   // ---------- Powerups ----------
@@ -1128,8 +1289,8 @@
         uiStatus.textContent = "🌟 Spread Shot!";
         break;
       case 'LIFE':
-        state.lives = Math.min(state.lives + 1, 5);
-        uiLives.textContent = `Lives: ${state.lives}`;
+        state.lives = Math.min(state.lives + 1, state.maxLives);
+        uiLives.textContent = `Lives: ${'❤️'.repeat(state.lives)}`;
         uiStatus.textContent = "💖 Extra Life!";
         break;
       case 'SLOW':
@@ -1257,7 +1418,7 @@
 
   function playerHit() {
     state.lives--;
-    uiLives.textContent = `Lives: ${state.lives}`;
+    uiLives.textContent = `Lives: ${'❤️'.repeat(state.lives)}`;
     playHurtSound();
     state.invulnerable = 2000; // 2 seconds invulnerability
     
@@ -1434,24 +1595,62 @@
     const x = state.px;
     const y = state.py;
     const r = state.pr;
+    
+    // Check upgrades
+    const hasDual = state.upgrades.has('DUAL_CANNON');
+    const hasTriple = state.upgrades.has('TRIPLE_CANNON');
+    const hasSpeed = state.upgrades.has('SPEED_BOOST');
+    const hasSpeed2 = state.upgrades.has('SPEED_BOOST2');
+    const hasArmor = state.upgrades.has('ARMOR');
+    const hasArmor2 = state.upgrades.has('ARMOR2');
+    const hasRear = state.upgrades.has('REAR_GUN');
+    const hasBigLasers = state.upgrades.has('BIG_LASERS');
+    const hasRapid = state.upgrades.has('RAPID_FIRE');
+    const hasRapid2 = state.upgrades.has('RAPID_FIRE2');
 
     ctx.save();
     ctx.translate(x, y);
-    // Ship faces up (no rotation)
 
     // Invulnerability flicker
     if (state.invulnerable > 0 && Math.floor(tNow / 80) % 2 === 0) {
       ctx.globalAlpha = 0.4;
     }
 
-    // Glow
-    ctx.shadowBlur = 18;
-    ctx.shadowColor = "rgba(124,247,255,0.35)";
+    // Glow - enhanced with upgrades
+    ctx.shadowBlur = 18 + (hasSpeed2 ? 10 : 0);
+    ctx.shadowColor = hasArmor2 ? "rgba(255,200,100,0.5)" : 
+                      hasArmor ? "rgba(200,220,255,0.4)" : 
+                      "rgba(124,247,255,0.35)";
+
+    // Armor plating (drawn first, behind ship)
+    if (hasArmor || hasArmor2) {
+      ctx.fillStyle = hasArmor2 ? "rgba(255,200,100,0.6)" : "rgba(150,180,220,0.5)";
+      ctx.beginPath();
+      ctx.moveTo(0, -r * 1.5);
+      ctx.lineTo(-r * 1.0, r * 1.0);
+      ctx.lineTo(0, r * 0.7);
+      ctx.lineTo(r * 1.0, r * 1.0);
+      ctx.closePath();
+      ctx.fill();
+      
+      // Armor lines
+      ctx.strokeStyle = hasArmor2 ? "rgba(255,220,150,0.8)" : "rgba(180,200,255,0.6)";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
 
     // Ship body (pointing up)
     const body = ctx.createLinearGradient(0, -r, 0, r);
-    body.addColorStop(0, "rgba(124,247,255,0.95)");
-    body.addColorStop(1, "rgba(255,255,255,0.95)");
+    if (hasRapid2) {
+      body.addColorStop(0, "rgba(255,150,100,0.95)");
+      body.addColorStop(1, "rgba(255,200,150,0.95)");
+    } else if (hasRapid) {
+      body.addColorStop(0, "rgba(255,200,150,0.95)");
+      body.addColorStop(1, "rgba(255,255,255,0.95)");
+    } else {
+      body.addColorStop(0, "rgba(124,247,255,0.95)");
+      body.addColorStop(1, "rgba(255,255,255,0.95)");
+    }
     ctx.fillStyle = body;
 
     ctx.beginPath();
@@ -1488,21 +1687,111 @@
     ctx.closePath();
     ctx.fill();
 
+    // Side cannons (dual upgrade)
+    if (hasDual || hasTriple) {
+      ctx.fillStyle = "rgba(100,150,200,0.9)";
+      // Left cannon
+      ctx.beginPath();
+      ctx.rect(-r * 0.55, -r * 0.4, r * 0.15, r * 0.8);
+      ctx.fill();
+      // Right cannon
+      ctx.beginPath();
+      ctx.rect(r * 0.4, -r * 0.4, r * 0.15, r * 0.8);
+      ctx.fill();
+      
+      // Cannon tips
+      ctx.fillStyle = hasBigLasers ? "#7cf7ff" : "rgba(150,200,255,0.9)";
+      ctx.beginPath();
+      ctx.arc(-r * 0.475, -r * 0.45, r * 0.12, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(r * 0.475, -r * 0.45, r * 0.12, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Outer cannons (triple upgrade)
+    if (hasTriple) {
+      ctx.fillStyle = "rgba(80,120,180,0.85)";
+      // Far left
+      ctx.beginPath();
+      ctx.rect(-r * 0.95, -r * 0.1, r * 0.12, r * 0.6);
+      ctx.fill();
+      // Far right
+      ctx.beginPath();
+      ctx.rect(r * 0.83, -r * 0.1, r * 0.12, r * 0.6);
+      ctx.fill();
+    }
+
+    // Rear gun
+    if (hasRear) {
+      ctx.fillStyle = "rgba(200,100,150,0.9)";
+      ctx.beginPath();
+      ctx.rect(-r * 0.1, r * 0.5, r * 0.2, r * 0.4);
+      ctx.fill();
+      ctx.fillStyle = "#f4a";
+      ctx.beginPath();
+      ctx.arc(0, r * 0.95, r * 0.12, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Big laser indicator (glowing barrel)
+    if (hasBigLasers) {
+      ctx.fillStyle = "rgba(124,247,255,0.8)";
+      ctx.beginPath();
+      ctx.arc(0, -r * 1.35, r * 0.15, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
     // Engine flame
     const flick = 0.7 + 0.3 * Math.sin(tNow * 0.03);
-    const flameLen = r * (0.8 + 0.4 * flick);
+    let flameLen = r * (0.8 + 0.4 * flick);
+    
+    // Speed upgrades = bigger flames
+    if (hasSpeed) flameLen *= 1.3;
+    if (hasSpeed2) flameLen *= 1.3;
     
     const flame = ctx.createLinearGradient(0, r * 0.6, 0, r * 0.6 + flameLen);
-    flame.addColorStop(0, "rgba(255,255,255,0.85)");
-    flame.addColorStop(0.4, "rgba(255,214,102,0.85)");
-    flame.addColorStop(1, "rgba(255,90,90,0)");
+    if (hasSpeed2) {
+      flame.addColorStop(0, "rgba(255,255,255,0.95)");
+      flame.addColorStop(0.3, "rgba(100,200,255,0.9)");
+      flame.addColorStop(1, "rgba(50,100,255,0)");
+    } else if (hasSpeed) {
+      flame.addColorStop(0, "rgba(255,255,255,0.9)");
+      flame.addColorStop(0.4, "rgba(150,220,255,0.85)");
+      flame.addColorStop(1, "rgba(100,150,255,0)");
+    } else {
+      flame.addColorStop(0, "rgba(255,255,255,0.85)");
+      flame.addColorStop(0.4, "rgba(255,214,102,0.85)");
+      flame.addColorStop(1, "rgba(255,90,90,0)");
+    }
     ctx.fillStyle = flame;
     ctx.beginPath();
-    ctx.moveTo(-r * 0.2, r * 0.55);
+    const flameWidth = hasSpeed ? r * 0.3 : r * 0.2;
+    ctx.moveTo(-flameWidth, r * 0.55);
     ctx.lineTo(0, r * 0.55 + flameLen);
-    ctx.lineTo(r * 0.2, r * 0.55);
+    ctx.lineTo(flameWidth, r * 0.55);
     ctx.closePath();
     ctx.fill();
+
+    // Extra side thrusters for speed upgrades
+    if (hasSpeed || hasSpeed2) {
+      const sideFlameLen = flameLen * 0.6;
+      ctx.fillStyle = flame;
+      // Left thruster
+      ctx.beginPath();
+      ctx.moveTo(-r * 0.6, r * 0.7);
+      ctx.lineTo(-r * 0.8, r * 0.7 + sideFlameLen);
+      ctx.lineTo(-r * 0.5, r * 0.7);
+      ctx.closePath();
+      ctx.fill();
+      // Right thruster
+      ctx.beginPath();
+      ctx.moveTo(r * 0.5, r * 0.7);
+      ctx.lineTo(r * 0.8, r * 0.7 + sideFlameLen);
+      ctx.lineTo(r * 0.6, r * 0.7);
+      ctx.closePath();
+      ctx.fill();
+    }
 
     ctx.restore();
 
@@ -1554,27 +1843,42 @@
 
   function drawAsteroids(tNow) {
     for (const ast of state.asteroids) {
+      const typeInfo = ASTEROID_TYPES[ast.type] || ASTEROID_TYPES.NORMAL;
+      
       ctx.save();
       ctx.translate(ast.x, ast.y);
       ctx.rotate(ast.rot);
 
-      // Glow
+      // Glow based on type
       ctx.shadowBlur = 12;
-      ctx.shadowColor = "rgba(255,150,100,0.2)";
+      if (ast.type === 'EXPLOSIVE') {
+        ctx.shadowColor = "rgba(255,100,50,0.5)";
+      } else if (ast.type === 'CRYSTAL') {
+        ctx.shadowColor = "rgba(200,100,255,0.5)";
+      } else if (ast.type === 'GOLD') {
+        ctx.shadowColor = "rgba(255,200,50,0.5)";
+      } else if (ast.type === 'ICE') {
+        ctx.shadowColor = "rgba(100,180,255,0.4)";
+      } else if (ast.type === 'METALLIC') {
+        ctx.shadowColor = "rgba(180,180,200,0.3)";
+      } else {
+        ctx.shadowColor = "rgba(255,150,100,0.2)";
+      }
 
-      // Rock body
+      // Rock body with type-based colors
       const g = ctx.createRadialGradient(-ast.r * 0.3, -ast.r * 0.25, ast.r * 0.2, 0, 0, ast.r * 1.2);
       g.addColorStop(0, "rgba(255,255,255,0.8)");
-      g.addColorStop(0.25, "rgba(180,160,130,0.95)");
-      g.addColorStop(1, "rgba(90,70,50,0.95)");
+      g.addColorStop(0.25, typeInfo.color1);
+      g.addColorStop(1, typeInfo.color2);
       ctx.fillStyle = g;
 
-      // Bumpy shape
+      // Bumpy shape (crystal is more angular)
       ctx.beginPath();
-      const bumps = 8 + ast.shape * 2;
+      const bumps = ast.type === 'CRYSTAL' ? 6 : 8 + ast.shape * 2;
       for (let i = 0; i <= bumps; i++) {
         const angle = (i / bumps) * Math.PI * 2;
-        const rr = ast.r * (0.75 + 0.25 * Math.sin(i * 2.3 + ast.shape));
+        const bumpMod = ast.type === 'CRYSTAL' ? 0.15 : 0.25;
+        const rr = ast.r * (0.75 + bumpMod * Math.sin(i * 2.3 + ast.shape));
         const px = Math.cos(angle) * rr;
         const py = Math.sin(angle) * rr;
         if (i === 0) ctx.moveTo(px, py);
@@ -1583,21 +1887,108 @@
       ctx.closePath();
       ctx.fill();
 
-      // Craters
+      // Type-specific details
       ctx.shadowBlur = 0;
-      ctx.globalAlpha = 0.5;
-      ctx.fillStyle = "rgba(50,30,20,0.4)";
-      const craterCount = 2 + ast.size;
-      for (let i = 0; i < craterCount; i++) {
-        const cx = rand(-ast.r * 0.4, ast.r * 0.4);
-        const cy = rand(-ast.r * 0.4, ast.r * 0.4);
-        const cr = rand(ast.r * 0.1, ast.r * 0.2);
-        ctx.beginPath();
-        ctx.arc(cx, cy, cr, 0, Math.PI * 2);
+      
+      if (ast.type === 'ICE') {
+        // Ice cracks
+        ctx.globalAlpha = 0.6;
+        ctx.strokeStyle = "rgba(255,255,255,0.7)";
+        ctx.lineWidth = 1;
+        for (let i = 0; i < 3; i++) {
+          ctx.beginPath();
+          ctx.moveTo(rand(-ast.r*0.3, ast.r*0.3), rand(-ast.r*0.3, ast.r*0.3));
+          ctx.lineTo(rand(-ast.r*0.5, ast.r*0.5), rand(-ast.r*0.5, ast.r*0.5));
+          ctx.stroke();
+        }
+      } else if (ast.type === 'METALLIC') {
+        // Metal sheen
+        ctx.globalAlpha = 0.4;
+        const sheen = ctx.createLinearGradient(-ast.r, -ast.r, ast.r, ast.r);
+        sheen.addColorStop(0, 'rgba(255,255,255,0)');
+        sheen.addColorStop(0.5, 'rgba(255,255,255,0.5)');
+        sheen.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = sheen;
         ctx.fill();
+      } else if (ast.type === 'EXPLOSIVE') {
+        // Pulsing glow
+        const pulse = 0.5 + 0.5 * Math.sin(tNow * 0.01 + ast.rot);
+        ctx.globalAlpha = 0.3 * pulse;
+        ctx.fillStyle = '#f80';
+        ctx.beginPath();
+        ctx.arc(0, 0, ast.r * 0.6, 0, Math.PI * 2);
+        ctx.fill();
+        // Warning symbol
+        ctx.globalAlpha = 0.8;
+        ctx.fillStyle = '#fff';
+        ctx.font = `bold ${ast.r * 0.5}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.fillText('!', 0, ast.r * 0.15);
+      } else if (ast.type === 'CRYSTAL') {
+        // Sparkles
+        ctx.globalAlpha = 0.8;
+        ctx.fillStyle = '#fff';
+        for (let i = 0; i < 4; i++) {
+          const sx = Math.cos(tNow * 0.003 + i * 1.5) * ast.r * 0.4;
+          const sy = Math.sin(tNow * 0.003 + i * 1.5) * ast.r * 0.4;
+          ctx.beginPath();
+          ctx.arc(sx, sy, 2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      } else if (ast.type === 'GOLD') {
+        // Golden sparkles
+        ctx.globalAlpha = 0.9;
+        ctx.fillStyle = '#fff';
+        for (let i = 0; i < 5; i++) {
+          const sx = Math.cos(tNow * 0.005 + i * 1.2) * ast.r * 0.5;
+          const sy = Math.sin(tNow * 0.004 + i * 1.2) * ast.r * 0.5;
+          ctx.beginPath();
+          ctx.arc(sx, sy, 2.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      } else {
+        // Normal craters
+        ctx.globalAlpha = 0.5;
+        ctx.fillStyle = "rgba(50,30,20,0.4)";
+        const craterCount = 2 + ast.size;
+        for (let i = 0; i < craterCount; i++) {
+          const cx = ((i * 17) % ast.r) - ast.r * 0.5;
+          const cy = ((i * 23) % ast.r) - ast.r * 0.5;
+          const cr = ast.r * (0.1 + (i % 3) * 0.05);
+          ctx.beginPath();
+          ctx.arc(cx * 0.8, cy * 0.8, cr, 0, Math.PI * 2);
+          ctx.fill();
+        }
       }
 
       ctx.restore();
+      
+      // Health bar (drawn outside of rotation context)
+      if (ast.maxHp > 1) {
+        const barWidth = ast.r * 1.6;
+        const barHeight = 4;
+        const barX = ast.x - barWidth / 2;
+        const barY = ast.y - ast.r - 10;
+        const healthPercent = ast.hp / ast.maxHp;
+        
+        // Background
+        ctx.fillStyle = 'rgba(0,0,0,0.5)';
+        ctx.fillRect(barX, barY, barWidth, barHeight);
+        
+        // Health fill (color based on percentage)
+        let barColor;
+        if (healthPercent > 0.6) barColor = '#4f4';
+        else if (healthPercent > 0.3) barColor = '#ff4';
+        else barColor = '#f44';
+        
+        ctx.fillStyle = barColor;
+        ctx.fillRect(barX, barY, barWidth * healthPercent, barHeight);
+        
+        // Border
+        ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(barX, barY, barWidth, barHeight);
+      }
     }
   }
 
@@ -1799,11 +2190,99 @@
   function startGame() {
     state.mission = 1;
     state.lives = 3;
+    state.maxLives = 3;
     state.score = 0;
+    state.upgrades.clear();
     state.mode = "playing";
     buildMission(state.mission);
     setOverlay("");
     startMusic();
+  }
+
+  function showShop() {
+    state.mode = "shop";
+    renderShop();
+  }
+
+  function renderShop() {
+    const upgradeKeys = Object.keys(UPGRADES);
+    let html = `
+      <h1 style="margin-bottom:5px;">🛒 Ship Upgrade Shop</h1>
+      <p style="margin:0 0 10px 0;">Points: ⭐ <span id="shopPoints">${state.score}</span></p>
+      <div class="shop-grid">
+    `;
+    
+    upgradeKeys.forEach((key, i) => {
+      const u = UPGRADES[key];
+      const owned = state.upgrades.has(key);
+      const canBuy = !owned && state.score >= u.cost;
+      const locked = u.requires && !state.upgrades.has(u.requires);
+      
+      let cls = "shop-btn";
+      if (owned) cls += " owned";
+      else if (locked) cls += " locked";
+      else if (!canBuy) cls += " disabled";
+      
+      const keyNum = i < 9 ? (i + 1) : 0;
+      const lockText = locked ? `<span style="color:#f88;font-size:10px;">(Requires ${UPGRADES[u.requires].name})</span>` : '';
+      
+      html += `
+        <button class="${cls}" ${owned || locked ? 'disabled' : ''} onclick="buyUpgradeClick('${key}')">
+          <span class="shop-icon">${u.icon}</span>
+          <span class="shop-name">[${keyNum}] ${u.name}</span>
+          <span class="shop-desc">${u.desc}</span>
+          ${lockText}
+          <span class="shop-cost">${owned ? '✓ OWNED' : '⭐ ' + u.cost}</span>
+        </button>
+      `;
+    });
+    
+    html += `
+      </div>
+      <button class="shop-continue" onclick="nextMissionClick()">
+        Press <span class="kbd">Space</span> to Continue to Mission ${state.mission + 1}
+      </button>
+    `;
+    
+    setOverlay(html);
+  }
+
+  window.buyUpgradeClick = function(key) {
+    buyUpgrade(key);
+  };
+
+  window.nextMissionClick = function() {
+    nextMission();
+  };
+
+  function buyUpgrade(key) {
+    if (state.mode !== "shop") return;
+    const u = UPGRADES[key];
+    if (!u) return;
+    if (state.upgrades.has(key)) return;
+    if (state.score < u.cost) return;
+    if (u.requires && !state.upgrades.has(u.requires)) return;
+    
+    state.score -= u.cost;
+    state.upgrades.add(key);
+    
+    // Apply immediate effects
+    if (key === 'ARMOR') {
+      state.maxLives++;
+      state.lives++;
+    } else if (key === 'ARMOR2') {
+      state.maxLives++;
+      state.lives++;
+    }
+    
+    uiScore.textContent = `Score: ⭐${state.score}`;
+    uiLives.textContent = `Lives: ${'❤️'.repeat(state.lives)}`;
+    
+    // Play purchase sound
+    playPowerupSound();
+    
+    // Re-render shop
+    renderShop();
   }
 
   function nextMission() {
@@ -1885,14 +2364,15 @@
     state.px = canvas.width / 2;
     state.py = canvas.height - 60;
     uiMission.textContent = `Mission 1`;
-    uiLives.textContent = `Lives: 3`;
+    uiLives.textContent = `Lives: ❤️❤️❤️`;
     uiTimer.textContent = '60';
     uiStatus.textContent = "Ready!";
     setOverlay(`
       <h1>🚀 Asteroid Blaster!</h1>
       <p>Destroy asteroids and survive each 60-second mission!</p>
-      <p class="subtle">Use <span class="kbd">←</span> <span class="kbd">→</span> to move, <span class="kbd">Space</span> to shoot.</p>
+      <p class="subtle">Use <span class="kbd">WASD</span> or <span class="kbd">Arrow Keys</span> to move, <span class="kbd">Space</span> to shoot.</p>
       <p class="subtle">Collect power-ups: 🛡️ Shield, 🔱 Triple Shot, ⚡ Rapid Fire, 🌟 Spread, 💖 Life, 🕐 Slow Time, 💥 Bomb</p>
+      <p class="subtle">🛒 Visit the shop between missions to upgrade your ship!</p>
       <p>Press <span class="kbd">Space</span> to begin!</p>
     `);
   }
