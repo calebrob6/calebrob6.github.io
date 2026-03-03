@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Backpropagation Quiz</title>
+  <meta property="og:title" content="Backpropagation Quiz"/>
+  <meta property="og:description" content="Interactive quiz for computing backpropagation by hand on a simple neural network."/>
+  <meta property="og:author" content="Caleb Robinson"/>
+  <meta property="og:image" content="https://calebrob.com/images/face.jpg"/>
+  <meta property="og:type" content="website"/>
+  <style>
+    :root{--bg:#f8fafc;--text:#0f172a;--muted:#475569;--border:#e5e7eb;--card:#ffffff;--shadow:0 6px 20px rgba(15,23,42,0.06);--blue:#3b82f6;--blue-stroke:#2563eb;--violet:#a855f7;--violet-stroke:#7c3aed;--amber:#f59e0b;--amber-stroke:#b45309}
+    *{box-sizing:border-box}html,body{height:100%}
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Apple Color Emoji","Segoe UI Emoji";background:var(--bg);color:var(--text)}
+    .wrap{max-width:1400px;margin:24px auto;padding:0 16px}
+    header{display:flex;flex-direction:column;gap:10px;margin-bottom:16px}
+    h1{font-size:24px;letter-spacing:.2px;margin:0}
+    .desc{color:var(--muted);line-height:1.45;font-size:14px}
+    .grid{display:grid;grid-template-columns:1fr minmax(380px,520px);gap:16px;align-items:start}
+    @media(max-width:1024px){.grid{grid-template-columns:1fr}}
+    .card{background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow);overflow:hidden}
+    .head{padding:12px 14px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+    .head h2{margin:0;font-size:16px}
+    .body{padding:14px}
+    .quiz-card .body{max-height:80vh;overflow-y:auto}
+    .sec{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);border-bottom:1px solid var(--border);padding-bottom:4px;margin:14px 0 8px}
+    .sec:first-child{margin-top:0}
+    .step{padding:8px 10px;border:1px solid var(--border);border-radius:10px;margin-bottom:6px;transition:all .2s}
+    .step.locked{opacity:.3;pointer-events:none}
+    .step.correct{border-color:#86efac;background:#f0fdf4}
+    .step.wrong{border-color:#fca5a5;background:#fef2f2}
+    .step-row{display:flex;align-items:center;gap:8px}
+    .sn{width:22px;height:22px;border-radius:50%;background:var(--blue);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+    .step.correct .sn{background:#22c55e}
+    .step.wrong .sn{background:#ef4444}
+    .sf{font-size:13px;flex:1;line-height:1.4}
+    .sc{display:flex;align-items:center;gap:6px;margin:6px 0 0 30px}
+    .sc input{width:120px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-family:ui-monospace,monospace}
+    .sc input:focus{outline:none;border-color:var(--blue)}
+    .btn{padding:4px 14px;border:none;background:var(--blue);color:#fff;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600}
+    .btn:hover{background:var(--blue-stroke)}
+    .btn:disabled{opacity:.5;cursor:default}
+    .btn-new{background:#22c55e;margin-top:16px;padding:8px 20px;font-size:14px;width:100%;border-radius:8px}
+    .btn-new:hover{background:#16a34a}
+    .fb{font-size:12px;margin:3px 0 0 30px;font-family:ui-monospace,monospace}
+    .fb.ok{color:#16a34a}.fb.no{color:#dc2626}
+    .pbar{height:4px;background:#e2e8f0;border-radius:2px;margin-bottom:12px;overflow:hidden}
+    .pfill{height:100%;background:var(--blue);border-radius:2px;transition:width .3s}
+    .done{text-align:center;padding:16px;background:#f0fdf4;border:1px solid #86efac;border-radius:10px;margin-top:12px}
+    .done h3{margin:0 0 4px;color:#16a34a}
+    .done p{margin:0;color:var(--muted);font-size:14px}
+    svg#net{display:block;width:100%}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>Backpropagation Quiz</h1>
+      <div class="desc">
+        Practice computing a forward pass, backward pass, and weight update by hand for a simple neural network.
+        The <b>activation function</b> is the logistic sigmoid &sigma;(x) = 1/(1+e<sup>&minus;x</sup>).
+        The <b>loss function</b> is squared error E = &frac12;(target &minus; output)&sup2;.
+        The <b>target</b> is always 0.01 and the <b>learning rate</b> is always &eta; = 0.5.
+        All values needed for computation are shown on the network diagram. Round answers to <b>4 decimal places</b>. Refresh for a new problem.
+      </div>
+    </header>
+    <div class="grid">
+      <div class="card">
+        <div class="head"><h2>Network</h2></div>
+        <div class="body"><svg id="net" viewBox="0 0 580 380"></svg></div>
+      </div>
+      <div class="card quiz-card">
+        <div class="head">
+          <h2>Quiz Steps</h2>
+          <span id="ptxt" style="font-size:13px;color:var(--muted)">0 / 12</span>
+        </div>
+        <div class="body">
+          <div class="pbar"><div class="pfill" id="pbar" style="width:0%"></div></div>
+          <div id="steps"></div>
+          <div id="done" style="display:none" class="done">
+            <h3>Quiz Complete!</h3>
+            <p>You computed the full forward pass, backward pass, and weight update for w&#x2086;.</p>
+            <button class="btn btn-new" onclick="location.reload()">New Problem</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  /* ---------- random values ---------- */
+  const R = (lo, hi) => Math.round((lo + Math.random() * (hi - lo)) * 100) / 100;
+  const I1 = R(.05, .95), I2 = R(.05, .95);
+  const W = [0, R(.1, .9), R(.1, .9), R(.1, .9), R(.1, .9), R(.1, .9), R(.1, .9)];
+  const B1 = R(.1, .6), B2 = R(.1, .6);
+  const T = 0.01;
+  const LR = 0.5;
+
+  /* ---------- forward pass ---------- */
+  const sig = x => 1 / (1 + Math.exp(-x));
+  const nH1 = I1 * W[1] + I2 * W[2] + B1;
+  const oH1 = sig(nH1);
+  const nH2 = I1 * W[3] + I2 * W[4] + B1;
+  const oH2 = sig(nH2);
+  const nO  = oH1 * W[5] + oH2 * W[6] + B2;
+  const oO  = sig(nO);
+  const E   = 0.5 * (T - oO) ** 2;
+
+  /* ---------- backward pass ---------- */
+  const dEdoO  = -(T - oO);
+  const doOdnO = oO * (1 - oO);
+  const dEdnO  = dEdoO * doOdnO;
+  const dEdw6  = dEdnO * oH2;
+  const w6n    = W[6] - LR * dEdw6;
+
+  /* ---------- quiz step definitions ---------- */
+  const Q = [
+    { s: 'Forward Pass', l: 'net<sub>H1</sub>', a: nH1 },
+    { l: 'out<sub>H1</sub>', a: oH1 },
+    { l: 'net<sub>H2</sub>', a: nH2 },
+    { l: 'out<sub>H2</sub>', a: oH2 },
+    { l: 'net<sub>O</sub>', a: nO },
+    { l: 'out<sub>O</sub>', a: oO },
+    { l: 'E', a: E },
+    { s: 'Backward Pass', l: '&part;E/&part;out<sub>O</sub>', a: dEdoO },
+    { l: '&part;out<sub>O</sub>/&part;net<sub>O</sub>', a: doOdnO },
+    { l: '&part;E/&part;net<sub>O</sub>', a: dEdnO },
+    { l: '&part;E/&part;w&#x2086;', a: dEdw6 },
+    { s: 'Weight Update', l: 'w&#x2086;<sup>+</sup>', a: w6n },
+  ];
+
+  /* ---------- render quiz ---------- */
+  const SC = document.getElementById('steps');
+  let completed = 0;
+  Q.forEach((q, i) => {
+    if (q.s) {
+      const d = document.createElement('div');
+      d.className = 'sec';
+      d.textContent = q.s;
+      SC.appendChild(d);
+    }
+    const d = document.createElement('div');
+    d.className = 'step' + (i > 0 ? ' locked' : '');
+    d.id = 's' + i;
+    d.innerHTML =
+      '<div class="step-row"><span class="sn">' + (i + 1) + '</span>' +
+      '<span class="sf">' + q.l + '</span></div>' +
+      '<div class="sc"><input type="number" step="any" autocomplete="off" id="a' + i + '" placeholder="Your answer">' +
+      '<button class="btn" id="b' + i + '">Check</button></div>' +
+      '<div class="fb" id="f' + i + '"></div>';
+    SC.appendChild(d);
+  });
+
+  /* bind events */
+  Q.forEach((_, i) => {
+    document.getElementById('b' + i).addEventListener('click', () => check(i));
+    document.getElementById('a' + i).addEventListener('keydown', e => {
+      if (e.key === 'Enter') check(i);
+    });
+  });
+  document.getElementById('a0').focus();
+
+  function check(i) {
+    const inp = document.getElementById('a' + i);
+    const fb  = document.getElementById('f' + i);
+    const sd  = document.getElementById('s' + i);
+    const v   = parseFloat(inp.value);
+    if (isNaN(v)) { fb.textContent = 'Enter a number.'; fb.className = 'fb no'; return; }
+    const c = Q[i].a;
+    if (Math.abs(v - c) <= 0.005) {
+      sd.classList.add('correct');
+      fb.innerHTML = '&#x2713; Correct!';
+      fb.className = 'fb ok';
+    } else {
+      sd.classList.add('wrong');
+      fb.innerHTML = '&#x2717; Expected: ' + c.toFixed(4);
+      fb.className = 'fb no';
+    }
+    inp.disabled = true;
+    document.getElementById('b' + i).disabled = true;
+    completed++;
+    upProg();
+    if (i === 1) setNV('H1', oH1);
+    if (i === 3) setNV('H2', oH2);
+    if (i === 5) setNV('O', oO);
+    if (i < Q.length - 1) {
+      document.getElementById('s' + (i + 1)).classList.remove('locked');
+      setTimeout(() => document.getElementById('a' + (i + 1)).focus(), 100);
+    } else {
+      document.getElementById('done').style.display = 'block';
+    }
+  }
+
+  function upProg() {
+    document.getElementById('pbar').style.width = (completed / Q.length * 100) + '%';
+    document.getElementById('ptxt').textContent = completed + ' / ' + Q.length;
+  }
+
+  function setNV(key, val) {
+    const el = document.getElementById('nv-' + key);
+    if (el) el.textContent = val.toFixed(4);
+  }
+
+  /* ---------- network diagram ---------- */
+  const svg = document.getElementById('net');
+  const ns = t => document.createElementNS('http://www.w3.org/2000/svg', t);
+
+  const ND = {
+    I1: { x: 70,  y: 140, r: 28, fill: '#dbeafe', stroke: '#3b82f6', lbl: 'I\u2081', val: I1.toFixed(2) },
+    I2: { x: 70,  y: 270, r: 28, fill: '#dbeafe', stroke: '#3b82f6', lbl: 'I\u2082', val: I2.toFixed(2) },
+    B1: { x: 180, y: 45,  r: 20, fill: '#f1f5f9', stroke: '#94a3b8', lbl: 'B\u2081', val: B1.toFixed(2) },
+    H1: { x: 290, y: 140, r: 28, fill: '#f3e8ff', stroke: '#a855f7', lbl: 'H\u2081' },
+    H2: { x: 290, y: 270, r: 28, fill: '#f3e8ff', stroke: '#a855f7', lbl: 'H\u2082' },
+    B2: { x: 410, y: 80,  r: 20, fill: '#f1f5f9', stroke: '#94a3b8', lbl: 'B\u2082', val: B2.toFixed(2) },
+    O:  { x: 510, y: 205, r: 28, fill: '#fef3c7', stroke: '#d97706', lbl: 'O' },
+  };
+
+  /* edges: [from, to, weight-name, weight-value, label-x, label-y, dashed] */
+  const edges = [
+    ['I1', 'H1', 'w\u2081', W[1], 180, 126, false],
+    ['I2', 'H1', 'w\u2082', W[2], 135, 226, false],
+    ['I1', 'H2', 'w\u2083', W[3], 135, 180, false],
+    ['I2', 'H2', 'w\u2084', W[4], 180, 284, false],
+    ['H1', 'O',  'w\u2085', W[5], 400, 156, false],
+    ['H2', 'O',  'w\u2086', W[6], 400, 254, false],
+    ['B1', 'H1', null, 0, 0, 0, true],
+    ['B1', 'H2', null, 0, 0, 0, true],
+    ['B2', 'O',  null, 0, 0, 0, true],
+  ];
+
+  /* draw edges */
+  edges.forEach(([from, to, wn, wv, lx, ly, dash]) => {
+    const a = ND[from], b = ND[to];
+    const l = ns('line');
+    l.setAttribute('x1', a.x); l.setAttribute('y1', a.y);
+    l.setAttribute('x2', b.x); l.setAttribute('y2', b.y);
+    l.setAttribute('stroke', dash ? '#cbd5e1' : '#94a3b8');
+    l.setAttribute('stroke-width', dash ? '1.5' : '2');
+    if (dash) l.setAttribute('stroke-dasharray', '5 3');
+    svg.appendChild(l);
+    if (wn) {
+      const txt = wn + '=' + wv.toFixed(2);
+      const bw = 54, bh = 18;
+      const bg = ns('rect');
+      bg.setAttribute('x', lx - bw / 2); bg.setAttribute('y', ly - bh / 2);
+      bg.setAttribute('width', bw); bg.setAttribute('height', bh);
+      bg.setAttribute('fill', '#fff'); bg.setAttribute('stroke', '#e5e7eb');
+      bg.setAttribute('stroke-width', '0.5'); bg.setAttribute('rx', '4');
+      svg.appendChild(bg);
+      const t = ns('text');
+      t.setAttribute('x', lx); t.setAttribute('y', ly);
+      t.setAttribute('text-anchor', 'middle'); t.setAttribute('dominant-baseline', 'central');
+      t.setAttribute('font-size', '10'); t.setAttribute('font-weight', '600');
+      t.setAttribute('fill', '#334155');
+      t.setAttribute('font-family', 'ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace');
+      t.textContent = txt;
+      svg.appendChild(t);
+    }
+  });
+
+  /* draw nodes */
+  Object.entries(ND).forEach(([key, n]) => {
+    const c = ns('circle');
+    c.setAttribute('cx', n.x); c.setAttribute('cy', n.y); c.setAttribute('r', n.r);
+    c.setAttribute('fill', n.fill); c.setAttribute('stroke', n.stroke);
+    c.setAttribute('stroke-width', '2');
+    svg.appendChild(c);
+    /* label inside node */
+    const t = ns('text');
+    t.setAttribute('x', n.x); t.setAttribute('y', n.val ? n.y - 5 : n.y);
+    t.setAttribute('text-anchor', 'middle'); t.setAttribute('dominant-baseline', 'central');
+    t.setAttribute('font-size', n.r < 22 ? '11' : '13');
+    t.setAttribute('font-weight', '700'); t.setAttribute('fill', n.stroke);
+    t.textContent = n.lbl;
+    svg.appendChild(t);
+    /* known value inside node */
+    if (n.val) {
+      const v = ns('text');
+      v.setAttribute('x', n.x); v.setAttribute('y', n.y + 8);
+      v.setAttribute('text-anchor', 'middle'); v.setAttribute('dominant-baseline', 'central');
+      v.setAttribute('font-size', '10'); v.setAttribute('fill', '#64748b');
+      v.textContent = n.val;
+      svg.appendChild(v);
+    }
+    /* placeholder for computed values */
+    if (key === 'H1' || key === 'H2' || key === 'O') {
+      const v = ns('text');
+      v.setAttribute('x', n.x); v.setAttribute('y', n.y + 10);
+      v.setAttribute('text-anchor', 'middle'); v.setAttribute('dominant-baseline', 'central');
+      v.setAttribute('font-size', '9'); v.setAttribute('fill', '#64748b');
+      v.setAttribute('id', 'nv-' + key);
+      svg.appendChild(v);
+    }
+  });
+
+  /* target annotation near output */
+  const ta = ns('text');
+  ta.setAttribute('x', 510); ta.setAttribute('y', 250);
+  ta.setAttribute('text-anchor', 'middle'); ta.setAttribute('font-size', '10');
+  ta.setAttribute('fill', '#dc2626'); ta.setAttribute('font-weight', '600');
+  ta.textContent = 'target = 0.01';
+  svg.appendChild(ta);
+
+  /* layer labels */
+  [{ x: 70, t: 'Input' }, { x: 290, t: 'Hidden' }, { x: 510, t: 'Output' }].forEach(({ x, t: txt }) => {
+    const t = ns('text');
+    t.setAttribute('x', x); t.setAttribute('y', 355);
+    t.setAttribute('text-anchor', 'middle'); t.setAttribute('font-size', '11');
+    t.setAttribute('fill', '#94a3b8'); t.setAttribute('font-weight', '600');
+    t.setAttribute('letter-spacing', '.05em');
+    t.textContent = txt;
+    svg.appendChild(t);
+  });
+  </script>
+
+  <footer style="text-align:center;padding:24px 16px;color:#6b7280;font-size:13px">
+    By: Caleb Robinson, 2025
+  </footer>
+</body>
+</html>
