@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Backpropagation Quiz</title>
-  <meta property="og:title" content="Backpropagation Quiz"/>
-  <meta property="og:description" content="Interactive quiz for computing backpropagation by hand on a simple neural network."/>
+  <title>Backprop Playground</title>
+  <meta property="og:title" content="Backprop Playground"/>
+  <meta property="og:description" content="Interactive backpropagation playground: calculation quiz and real-time exploration mode."/>
   <meta property="og:author" content="Caleb Robinson"/>
   <meta property="og:image" content="https://calebrob.com/images/face.jpg"/>
   <meta property="og:type" content="website"/>
@@ -50,38 +50,160 @@
     .done{text-align:center;padding:16px;background:#f0fdf4;border:1px solid #86efac;border-radius:10px;margin-top:12px}
     .done h3{margin:0 0 4px;color:#16a34a}
     .done p{margin:0;color:var(--muted);font-size:14px}
-    svg#net{display:block;width:100%}
+    svg.net-svg{display:block;width:100%}
+
+    /* Landing screen */
+    .landing{display:flex;flex-direction:column;align-items:center;gap:24px;padding:40px 16px}
+    .landing-title{font-size:28px;font-weight:700;text-align:center}
+    .landing-sub{color:var(--muted);font-size:15px;text-align:center;max-width:520px;line-height:1.5}
+    .mode-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;max-width:640px;width:100%}
+    @media(max-width:600px){.mode-grid{grid-template-columns:1fr}}
+    .mode-card{background:var(--card);border:2px solid var(--border);border-radius:14px;padding:28px 24px;cursor:pointer;transition:all .2s;text-align:center}
+    .mode-card:hover{border-color:var(--blue);box-shadow:0 8px 24px rgba(59,130,246,0.12);transform:translateY(-2px)}
+    .mode-card .icon{font-size:36px;margin-bottom:12px}
+    .mode-card h3{margin:0 0 8px;font-size:18px}
+    .mode-card p{margin:0;color:var(--muted);font-size:13px;line-height:1.45}
+
+    /* Back button */
+    .back-btn{display:inline-flex;align-items:center;gap:4px;background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;padding:0;margin-bottom:12px;font-family:inherit}
+    .back-btn:hover{color:var(--blue)}
+
+    /* Interactive mode layout */
+    .interactive-grid{display:grid;grid-template-columns:1fr minmax(360px,480px);gap:16px;align-items:start}
+    @media(max-width:1024px){.interactive-grid{grid-template-columns:1fr}}
+    .interactive-card .body{max-height:85vh;overflow-y:auto}
+
+    /* Slider grid */
+    .slider-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 12px}
+    @media(max-width:480px){.slider-grid{grid-template-columns:1fr}}
+    .slider-row{display:flex;align-items:center;gap:6px}
+    .slider-row label{font-size:12px;font-weight:600;width:28px;flex-shrink:0}
+    .slider-row input[type=range]{flex:1;min-width:0;height:4px;accent-color:var(--blue)}
+    .slider-row .sval{font-size:11px;font-family:ui-monospace,monospace;width:42px;text-align:right;flex-shrink:0;color:var(--muted)}
+
+    /* Computed values grid */
+    .val-grid{display:grid;grid-template-columns:1fr 1fr;gap:3px 16px}
+    .val-item{display:flex;justify-content:space-between;font-size:12px;padding:2px 0;border-bottom:1px solid #f1f5f9}
+    .val-item .vk{color:var(--muted)}
+    .val-item .vv{font-family:ui-monospace,monospace;font-weight:600}
+
+    /* Challenge section */
+    .challenge-q{font-size:14px;line-height:1.5;margin-bottom:10px;font-weight:500}
+    .ch-opts{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+    .ch-opt{padding:6px 16px;border:1px solid var(--border);border-radius:8px;background:var(--card);cursor:pointer;font-size:13px;transition:all .15s}
+    .ch-opt:hover{border-color:var(--blue);background:#eff6ff}
+    .ch-opt.selected{border-color:var(--blue);background:#dbeafe;font-weight:600}
+    .ch-opt.correct-answer{border-color:#22c55e;background:#f0fdf4;color:#16a34a;font-weight:600}
+    .ch-opt.wrong-answer{border-color:#ef4444;background:#fef2f2;color:#dc2626}
+    .challenge-fb{font-size:13px;line-height:1.45;margin-top:8px;padding:8px 10px;border-radius:8px}
+    .challenge-fb.ok{background:#f0fdf4;color:#16a34a;border:1px solid #86efac}
+    .challenge-fb.no{background:#fef2f2;color:#dc2626;border:1px solid #fca5a5}
+    .challenge-score{font-size:13px;color:var(--muted);font-weight:600}
+
+    /* Gradient legend */
+    .grad-legend{display:flex;align-items:center;gap:6px;font-size:10px;color:var(--muted);margin-top:4px;justify-content:center}
+    .grad-bar{width:80px;height:6px;border-radius:3px;background:linear-gradient(90deg,#cbd5e1,#3b82f6)}
   </style>
 </head>
 <body>
   <div class="wrap">
     <header>
-      <h1>Backpropagation Quiz</h1>
-      <div class="desc">
+      <h1>Backprop Playground</h1>
+    </header>
+
+    <!-- ===== LANDING SCREEN ===== -->
+    <div id="landing">
+      <div class="landing">
+        <div class="landing-sub">
+          Practice computing backpropagation by hand, or explore how gradients flow through a network in real time.
+        </div>
+        <div class="mode-grid">
+          <div class="mode-card" onclick="showMode('calc')">
+            <div class="icon">&#x1F4DD;</div>
+            <h3>Calculation Mode</h3>
+            <p>Step-by-step quiz: compute forward pass, backward pass, and weight update by hand.</p>
+          </div>
+          <div class="mode-card" onclick="showMode('interactive')">
+            <div class="icon">&#x1F50D;</div>
+            <h3>Interactive Mode</h3>
+            <p>Manipulate weights and inputs in real time. Visualize gradient flow and test your intuition.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== CALCULATION MODE ===== -->
+    <div id="mode-calc" style="display:none">
+      <button class="back-btn" onclick="showMode('landing')">&larr; Back to menu</button>
+      <div class="desc" style="margin-bottom:12px">
         Practice computing a forward pass, backward pass, and weight update by hand for a simple neural network.
         The <b>activation function</b> is the logistic sigmoid &sigma;(x) = 1/(1+e<sup>&minus;x</sup>).
         The <b>loss function</b> is squared error E = &frac12;(target &minus; output)&sup2;.
         The <b>target</b> is always 0.01 and the <b>learning rate</b> is always &eta; = 0.5.
-        All values needed for computation are shown on the network diagram. Round answers to <b>4 decimal places</b>. Refresh for a new problem.
+        All values needed for computation are shown on the network diagram. Round answers to <b>4 decimal places</b>.
       </div>
-    </header>
-    <div class="grid">
-      <div class="card">
-        <div class="head"><h2>Network</h2></div>
-        <div class="body"><svg id="net" viewBox="0 0 580 380"></svg></div>
-      </div>
-      <div class="card quiz-card">
-        <div class="head">
-          <h2>Quiz Steps</h2>
-          <span id="ptxt" style="font-size:13px;color:var(--muted)">0 / 12</span>
+      <div class="grid">
+        <div class="card">
+          <div class="head"><h2>Network</h2></div>
+          <div class="body"><svg id="net-calc" class="net-svg" viewBox="0 0 580 380"></svg></div>
         </div>
-        <div class="body">
-          <div class="pbar"><div class="pfill" id="pbar" style="width:0%"></div></div>
-          <div id="steps"></div>
-          <div id="done" style="display:none" class="done">
-            <h3>Quiz Complete!</h3>
-            <p>You computed the full forward pass, backward pass, and weight update for w&#x2086;.</p>
-            <button class="btn btn-new" onclick="location.reload()">New Problem</button>
+        <div class="card quiz-card">
+          <div class="head">
+            <h2>Quiz Steps</h2>
+            <span id="ptxt" style="font-size:13px;color:var(--muted)">0 / 12</span>
+          </div>
+          <div class="body">
+            <div class="pbar"><div class="pfill" id="pbar" style="width:0%"></div></div>
+            <div id="steps"></div>
+            <div id="done" style="display:none" class="done">
+              <h3>Quiz Complete!</h3>
+              <p>You computed the full forward pass, backward pass, and weight update for w&#x2086;.</p>
+              <button class="btn btn-new" onclick="location.reload()">New Problem</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== INTERACTIVE MODE ===== -->
+    <div id="mode-interactive" style="display:none">
+      <button class="back-btn" onclick="showMode('landing')">&larr; Back to menu</button>
+      <div class="desc" style="margin-bottom:12px">
+        Explore backpropagation interactively. Adjust weights, inputs, and hyperparameters to see how gradients flow in real time.
+        Edge color and thickness show gradient magnitude. Test your intuition with challenges below.
+      </div>
+      <div class="interactive-grid">
+        <div class="card">
+          <div class="head"><h2>Network</h2></div>
+          <div class="body">
+            <svg id="net-interactive" class="net-svg" viewBox="0 0 580 400"></svg>
+            <div class="grad-legend">
+              <span>Small |grad|</span>
+              <div class="grad-bar"></div>
+              <span>Large |grad|</span>
+            </div>
+          </div>
+        </div>
+        <div class="card interactive-card">
+          <div class="head"><h2>Controls &amp; Challenges</h2></div>
+          <div class="body">
+            <!-- Sliders -->
+            <div class="sec" style="margin-top:0">Parameters</div>
+            <div id="slider-panel" class="slider-grid"></div>
+            <div style="margin-top:8px">
+              <button class="btn" onclick="randomizeAll()" style="width:100%">Randomize All</button>
+            </div>
+
+            <!-- Computed values -->
+            <div class="sec">Computed Values</div>
+            <div id="computed-panel" class="val-grid"></div>
+
+            <!-- Challenges -->
+            <div class="sec" style="display:flex;justify-content:space-between;align-items:center">
+              <span>Challenge</span>
+              <span id="challenge-score" class="challenge-score"></span>
+            </div>
+            <div id="challenge-panel"></div>
           </div>
         </div>
       </div>
@@ -89,229 +211,672 @@
   </div>
 
   <script>
-  /* ---------- random values ---------- */
-  const R = (lo, hi) => Math.round((lo + Math.random() * (hi - lo)) * 100) / 100;
-  const I1 = R(.05, .95), I2 = R(.05, .95);
-  const W = [0, R(.1, .9), R(.1, .9), R(.1, .9), R(.1, .9), R(.1, .9), R(.1, .9)];
-  const B1 = R(.1, .6), B2 = R(.1, .6);
-  const T = 0.01;
-  const LR = 0.5;
+  /* ========== MODE SWITCHING ========== */
+  function showMode(mode) {
+    document.getElementById('landing').style.display = mode === 'landing' ? 'block' : 'none';
+    document.getElementById('mode-calc').style.display = mode === 'calc' ? 'block' : 'none';
+    document.getElementById('mode-interactive').style.display = mode === 'interactive' ? 'block' : 'none';
+    if (mode === 'calc' && !calcInitialized) initCalcMode();
+    if (mode === 'interactive' && !interactiveInitialized) initInteractiveMode();
+  }
 
-  /* ---------- forward pass ---------- */
-  const sig = x => 1 / (1 + Math.exp(-x));
-  const nH1 = I1 * W[1] + I2 * W[2] + B1;
-  const oH1 = sig(nH1);
-  const nH2 = I1 * W[3] + I2 * W[4] + B1;
-  const oH2 = sig(nH2);
-  const nO  = oH1 * W[5] + oH2 * W[6] + B2;
-  const oO  = sig(nO);
-  const E   = 0.5 * (T - oO) ** 2;
+  /* ========== CALCULATION MODE ========== */
+  let calcInitialized = false;
+  function initCalcMode() {
+    calcInitialized = true;
 
-  /* ---------- backward pass ---------- */
-  const dEdoO  = -(T - oO);
-  const doOdnO = oO * (1 - oO);
-  const dEdnO  = dEdoO * doOdnO;
-  const dEdw6  = dEdnO * oH2;
-  const w6n    = W[6] - LR * dEdw6;
+    const R = (lo, hi) => Math.round((lo + Math.random() * (hi - lo)) * 100) / 100;
+    const I1 = R(.05, .95), I2 = R(.05, .95);
+    const W = [0, R(.1, .9), R(.1, .9), R(.1, .9), R(.1, .9), R(.1, .9), R(.1, .9)];
+    const B1 = R(.1, .6), B2 = R(.1, .6);
+    const T = 0.01, LR = 0.5;
 
-  /* ---------- quiz step definitions ---------- */
-  const Q = [
-    { s: 'Forward Pass', l: 'net<sub>H1</sub>', a: nH1 },
-    { l: 'out<sub>H1</sub>', a: oH1 },
-    { l: 'net<sub>H2</sub>', a: nH2 },
-    { l: 'out<sub>H2</sub>', a: oH2 },
-    { l: 'net<sub>O</sub>', a: nO },
-    { l: 'out<sub>O</sub>', a: oO },
-    { l: 'E', a: E },
-    { s: 'Backward Pass', l: '&part;E/&part;out<sub>O</sub>', a: dEdoO },
-    { l: '&part;out<sub>O</sub>/&part;net<sub>O</sub>', a: doOdnO },
-    { l: '&part;E/&part;net<sub>O</sub>', a: dEdnO },
-    { l: '&part;E/&part;w&#x2086;', a: dEdw6 },
-    { s: 'Weight Update', l: 'w&#x2086;<sup>+</sup>', a: w6n },
-  ];
+    const sig = x => 1 / (1 + Math.exp(-x));
+    const nH1 = I1 * W[1] + I2 * W[2] + B1;
+    const oH1 = sig(nH1);
+    const nH2 = I1 * W[3] + I2 * W[4] + B1;
+    const oH2 = sig(nH2);
+    const nO  = oH1 * W[5] + oH2 * W[6] + B2;
+    const oO  = sig(nO);
+    const E   = 0.5 * (T - oO) ** 2;
 
-  /* ---------- render quiz ---------- */
-  const SC = document.getElementById('steps');
-  let completed = 0;
-  Q.forEach((q, i) => {
-    if (q.s) {
+    const dEdoO  = -(T - oO);
+    const doOdnO = oO * (1 - oO);
+    const dEdnO  = dEdoO * doOdnO;
+    const dEdw6  = dEdnO * oH2;
+    const w6n    = W[6] - LR * dEdw6;
+
+    const Q = [
+      { s: 'Forward Pass', l: 'net<sub>H1</sub>', a: nH1 },
+      { l: 'out<sub>H1</sub>', a: oH1 },
+      { l: 'net<sub>H2</sub>', a: nH2 },
+      { l: 'out<sub>H2</sub>', a: oH2 },
+      { l: 'net<sub>O</sub>', a: nO },
+      { l: 'out<sub>O</sub>', a: oO },
+      { l: 'E', a: E },
+      { s: 'Backward Pass', l: '&part;E/&part;out<sub>O</sub>', a: dEdoO },
+      { l: '&part;out<sub>O</sub>/&part;net<sub>O</sub>', a: doOdnO },
+      { l: '&part;E/&part;net<sub>O</sub>', a: dEdnO },
+      { l: '&part;E/&part;w&#x2086;', a: dEdw6 },
+      { s: 'Weight Update', l: 'w&#x2086;<sup>+</sup>', a: w6n },
+    ];
+
+    const SC = document.getElementById('steps');
+    let completed = 0;
+    Q.forEach((q, i) => {
+      if (q.s) {
+        const d = document.createElement('div');
+        d.className = 'sec'; d.textContent = q.s; SC.appendChild(d);
+      }
       const d = document.createElement('div');
-      d.className = 'sec';
-      d.textContent = q.s;
+      d.className = 'step' + (i > 0 ? ' locked' : '');
+      d.id = 's' + i;
+      d.innerHTML =
+        '<div class="step-row"><span class="sn">' + (i + 1) + '</span>' +
+        '<span class="sf">' + q.l + '</span></div>' +
+        '<div class="sc"><input type="number" step="any" autocomplete="off" id="a' + i + '" placeholder="Your answer">' +
+        '<button class="btn" id="b' + i + '">Check</button></div>' +
+        '<div class="fb" id="f' + i + '"></div>';
       SC.appendChild(d);
-    }
-    const d = document.createElement('div');
-    d.className = 'step' + (i > 0 ? ' locked' : '');
-    d.id = 's' + i;
-    d.innerHTML =
-      '<div class="step-row"><span class="sn">' + (i + 1) + '</span>' +
-      '<span class="sf">' + q.l + '</span></div>' +
-      '<div class="sc"><input type="number" step="any" autocomplete="off" id="a' + i + '" placeholder="Your answer">' +
-      '<button class="btn" id="b' + i + '">Check</button></div>' +
-      '<div class="fb" id="f' + i + '"></div>';
-    SC.appendChild(d);
-  });
-
-  /* bind events */
-  Q.forEach((_, i) => {
-    document.getElementById('b' + i).addEventListener('click', () => check(i));
-    document.getElementById('a' + i).addEventListener('keydown', e => {
-      if (e.key === 'Enter') check(i);
     });
-  });
-  document.getElementById('a0').focus();
 
-  function check(i) {
-    const inp = document.getElementById('a' + i);
-    const fb  = document.getElementById('f' + i);
-    const sd  = document.getElementById('s' + i);
-    const v   = parseFloat(inp.value);
-    if (isNaN(v)) { fb.textContent = 'Enter a number.'; fb.className = 'fb no'; return; }
-    const c = Q[i].a;
-    if (Math.abs(v - c) <= 0.005) {
-      sd.classList.add('correct');
-      fb.innerHTML = '&#x2713; Correct!';
-      fb.className = 'fb ok';
-    } else {
-      sd.classList.add('wrong');
-      fb.innerHTML = '&#x2717; Expected: ' + c.toFixed(4);
-      fb.className = 'fb no';
+    Q.forEach((_, i) => {
+      document.getElementById('b' + i).addEventListener('click', () => check(i));
+      document.getElementById('a' + i).addEventListener('keydown', e => { if (e.key === 'Enter') check(i); });
+    });
+    document.getElementById('a0').focus();
+
+    function check(i) {
+      const inp = document.getElementById('a' + i);
+      const fb  = document.getElementById('f' + i);
+      const sd  = document.getElementById('s' + i);
+      const v   = parseFloat(inp.value);
+      if (isNaN(v)) { fb.textContent = 'Enter a number.'; fb.className = 'fb no'; return; }
+      if (Math.abs(v - Q[i].a) <= 0.005) {
+        sd.classList.add('correct'); fb.innerHTML = '&#x2713; Correct!'; fb.className = 'fb ok';
+      } else {
+        sd.classList.add('wrong'); fb.innerHTML = '&#x2717; Expected: ' + Q[i].a.toFixed(4); fb.className = 'fb no';
+      }
+      inp.disabled = true; document.getElementById('b' + i).disabled = true;
+      completed++;
+      document.getElementById('pbar').style.width = (completed / Q.length * 100) + '%';
+      document.getElementById('ptxt').textContent = completed + ' / ' + Q.length;
+      if (i === 1) setCalcNV('H1', oH1);
+      if (i === 3) setCalcNV('H2', oH2);
+      if (i === 5) setCalcNV('O', oO);
+      if (i < Q.length - 1) {
+        document.getElementById('s' + (i + 1)).classList.remove('locked');
+        setTimeout(() => document.getElementById('a' + (i + 1)).focus(), 100);
+      } else {
+        document.getElementById('done').style.display = 'block';
+      }
     }
-    inp.disabled = true;
-    document.getElementById('b' + i).disabled = true;
-    completed++;
-    upProg();
-    if (i === 1) setNV('H1', oH1);
-    if (i === 3) setNV('H2', oH2);
-    if (i === 5) setNV('O', oO);
-    if (i < Q.length - 1) {
-      document.getElementById('s' + (i + 1)).classList.remove('locked');
-      setTimeout(() => document.getElementById('a' + (i + 1)).focus(), 100);
-    } else {
-      document.getElementById('done').style.display = 'block';
+
+    function setCalcNV(key, val) {
+      const el = document.getElementById('nv-calc-' + key);
+      if (el) el.textContent = val.toFixed(4);
     }
+
+    /* Draw calc SVG */
+    const svg = document.getElementById('net-calc');
+    const ns = t => document.createElementNS('http://www.w3.org/2000/svg', t);
+    const ND = {
+      I1: { x:70, y:140, r:28, fill:'#dbeafe', stroke:'#3b82f6', lbl:'I\u2081', val:I1.toFixed(2) },
+      I2: { x:70, y:270, r:28, fill:'#dbeafe', stroke:'#3b82f6', lbl:'I\u2082', val:I2.toFixed(2) },
+      B1: { x:180, y:45, r:20, fill:'#f1f5f9', stroke:'#94a3b8', lbl:'B\u2081', val:B1.toFixed(2) },
+      H1: { x:290, y:140, r:28, fill:'#f3e8ff', stroke:'#a855f7', lbl:'H\u2081' },
+      H2: { x:290, y:270, r:28, fill:'#f3e8ff', stroke:'#a855f7', lbl:'H\u2082' },
+      B2: { x:410, y:80, r:20, fill:'#f1f5f9', stroke:'#94a3b8', lbl:'B\u2082', val:B2.toFixed(2) },
+      O:  { x:510, y:205, r:28, fill:'#fef3c7', stroke:'#d97706', lbl:'O' },
+    };
+    const edges = [
+      ['I1','H1','w\u2081',W[1],180,126],['I2','H1','w\u2082',W[2],135,226],
+      ['I1','H2','w\u2083',W[3],135,180],['I2','H2','w\u2084',W[4],180,284],
+      ['H1','O','w\u2085',W[5],400,156],['H2','O','w\u2086',W[6],400,254],
+      ['B1','H1',null,0,0,0,true],['B1','H2',null,0,0,0,true],['B2','O',null,0,0,0,true],
+    ];
+    edges.forEach(([from,to,wn,wv,lx,ly,dash]) => {
+      const a=ND[from],b=ND[to]; const l=ns('line');
+      l.setAttribute('x1',a.x);l.setAttribute('y1',a.y);l.setAttribute('x2',b.x);l.setAttribute('y2',b.y);
+      l.setAttribute('stroke',dash?'#cbd5e1':'#94a3b8');l.setAttribute('stroke-width',dash?'1.5':'2');
+      if(dash)l.setAttribute('stroke-dasharray','5 3'); svg.appendChild(l);
+      if(wn){
+        const bw=54,bh=18,bg=ns('rect');
+        bg.setAttribute('x',lx-bw/2);bg.setAttribute('y',ly-bh/2);bg.setAttribute('width',bw);bg.setAttribute('height',bh);
+        bg.setAttribute('fill','#fff');bg.setAttribute('stroke','#e5e7eb');bg.setAttribute('stroke-width','0.5');bg.setAttribute('rx','4');
+        svg.appendChild(bg);
+        const t=ns('text'); t.setAttribute('x',lx);t.setAttribute('y',ly);
+        t.setAttribute('text-anchor','middle');t.setAttribute('dominant-baseline','central');
+        t.setAttribute('font-size','10');t.setAttribute('font-weight','600');t.setAttribute('fill','#334155');
+        t.setAttribute('font-family','ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace');
+        t.textContent=wn+'='+wv.toFixed(2); svg.appendChild(t);
+      }
+    });
+    Object.entries(ND).forEach(([key,n]) => {
+      const c=ns('circle'); c.setAttribute('cx',n.x);c.setAttribute('cy',n.y);c.setAttribute('r',n.r);
+      c.setAttribute('fill',n.fill);c.setAttribute('stroke',n.stroke);c.setAttribute('stroke-width','2'); svg.appendChild(c);
+      const t=ns('text'); t.setAttribute('x',n.x);t.setAttribute('y',n.val?n.y-5:n.y);
+      t.setAttribute('text-anchor','middle');t.setAttribute('dominant-baseline','central');
+      t.setAttribute('font-size',n.r<22?'11':'13');t.setAttribute('font-weight','700');t.setAttribute('fill',n.stroke);
+      t.textContent=n.lbl; svg.appendChild(t);
+      if(n.val){const v=ns('text');v.setAttribute('x',n.x);v.setAttribute('y',n.y+8);
+        v.setAttribute('text-anchor','middle');v.setAttribute('dominant-baseline','central');
+        v.setAttribute('font-size','10');v.setAttribute('fill','#64748b');v.textContent=n.val;svg.appendChild(v);}
+      if(key==='H1'||key==='H2'||key==='O'){const v=ns('text');v.setAttribute('x',n.x);v.setAttribute('y',n.y+10);
+        v.setAttribute('text-anchor','middle');v.setAttribute('dominant-baseline','central');
+        v.setAttribute('font-size','9');v.setAttribute('fill','#64748b');v.setAttribute('id','nv-calc-'+key);svg.appendChild(v);}
+    });
+    const ta=ns('text');ta.setAttribute('x',510);ta.setAttribute('y',250);
+    ta.setAttribute('text-anchor','middle');ta.setAttribute('font-size','10');
+    ta.setAttribute('fill','#dc2626');ta.setAttribute('font-weight','600');ta.textContent='target = 0.01';svg.appendChild(ta);
+    [{x:70,t:'Input'},{x:290,t:'Hidden'},{x:510,t:'Output'}].forEach(({x,t:txt})=>{
+      const t=ns('text');t.setAttribute('x',x);t.setAttribute('y',355);
+      t.setAttribute('text-anchor','middle');t.setAttribute('font-size','11');
+      t.setAttribute('fill','#94a3b8');t.setAttribute('font-weight','600');t.setAttribute('letter-spacing','.05em');
+      t.textContent=txt;svg.appendChild(t);
+    });
   }
 
-  function upProg() {
-    document.getElementById('pbar').style.width = (completed / Q.length * 100) + '%';
-    document.getElementById('ptxt').textContent = completed + ' / ' + Q.length;
-  }
+  /* ========== INTERACTIVE MODE ========== */
+  let interactiveInitialized = false;
 
-  function setNV(key, val) {
-    const el = document.getElementById('nv-' + key);
-    if (el) el.textContent = val.toFixed(4);
-  }
-
-  /* ---------- network diagram ---------- */
-  const svg = document.getElementById('net');
-  const ns = t => document.createElementNS('http://www.w3.org/2000/svg', t);
-
-  const ND = {
-    I1: { x: 70,  y: 140, r: 28, fill: '#dbeafe', stroke: '#3b82f6', lbl: 'I\u2081', val: I1.toFixed(2) },
-    I2: { x: 70,  y: 270, r: 28, fill: '#dbeafe', stroke: '#3b82f6', lbl: 'I\u2082', val: I2.toFixed(2) },
-    B1: { x: 180, y: 45,  r: 20, fill: '#f1f5f9', stroke: '#94a3b8', lbl: 'B\u2081', val: B1.toFixed(2) },
-    H1: { x: 290, y: 140, r: 28, fill: '#f3e8ff', stroke: '#a855f7', lbl: 'H\u2081' },
-    H2: { x: 290, y: 270, r: 28, fill: '#f3e8ff', stroke: '#a855f7', lbl: 'H\u2082' },
-    B2: { x: 410, y: 80,  r: 20, fill: '#f1f5f9', stroke: '#94a3b8', lbl: 'B\u2082', val: B2.toFixed(2) },
-    O:  { x: 510, y: 205, r: 28, fill: '#fef3c7', stroke: '#d97706', lbl: 'O' },
+  /* State object */
+  const iState = {
+    w1:0.5, w2:0.5, w3:0.5, w4:0.5, w5:0.5, w6:0.5,
+    i1:0.5, i2:0.5, b1:0.3, b2:0.3, lr:0.5, target:0.01,
+    /* computed (filled by recompute) */
+    netH1:0, oH1:0, netH2:0, oH2:0, netO:0, oO:0, E:0,
+    dEdoO:0, doOdnO:0, dEdnO:0,
+    dEdw5:0, dEdw6:0,
+    dEdoH1:0, dEdnH1:0, dEdw1:0, dEdw2:0,
+    dEdoH2:0, dEdnH2:0, dEdw3:0, dEdw4:0,
+    w1p:0, w2p:0, w3p:0, w4p:0, w5p:0, w6p:0,
   };
 
-  /* edges: [from, to, weight-name, weight-value, label-x, label-y, dashed] */
-  const edges = [
-    ['I1', 'H1', 'w\u2081', W[1], 180, 126, false],
-    ['I2', 'H1', 'w\u2082', W[2], 135, 226, false],
-    ['I1', 'H2', 'w\u2083', W[3], 135, 180, false],
-    ['I2', 'H2', 'w\u2084', W[4], 180, 284, false],
-    ['H1', 'O',  'w\u2085', W[5], 400, 156, false],
-    ['H2', 'O',  'w\u2086', W[6], 400, 254, false],
-    ['B1', 'H1', null, 0, 0, 0, true],
-    ['B1', 'H2', null, 0, 0, 0, true],
-    ['B2', 'O',  null, 0, 0, 0, true],
+  const sig = x => 1 / (1 + Math.exp(-x));
+
+  function recompute(s) {
+    s.netH1 = s.i1*s.w1 + s.i2*s.w2 + s.b1;
+    s.oH1 = sig(s.netH1);
+    s.netH2 = s.i1*s.w3 + s.i2*s.w4 + s.b1;
+    s.oH2 = sig(s.netH2);
+    s.netO = s.oH1*s.w5 + s.oH2*s.w6 + s.b2;
+    s.oO = sig(s.netO);
+    s.E = 0.5 * (s.target - s.oO) ** 2;
+    /* backward */
+    s.dEdoO = -(s.target - s.oO);
+    s.doOdnO = s.oO * (1 - s.oO);
+    s.dEdnO = s.dEdoO * s.doOdnO;
+    s.dEdw5 = s.dEdnO * s.oH1;
+    s.dEdw6 = s.dEdnO * s.oH2;
+    s.dEdoH1 = s.dEdnO * s.w5;
+    s.dEdnH1 = s.dEdoH1 * s.oH1 * (1 - s.oH1);
+    s.dEdw1 = s.dEdnH1 * s.i1;
+    s.dEdw2 = s.dEdnH1 * s.i2;
+    s.dEdoH2 = s.dEdnO * s.w6;
+    s.dEdnH2 = s.dEdoH2 * s.oH2 * (1 - s.oH2);
+    s.dEdw3 = s.dEdnH2 * s.i1;
+    s.dEdw4 = s.dEdnH2 * s.i2;
+    /* updated weights */
+    s.w1p = s.w1 - s.lr * s.dEdw1;
+    s.w2p = s.w2 - s.lr * s.dEdw2;
+    s.w3p = s.w3 - s.lr * s.dEdw3;
+    s.w4p = s.w4 - s.lr * s.dEdw4;
+    s.w5p = s.w5 - s.lr * s.dEdw5;
+    s.w6p = s.w6 - s.lr * s.dEdw6;
+  }
+
+  function computeWithOverride(overrides) {
+    const copy = Object.assign({}, iState);
+    Object.assign(copy, overrides);
+    recompute(copy);
+    return copy;
+  }
+
+  /* SVG element refs for efficient updates */
+  const iSvgRefs = { edges:{}, nodeVals:{}, lossText:null, targetText:null };
+
+  /* Slider definitions */
+  const sliderDefs = [
+    { key:'w1', label:'w\u2081', min:-2, max:2, step:0.01 },
+    { key:'w2', label:'w\u2082', min:-2, max:2, step:0.01 },
+    { key:'w3', label:'w\u2083', min:-2, max:2, step:0.01 },
+    { key:'w4', label:'w\u2084', min:-2, max:2, step:0.01 },
+    { key:'w5', label:'w\u2085', min:-2, max:2, step:0.01 },
+    { key:'w6', label:'w\u2086', min:-2, max:2, step:0.01 },
+    { key:'i1', label:'I\u2081', min:0, max:1, step:0.01 },
+    { key:'i2', label:'I\u2082', min:0, max:1, step:0.01 },
+    { key:'b1', label:'B\u2081', min:-1, max:1, step:0.01 },
+    { key:'b2', label:'B\u2082', min:-1, max:1, step:0.01 },
+    { key:'lr', label:'\u03B7', min:0.01, max:2, step:0.01 },
+    { key:'target', label:'T', min:0, max:1, step:0.01 },
   ];
 
-  /* draw edges */
-  edges.forEach(([from, to, wn, wv, lx, ly, dash]) => {
-    const a = ND[from], b = ND[to];
-    const l = ns('line');
-    l.setAttribute('x1', a.x); l.setAttribute('y1', a.y);
-    l.setAttribute('x2', b.x); l.setAttribute('y2', b.y);
-    l.setAttribute('stroke', dash ? '#cbd5e1' : '#94a3b8');
-    l.setAttribute('stroke-width', dash ? '1.5' : '2');
-    if (dash) l.setAttribute('stroke-dasharray', '5 3');
-    svg.appendChild(l);
-    if (wn) {
-      const txt = wn + '=' + wv.toFixed(2);
-      const bw = 54, bh = 18;
-      const bg = ns('rect');
-      bg.setAttribute('x', lx - bw / 2); bg.setAttribute('y', ly - bh / 2);
-      bg.setAttribute('width', bw); bg.setAttribute('height', bh);
-      bg.setAttribute('fill', '#fff'); bg.setAttribute('stroke', '#e5e7eb');
-      bg.setAttribute('stroke-width', '0.5'); bg.setAttribute('rx', '4');
-      svg.appendChild(bg);
-      const t = ns('text');
-      t.setAttribute('x', lx); t.setAttribute('y', ly);
-      t.setAttribute('text-anchor', 'middle'); t.setAttribute('dominant-baseline', 'central');
-      t.setAttribute('font-size', '10'); t.setAttribute('font-weight', '600');
-      t.setAttribute('fill', '#334155');
-      t.setAttribute('font-family', 'ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace');
-      t.textContent = txt;
-      svg.appendChild(t);
-    }
-  });
+  /* Computed display definitions */
+  const computedDefs = [
+    { key:'netH1', label:'net_H1' }, { key:'oH1', label:'out_H1' },
+    { key:'netH2', label:'net_H2' }, { key:'oH2', label:'out_H2' },
+    { key:'netO',  label:'net_O'  }, { key:'oO',  label:'out_O'  },
+    { key:'E',     label:'E'      }, { key:'', label:'' },
+    { key:'dEdw1', label:'\u2202E/\u2202w\u2081' }, { key:'dEdw2', label:'\u2202E/\u2202w\u2082' },
+    { key:'dEdw3', label:'\u2202E/\u2202w\u2083' }, { key:'dEdw4', label:'\u2202E/\u2202w\u2084' },
+    { key:'dEdw5', label:'\u2202E/\u2202w\u2085' }, { key:'dEdw6', label:'\u2202E/\u2202w\u2086' },
+    { key:'w1p', label:'w\u2081\u207A' }, { key:'w2p', label:'w\u2082\u207A' },
+    { key:'w3p', label:'w\u2083\u207A' }, { key:'w4p', label:'w\u2084\u207A' },
+    { key:'w5p', label:'w\u2085\u207A' }, { key:'w6p', label:'w\u2086\u207A' },
+  ];
 
-  /* draw nodes */
-  Object.entries(ND).forEach(([key, n]) => {
-    const c = ns('circle');
-    c.setAttribute('cx', n.x); c.setAttribute('cy', n.y); c.setAttribute('r', n.r);
-    c.setAttribute('fill', n.fill); c.setAttribute('stroke', n.stroke);
-    c.setAttribute('stroke-width', '2');
-    svg.appendChild(c);
-    /* label inside node */
-    const t = ns('text');
-    t.setAttribute('x', n.x); t.setAttribute('y', n.val ? n.y - 5 : n.y);
-    t.setAttribute('text-anchor', 'middle'); t.setAttribute('dominant-baseline', 'central');
-    t.setAttribute('font-size', n.r < 22 ? '11' : '13');
-    t.setAttribute('font-weight', '700'); t.setAttribute('fill', n.stroke);
-    t.textContent = n.lbl;
-    svg.appendChild(t);
-    /* known value inside node */
-    if (n.val) {
+  const computedValueEls = {};
+
+  /* Challenge state */
+  let chScore = 0, chTotal = 0, chAnswered = false;
+
+  function initInteractiveMode() {
+    interactiveInitialized = true;
+    recompute(iState);
+    buildSliders();
+    buildComputedPanel();
+    buildInteractiveSVG();
+    updateAll();
+    generateChallenge();
+  }
+
+  function buildSliders() {
+    const panel = document.getElementById('slider-panel');
+    sliderDefs.forEach(sd => {
+      const row = document.createElement('div');
+      row.className = 'slider-row';
+      row.innerHTML =
+        '<label>' + sd.label + '</label>' +
+        '<input type="range" min="' + sd.min + '" max="' + sd.max + '" step="' + sd.step + '" value="' + iState[sd.key] + '" id="sl-' + sd.key + '">' +
+        '<span class="sval" id="sv-' + sd.key + '">' + iState[sd.key].toFixed(2) + '</span>';
+      panel.appendChild(row);
+      const inp = row.querySelector('input');
+      inp.addEventListener('input', () => {
+        iState[sd.key] = parseFloat(inp.value);
+        document.getElementById('sv-' + sd.key).textContent = iState[sd.key].toFixed(2);
+        onStateChange();
+      });
+    });
+  }
+
+  function buildComputedPanel() {
+    const panel = document.getElementById('computed-panel');
+    computedDefs.forEach(cd => {
+      if (!cd.key) { const sp = document.createElement('div'); panel.appendChild(sp); return; }
+      const item = document.createElement('div');
+      item.className = 'val-item';
+      item.innerHTML = '<span class="vk">' + cd.label + '</span><span class="vv" id="cv-' + cd.key + '">0</span>';
+      panel.appendChild(item);
+      computedValueEls[cd.key] = document.getElementById('cv-' + cd.key);
+    });
+  }
+
+  function buildInteractiveSVG() {
+    const svg = document.getElementById('net-interactive');
+    const ns = t => document.createElementNS('http://www.w3.org/2000/svg', t);
+
+    const ND = {
+      I1: { x:70,  y:140, r:28, fill:'#dbeafe', stroke:'#3b82f6', lbl:'I\u2081' },
+      I2: { x:70,  y:270, r:28, fill:'#dbeafe', stroke:'#3b82f6', lbl:'I\u2082' },
+      B1: { x:180, y:45,  r:20, fill:'#f1f5f9', stroke:'#94a3b8', lbl:'B\u2081' },
+      H1: { x:290, y:140, r:28, fill:'#f3e8ff', stroke:'#a855f7', lbl:'H\u2081' },
+      H2: { x:290, y:270, r:28, fill:'#f3e8ff', stroke:'#a855f7', lbl:'H\u2082' },
+      B2: { x:410, y:80,  r:20, fill:'#f1f5f9', stroke:'#94a3b8', lbl:'B\u2082' },
+      O:  { x:510, y:205, r:28, fill:'#fef3c7', stroke:'#d97706', lbl:'O' },
+    };
+
+    /* Edge definitions with gradient keys */
+    const edgeDefs = [
+      { from:'I1', to:'H1', wKey:'w1', lx:180, ly:126 },
+      { from:'I2', to:'H1', wKey:'w2', lx:135, ly:226 },
+      { from:'I1', to:'H2', wKey:'w3', lx:135, ly:180 },
+      { from:'I2', to:'H2', wKey:'w4', lx:180, ly:284 },
+      { from:'H1', to:'O',  wKey:'w5', lx:400, ly:156 },
+      { from:'H2', to:'O',  wKey:'w6', lx:400, ly:254 },
+      { from:'B1', to:'H1', wKey:null, dash:true },
+      { from:'B1', to:'H2', wKey:null, dash:true },
+      { from:'B2', to:'O',  wKey:null, dash:true },
+    ];
+
+    /* Draw edges */
+    edgeDefs.forEach(ed => {
+      const a = ND[ed.from], b = ND[ed.to];
+      const line = ns('line');
+      line.setAttribute('x1', a.x); line.setAttribute('y1', a.y);
+      line.setAttribute('x2', b.x); line.setAttribute('y2', b.y);
+      if (ed.dash) {
+        line.setAttribute('stroke', '#cbd5e1'); line.setAttribute('stroke-width', '1.5');
+        line.setAttribute('stroke-dasharray', '5 3');
+      } else {
+        line.setAttribute('stroke', '#94a3b8'); line.setAttribute('stroke-width', '2');
+      }
+      svg.appendChild(line);
+
+      if (ed.wKey) {
+        iSvgRefs.edges[ed.wKey] = { line: line };
+        /* Weight label background */
+        const bw = 60, bh = 18;
+        const bg = ns('rect');
+        bg.setAttribute('x', ed.lx - bw/2); bg.setAttribute('y', ed.ly - bh/2);
+        bg.setAttribute('width', bw); bg.setAttribute('height', bh);
+        bg.setAttribute('fill', '#fff'); bg.setAttribute('stroke', '#e5e7eb');
+        bg.setAttribute('stroke-width', '0.5'); bg.setAttribute('rx', '4');
+        svg.appendChild(bg);
+        const txt = ns('text');
+        txt.setAttribute('x', ed.lx); txt.setAttribute('y', ed.ly);
+        txt.setAttribute('text-anchor', 'middle'); txt.setAttribute('dominant-baseline', 'central');
+        txt.setAttribute('font-size', '9'); txt.setAttribute('font-weight', '600');
+        txt.setAttribute('fill', '#334155');
+        txt.setAttribute('font-family', 'ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace');
+        svg.appendChild(txt);
+        iSvgRefs.edges[ed.wKey].label = txt;
+        iSvgRefs.edges[ed.wKey].bg = bg;
+      }
+    });
+
+    /* Draw nodes */
+    Object.entries(ND).forEach(([key, n]) => {
+      const c = ns('circle');
+      c.setAttribute('cx', n.x); c.setAttribute('cy', n.y); c.setAttribute('r', n.r);
+      c.setAttribute('fill', n.fill); c.setAttribute('stroke', n.stroke); c.setAttribute('stroke-width', '2');
+      svg.appendChild(c);
+
+      /* Node label */
+      const t = ns('text');
+      t.setAttribute('x', n.x); t.setAttribute('y', n.y - 6);
+      t.setAttribute('text-anchor', 'middle'); t.setAttribute('dominant-baseline', 'central');
+      t.setAttribute('font-size', n.r < 22 ? '11' : '13');
+      t.setAttribute('font-weight', '700'); t.setAttribute('fill', n.stroke);
+      t.textContent = n.lbl;
+      svg.appendChild(t);
+
+      /* Value text below label */
       const v = ns('text');
       v.setAttribute('x', n.x); v.setAttribute('y', n.y + 8);
       v.setAttribute('text-anchor', 'middle'); v.setAttribute('dominant-baseline', 'central');
-      v.setAttribute('font-size', '10'); v.setAttribute('fill', '#64748b');
-      v.textContent = n.val;
-      svg.appendChild(v);
-    }
-    /* placeholder for computed values */
-    if (key === 'H1' || key === 'H2' || key === 'O') {
-      const v = ns('text');
-      v.setAttribute('x', n.x); v.setAttribute('y', n.y + 10);
-      v.setAttribute('text-anchor', 'middle'); v.setAttribute('dominant-baseline', 'central');
       v.setAttribute('font-size', '9'); v.setAttribute('fill', '#64748b');
-      v.setAttribute('id', 'nv-' + key);
+      v.setAttribute('font-family', 'ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace');
       svg.appendChild(v);
+      iSvgRefs.nodeVals[key] = v;
+    });
+
+    /* Target + loss annotation */
+    const targetTxt = ns('text');
+    targetTxt.setAttribute('x', 510); targetTxt.setAttribute('y', 252);
+    targetTxt.setAttribute('text-anchor', 'middle'); targetTxt.setAttribute('font-size', '10');
+    targetTxt.setAttribute('fill', '#dc2626'); targetTxt.setAttribute('font-weight', '600');
+    svg.appendChild(targetTxt);
+    iSvgRefs.targetText = targetTxt;
+
+    const lossTxt = ns('text');
+    lossTxt.setAttribute('x', 510); lossTxt.setAttribute('y', 268);
+    lossTxt.setAttribute('text-anchor', 'middle'); lossTxt.setAttribute('font-size', '11');
+    lossTxt.setAttribute('fill', '#0f172a'); lossTxt.setAttribute('font-weight', '700');
+    lossTxt.setAttribute('font-family', 'ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace');
+    svg.appendChild(lossTxt);
+    iSvgRefs.lossText = lossTxt;
+
+    /* Layer labels */
+    [{x:70,t:'Input'},{x:290,t:'Hidden'},{x:510,t:'Output'}].forEach(({x,t:txt}) => {
+      const t = ns('text');
+      t.setAttribute('x', x); t.setAttribute('y', 375);
+      t.setAttribute('text-anchor', 'middle'); t.setAttribute('font-size', '11');
+      t.setAttribute('fill', '#94a3b8'); t.setAttribute('font-weight', '600');
+      t.setAttribute('letter-spacing', '.05em');
+      t.textContent = txt; svg.appendChild(t);
+    });
+  }
+
+  function lerpColor(t) {
+    /* Interpolate from #cbd5e1 (light gray) to #3b82f6 (blue) */
+    const r = Math.round(203 + (59 - 203) * t);
+    const g = Math.round(213 + (130 - 213) * t);
+    const b = Math.round(225 + (246 - 225) * t);
+    return 'rgb(' + r + ',' + g + ',' + b + ')';
+  }
+
+  function updateSVG() {
+    const s = iState;
+    /* Node values */
+    iSvgRefs.nodeVals['I1'].textContent = s.i1.toFixed(2);
+    iSvgRefs.nodeVals['I2'].textContent = s.i2.toFixed(2);
+    iSvgRefs.nodeVals['B1'].textContent = s.b1.toFixed(2);
+    iSvgRefs.nodeVals['B2'].textContent = s.b2.toFixed(2);
+    iSvgRefs.nodeVals['H1'].textContent = s.oH1.toFixed(4);
+    iSvgRefs.nodeVals['H2'].textContent = s.oH2.toFixed(4);
+    iSvgRefs.nodeVals['O'].textContent = s.oO.toFixed(4);
+
+    /* Target + loss */
+    iSvgRefs.targetText.textContent = 'target = ' + s.target.toFixed(2);
+    iSvgRefs.lossText.textContent = 'E = ' + s.E.toFixed(6);
+
+    /* Edge gradient visualization */
+    const gradKeys = ['w1','w2','w3','w4','w5','w6'];
+    const gradMap = { w1:'dEdw1', w2:'dEdw2', w3:'dEdw3', w4:'dEdw4', w5:'dEdw5', w6:'dEdw6' };
+    const absGrads = gradKeys.map(k => Math.abs(s[gradMap[k]]));
+    const maxGrad = Math.max(...absGrads, 1e-10);
+
+    gradKeys.forEach(k => {
+      const ref = iSvgRefs.edges[k];
+      if (!ref) return;
+      const absG = Math.abs(s[gradMap[k]]);
+      const t = Math.min(absG / maxGrad, 1);
+      ref.line.setAttribute('stroke', lerpColor(t));
+      ref.line.setAttribute('stroke-width', (1.5 + 2.5 * t).toFixed(1));
+      /* Update weight label */
+      const subscripts = '\u2080\u2081\u2082\u2083\u2084\u2085\u2086';
+      ref.label.textContent = k.replace(/w(\d)/, (m, d) => 'w' + subscripts[parseInt(d)]) + '=' + s[k].toFixed(2);
+    });
+  }
+
+  function updateComputedDisplay() {
+    computedDefs.forEach(cd => {
+      if (!cd.key) return;
+      const el = computedValueEls[cd.key];
+      if (el) el.textContent = iState[cd.key].toFixed(4);
+    });
+  }
+
+  function onStateChange() {
+    recompute(iState);
+    updateSVG();
+    updateComputedDisplay();
+  }
+
+  function updateAll() {
+    onStateChange();
+  }
+
+  function randomizeAll() {
+    const R = (lo, hi) => Math.round((lo + Math.random() * (hi - lo)) * 100) / 100;
+    iState.w1 = R(-1.5, 1.5); iState.w2 = R(-1.5, 1.5);
+    iState.w3 = R(-1.5, 1.5); iState.w4 = R(-1.5, 1.5);
+    iState.w5 = R(-1.5, 1.5); iState.w6 = R(-1.5, 1.5);
+    iState.i1 = R(0.05, 0.95); iState.i2 = R(0.05, 0.95);
+    iState.b1 = R(-0.5, 0.5); iState.b2 = R(-0.5, 0.5);
+    iState.lr = R(0.1, 1.5); iState.target = R(0.01, 0.99);
+    /* Update slider positions */
+    sliderDefs.forEach(sd => {
+      document.getElementById('sl-' + sd.key).value = iState[sd.key];
+      document.getElementById('sv-' + sd.key).textContent = iState[sd.key].toFixed(2);
+    });
+    onStateChange();
+    /* Reset challenge on randomize */
+    generateChallenge();
+  }
+
+  /* ========== CHALLENGE SYSTEM ========== */
+  const weightKeys = ['w1','w2','w3','w4','w5','w6'];
+  const weightLabels = { w1:'w\u2081', w2:'w\u2082', w3:'w\u2083', w4:'w\u2084', w5:'w\u2085', w6:'w\u2086' };
+  const gradMap = { w1:'dEdw1', w2:'dEdw2', w3:'dEdw3', w4:'dEdw4', w5:'dEdw5', w6:'dEdw6' };
+
+  function pickRandom(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+  function generateChallenge() {
+    chAnswered = false;
+    const panel = document.getElementById('challenge-panel');
+
+    /* Pick a random challenge type */
+    const types = ['largest_grad','smallest_grad','loss_direction','grad_sign','hidden_contrib','zero_weight','lr_doubling','step_direction'];
+    const type = pickRandom(types);
+    const wk = pickRandom(weightKeys);
+    const wl = weightLabels[wk];
+
+    let question = '', options = [], getAnswer, explanation;
+
+    switch (type) {
+      case 'largest_grad': {
+        question = 'Which weight currently has the <b>largest</b> gradient magnitude?';
+        options = weightKeys.map(k => weightLabels[k]);
+        getAnswer = () => {
+          recompute(iState);
+          let best = weightKeys[0];
+          weightKeys.forEach(k => { if (Math.abs(iState[gradMap[k]]) > Math.abs(iState[gradMap[best]])) best = k; });
+          return weightLabels[best];
+        };
+        explanation = 'The answer is based on max |∂E/∂wᵢ| across all weights at current parameter values.';
+        break;
+      }
+      case 'smallest_grad': {
+        question = 'Which weight currently has the <b>smallest</b> gradient magnitude?';
+        options = weightKeys.map(k => weightLabels[k]);
+        getAnswer = () => {
+          recompute(iState);
+          let best = weightKeys[0];
+          weightKeys.forEach(k => { if (Math.abs(iState[gradMap[k]]) < Math.abs(iState[gradMap[best]])) best = k; });
+          return weightLabels[best];
+        };
+        explanation = 'The answer is based on min |∂E/∂wᵢ| across all weights at current parameter values.';
+        break;
+      }
+      case 'loss_direction': {
+        question = 'If you <b>increase</b> ' + wl + ' slightly, will the loss go <b>up or down</b>?';
+        options = ['Up', 'Down'];
+        getAnswer = () => {
+          recompute(iState);
+          const grad = iState[gradMap[wk]];
+          return grad > 0 ? 'Up' : 'Down';
+        };
+        explanation = 'The gradient ∂E/∂w tells us: positive gradient means increasing the weight increases the loss.';
+        break;
+      }
+      case 'grad_sign': {
+        question = 'Is ∂E/∂' + wl + ' currently <b>positive or negative</b>?';
+        options = ['Positive', 'Negative'];
+        getAnswer = () => {
+          recompute(iState);
+          return iState[gradMap[wk]] >= 0 ? 'Positive' : 'Negative';
+        };
+        explanation = 'Check the sign of the gradient in the computed values panel.';
+        break;
+      }
+      case 'hidden_contrib': {
+        question = 'Which hidden neuron contributes <b>more</b> to the output (larger |wᵢ × outHᵢ|)?';
+        options = ['H\u2081', 'H\u2082'];
+        getAnswer = () => {
+          recompute(iState);
+          const c1 = Math.abs(iState.w5 * iState.oH1);
+          const c2 = Math.abs(iState.w6 * iState.oH2);
+          return c1 >= c2 ? 'H\u2081' : 'H\u2082';
+        };
+        explanation = 'Contribution to net_O is |wᵢ × out_Hᵢ|. The neuron with larger weighted activation contributes more.';
+        break;
+      }
+      case 'zero_weight': {
+        const targetW = pickRandom(['w5', 'w6']);
+        const affectedW = targetW === 'w5' ? pickRandom(['w1', 'w2']) : pickRandom(['w3', 'w4']);
+        const tl = weightLabels[targetW], al = weightLabels[affectedW];
+        question = 'If ' + tl + ' were set to 0, what happens to ∂E/∂' + al + '?';
+        options = ['Becomes zero', 'Changes but nonzero', 'Stays the same'];
+        getAnswer = () => {
+          recompute(iState);
+          const origGrad = iState[gradMap[affectedW]];
+          const overridden = computeWithOverride({ [targetW]: 0 });
+          const newGrad = overridden[gradMap[affectedW]];
+          if (Math.abs(newGrad) < 1e-10) return 'Becomes zero';
+          if (Math.abs(newGrad - origGrad) < 1e-10) return 'Stays the same';
+          return 'Changes but nonzero';
+        };
+        explanation = 'Setting ' + tl + ' = 0 severs the gradient path through that connection. If ' + al + ' depends on that path, its gradient changes.';
+        break;
+      }
+      case 'lr_doubling': {
+        question = 'If you <b>double</b> the learning rate \u03B7, will the weight update magnitude for ' + wl + ' be <b>larger or smaller</b>?';
+        options = ['Larger', 'Smaller'];
+        getAnswer = () => 'Larger';
+        explanation = 'The update is \u0394w = \u03B7 \u00D7 ∂E/∂w. Doubling \u03B7 doubles the update magnitude (always larger, never smaller).';
+        break;
+      }
+      case 'step_direction': {
+        question = 'After one gradient descent step, does the <b>output</b> move <b>closer to or farther from</b> the target?';
+        options = ['Closer', 'Farther'];
+        getAnswer = () => {
+          recompute(iState);
+          const origErr = iState.E;
+          const stepped = computeWithOverride({
+            w1: iState.w1p, w2: iState.w2p, w3: iState.w3p,
+            w4: iState.w4p, w5: iState.w5p, w6: iState.w6p
+          });
+          return stepped.E < origErr ? 'Closer' : 'Farther';
+        };
+        explanation = 'Gradient descent typically reduces the loss (moving output closer to target), but with a large learning rate it can overshoot.';
+        break;
+      }
     }
-  });
 
-  /* target annotation near output */
-  const ta = ns('text');
-  ta.setAttribute('x', 510); ta.setAttribute('y', 250);
-  ta.setAttribute('text-anchor', 'middle'); ta.setAttribute('font-size', '10');
-  ta.setAttribute('fill', '#dc2626'); ta.setAttribute('font-weight', '600');
-  ta.textContent = 'target = 0.01';
-  svg.appendChild(ta);
+    /* Render challenge */
+    panel.innerHTML =
+      '<div class="challenge-q">' + question + '</div>' +
+      '<div class="ch-opts">' + options.map(o => '<div class="ch-opt" data-val="' + o + '">' + o + '</div>').join('') + '</div>' +
+      '<div id="challenge-fb" style="display:none"></div>' +
+      '<button class="btn" id="ch-next" style="display:none;margin-top:8px" onclick="generateChallenge()">Next Challenge</button>';
 
-  /* layer labels */
-  [{ x: 70, t: 'Input' }, { x: 290, t: 'Hidden' }, { x: 510, t: 'Output' }].forEach(({ x, t: txt }) => {
-    const t = ns('text');
-    t.setAttribute('x', x); t.setAttribute('y', 355);
-    t.setAttribute('text-anchor', 'middle'); t.setAttribute('font-size', '11');
-    t.setAttribute('fill', '#94a3b8'); t.setAttribute('font-weight', '600');
-    t.setAttribute('letter-spacing', '.05em');
-    t.textContent = txt;
-    svg.appendChild(t);
-  });
+    /* Store getAnswer and explanation for check time */
+    panel._getAnswer = getAnswer;
+    panel._explanation = explanation;
+
+    /* Bind option clicks */
+    panel.querySelectorAll('.ch-opt').forEach(el => {
+      el.addEventListener('click', () => {
+        if (chAnswered) return;
+        checkChallenge(el.dataset.val);
+      });
+    });
+
+    updateScoreDisplay();
+  }
+
+  function checkChallenge(userAnswer) {
+    chAnswered = true;
+    chTotal++;
+    const panel = document.getElementById('challenge-panel');
+    const correctAnswer = panel._getAnswer();
+    const explanation = panel._explanation;
+    const fb = document.getElementById('challenge-fb');
+    const isCorrect = userAnswer === correctAnswer;
+
+    if (isCorrect) chScore++;
+
+    /* Highlight options */
+    panel.querySelectorAll('.ch-opt').forEach(el => {
+      if (el.dataset.val === correctAnswer) el.classList.add('correct-answer');
+      else if (el.dataset.val === userAnswer && !isCorrect) el.classList.add('wrong-answer');
+    });
+
+    fb.style.display = 'block';
+    fb.className = 'challenge-fb ' + (isCorrect ? 'ok' : 'no');
+    fb.innerHTML = (isCorrect ? '<b>Correct!</b> ' : '<b>Incorrect.</b> The answer is <b>' + correctAnswer + '</b>. ') + explanation;
+
+    document.getElementById('ch-next').style.display = 'inline-block';
+    updateScoreDisplay();
+  }
+
+  function updateScoreDisplay() {
+    const el = document.getElementById('challenge-score');
+    if (chTotal > 0) el.textContent = chScore + '/' + chTotal + ' correct';
+    else el.textContent = '';
+  }
   </script>
 
   <footer style="text-align:center;padding:24px 16px;color:#6b7280;font-size:13px">
