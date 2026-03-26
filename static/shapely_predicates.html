@@ -1,0 +1,1083 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Shapely Predicates – Visual Guide</title>
+
+  <!-- Open Graph metadata -->
+  <meta property="og:title" content="Shapely Predicates – Visual Guide" />
+  <meta property="og:description" content="Interactive visual examples for every spatial predicate in Shapely." />
+  <meta property="og:author" content="Caleb Robinson" />
+  <meta property="og:image" content="https://calebrob.com/images/face.jpg" />
+  <meta property="og:type" content="website" />
+  <style>
+    :root{
+      --bg:#f8fafc;
+      --text:#0f172a;
+      --muted:#475569;
+      --border:#e5e7eb;
+      --card:#ffffff;
+      --shadow:0 6px 20px rgba(15,23,42,0.06);
+      --blue:#3b82f6;
+      --blue-light:#dbeafe;
+      --orange:#f97316;
+      --orange-light:#ffedd5;
+      --green:#10b981;
+      --green-light:#d1fae5;
+      --red:#ef4444;
+      --red-light:#fee2e2;
+      --violet:#a855f7;
+      --accent:#2563eb;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Apple Color Emoji","Segoe UI Emoji";background:var(--bg);color:var(--text)}
+    .wrap{max-width:1380px;margin:24px auto;padding:0 16px}
+
+    header{display:flex;flex-direction:column;gap:10px;margin-bottom:20px}
+    h1{font-size:24px;letter-spacing:.2px;margin:0}
+    .desc{color:var(--muted);line-height:1.55}
+    .desc a{color:var(--accent);text-decoration:none}
+    .desc a:hover{text-decoration:underline}
+
+    .legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:6px;font-size:13px;color:var(--muted)}
+    .legend .chip{display:flex;align-items:center;gap:5px}
+    .legend .sw{width:14px;height:14px;border-radius:3px}
+
+    .section{margin-bottom:28px}
+    .section-title{font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+
+    .pred-table{display:flex;flex-direction:column;gap:12px}
+
+    .pred-row{
+      display:grid;
+      gap:16px;
+      align-items:center;
+      background:var(--card);
+      border:1px solid var(--border);
+      border-radius:14px;
+      box-shadow:var(--shadow);
+      padding:16px 20px;
+    }
+    .pred-row.binary{grid-template-columns:1fr 200px 200px 200px}
+    .pred-row.unary{grid-template-columns:1fr 200px 200px}
+    @media(max-width:1100px){
+      .pred-row.binary,.pred-row.unary{grid-template-columns:1fr;gap:12px}
+    }
+
+    .pred-name{font-weight:700;font-size:15px;font-family:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace}
+    .pred-name a{color:inherit;text-decoration:none;border-bottom:1.5px solid var(--border);transition:border-color .15s}
+    .pred-name a:hover{border-color:var(--accent);color:var(--accent)}
+    .pred-name .sig{color:var(--muted);font-weight:400}
+    .pred-desc{font-size:13px;color:var(--muted);margin-top:4px;line-height:1.5}
+    .pred-rel{font-size:12px;margin-top:5px;padding:4px 8px;background:#f1f5f9;border-radius:6px;font-family:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;color:#334155;display:inline-block;line-height:1.4}
+    .pred-note{font-size:12px;color:var(--muted);margin-top:4px;line-height:1.4}
+
+    .example{display:flex;flex-direction:column;align-items:center;gap:5px}
+    .example svg{border:1px solid var(--border);border-radius:10px;background:#fff}
+    .badge{font-size:11px;font-weight:700;border-radius:999px;padding:1px 8px;display:inline-block;transition:background .12s,color .12s}
+    .badge-true{background:var(--green-light);color:#065f46}
+    .badge-false{background:var(--red-light);color:#991b1b}
+
+    /* Carousel */
+    .carousel{display:flex;flex-direction:column;align-items:center;gap:5px}
+    .carousel-inner{position:relative}
+    .carousel-inner svg{display:block}
+    .carousel-nav{display:flex;align-items:center;gap:6px}
+    .carousel-btn{
+      appearance:none;border:1px solid var(--border);background:var(--card);
+      width:22px;height:22px;border-radius:6px;cursor:pointer;display:flex;
+      align-items:center;justify-content:center;font-size:12px;color:var(--muted);
+      padding:0;line-height:1;
+    }
+    .carousel-btn:hover{border-color:#cbd5e1;background:#f8fafc}
+    .carousel-dots{display:flex;gap:4px}
+    .carousel-dot{width:6px;height:6px;border-radius:50%;background:#cbd5e1;transition:background .15s}
+    .carousel-dot.active{background:var(--accent)}
+    .carousel-nav-hidden .carousel-nav{visibility:hidden}
+
+    /* Interactive demo */
+    .interactive{display:flex;flex-direction:column;align-items:center;gap:5px}
+    .interactive svg{border:1.5px solid var(--accent);border-radius:10px;background:#fff;cursor:default}
+    .interactive .b-group{cursor:grab}
+    .interactive svg.dragging{cursor:grabbing}
+    .interactive svg.dragging .b-group{cursor:grabbing}
+    .interactive-controls{display:flex;align-items:center;gap:6px}
+    .reset-btn{
+      appearance:none;border:1px solid var(--border);background:var(--card);
+      width:22px;height:22px;border-radius:6px;cursor:pointer;display:flex;
+      align-items:center;justify-content:center;color:var(--muted);padding:0;
+    }
+    .reset-btn:hover{border-color:#cbd5e1;color:var(--text)}
+    .reset-btn svg{display:block}
+    .drag-hint{font-size:10px;color:#94a3b8}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>Shapely Predicates &mdash; Visual Guide</h1>
+      <div class="desc">
+        Visual examples for every spatial predicate in
+        <a href="https://shapely.readthedocs.io/en/stable/predicates.html" target="_blank">Shapely</a>.
+        Each row shows a predicate with <strong style="color:var(--green)">True</strong> and <strong style="color:var(--red)">False</strong> cases.
+        Click the arrows to see more examples, or drag shape B in the interactive demo.
+      </div>
+      <div class="legend">
+        <div class="chip"><div class="sw" style="background:rgba(59,130,246,0.25);border:2px solid var(--blue)"></div>Geometry A</div>
+        <div class="chip"><div class="sw" style="background:rgba(249,115,22,0.25);border:2px solid var(--orange)"></div>Geometry B</div>
+        <div class="chip"><div class="sw" style="background:rgba(168,85,247,0.25);border:2px solid var(--violet)"></div>Single Geometry</div>
+      </div>
+    </header>
+
+    <div class="section">
+      <div class="section-title">Binary Predicates (two geometries)</div>
+      <div class="pred-table" id="binary"></div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Unary Predicates (single geometry)</div>
+      <div class="pred-table" id="unary"></div>
+    </div>
+  </div>
+
+<script>
+const W = 190, H = 150;
+const BLUE = '#3b82f6', BLUE_FILL = 'rgba(59,130,246,0.18)';
+const ORANGE = '#f97316', ORANGE_FILL = 'rgba(249,115,22,0.18)';
+const VIOLET = '#a855f7', VIOLET_FILL = 'rgba(168,85,247,0.18)';
+const GREEN = '#10b981', GREEN_FILL = 'rgba(16,185,129,0.18)';
+const RED = '#ef4444', RED_FILL = 'rgba(239,68,68,0.18)';
+const GRAY = '#94a3b8';
+
+/* ── SVG helpers ─────────────────────────────── */
+function svgEl(tag, attrs = {}) {
+  const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+  return el;
+}
+function makeSVG(drawFn) {
+  const svg = svgEl('svg', { width: W, height: H, viewBox: `0 0 ${W} ${H}` });
+  drawFn(svg);
+  return svg;
+}
+function poly(svg, points, stroke, fill, opts = {}) {
+  const d = points.map((p, i) => `${i ? 'L' : 'M'}${p[0]},${p[1]}`).join(' ') + ' Z';
+  svg.appendChild(svgEl('path', {
+    d, stroke, fill, 'stroke-width': opts.sw || 2, 'stroke-linejoin': 'round',
+    ...(opts.dash ? { 'stroke-dasharray': opts.dash } : {})
+  }));
+}
+function ellipse(svg, cx, cy, rx, ry, stroke, fill, opts = {}) {
+  svg.appendChild(svgEl('ellipse', { cx, cy, rx, ry, stroke, fill, 'stroke-width': opts.sw || 2 }));
+}
+function circle(svg, cx, cy, r, stroke, fill, opts = {}) {
+  svg.appendChild(svgEl('circle', {
+    cx, cy, r, stroke, fill, 'stroke-width': opts.sw || 2,
+    ...(opts.dash ? { 'stroke-dasharray': opts.dash } : {})
+  }));
+}
+function line(svg, pts, stroke, opts = {}) {
+  const d = pts.map((p, i) => `${i ? 'L' : 'M'}${p[0]},${p[1]}`).join(' ');
+  svg.appendChild(svgEl('path', {
+    d, stroke, fill: 'none', 'stroke-width': opts.sw || 2.5,
+    'stroke-linecap': 'round', 'stroke-linejoin': 'round',
+    ...(opts.dash ? { 'stroke-dasharray': opts.dash } : {})
+  }));
+}
+function dot(svg, x, y, color, r = 4) {
+  svg.appendChild(svgEl('circle', { cx: x, cy: y, r, fill: color, stroke: '#fff', 'stroke-width': 1.5 }));
+}
+function arrow(svg, x1, y1, x2, y2, color) {
+  const id = 'ah' + Math.random().toString(36).slice(2, 8);
+  const defs = svgEl('defs');
+  const marker = svgEl('marker', { id, markerWidth: 7, markerHeight: 7, refX: 6, refY: 3.5, orient: 'auto' });
+  marker.appendChild(svgEl('path', { d: 'M0,0 L7,3.5 L0,7 Z', fill: color }));
+  defs.appendChild(marker);
+  svg.appendChild(defs);
+  svg.appendChild(svgEl('line', { x1, y1, x2, y2, stroke: color, 'stroke-width': 2, 'marker-end': `url(#${id})` }));
+}
+function label(svg, x, y, text, color, size = 13) {
+  const t = svgEl('text', {
+    x, y, fill: color, 'font-size': size, 'font-weight': '700',
+    'font-family': 'system-ui,sans-serif', 'text-anchor': 'middle'
+  });
+  t.textContent = text;
+  svg.appendChild(t);
+}
+function caption(svg, text) {
+  const t = svgEl('text', {
+    x: W/2, y: H-4, fill: '#94a3b8', 'font-size': 10, 'font-weight': '700',
+    'font-family': 'system-ui,sans-serif', 'text-anchor': 'middle',
+    stroke: '#fff', 'stroke-width': 4, 'paint-order': 'stroke'
+  });
+  t.textContent = text;
+  svg.appendChild(t);
+}
+function distLine(svg, x1, y1, x2, y2, color) {
+  svg.appendChild(svgEl('line', { x1, y1, x2, y2, stroke: color, 'stroke-width': 1.5, 'stroke-dasharray': '4,3' }));
+}
+
+/* ── Rect geometry helpers ───────────────────── */
+// Rects are [x, y, w, h]
+function rectToPoly(r) {
+  return [[r[0],r[1]], [r[0]+r[2],r[1]], [r[0]+r[2],r[1]+r[3]], [r[0],r[1]+r[3]]];
+}
+function offsetRect(r, dx, dy) {
+  return [r[0]+dx, r[1]+dy, r[2], r[3]];
+}
+
+const R = {
+  contains(a, b) {
+    return a[0] <= b[0] && a[1] <= b[1] && a[0]+a[2] >= b[0]+b[2] && a[1]+a[3] >= b[1]+b[3];
+  },
+  containsProperly(a, b) {
+    return a[0] < b[0] && a[1] < b[1] && a[0]+a[2] > b[0]+b[2] && a[1]+a[3] > b[1]+b[3];
+  },
+  intersects(a, b) {
+    return a[0] <= b[0]+b[2] && b[0] <= a[0]+a[2] && a[1] <= b[1]+b[3] && b[1] <= a[1]+a[3];
+  },
+  disjoint(a, b) { return !R.intersects(a, b); },
+  touches(a, b) {
+    const interior = a[0] < b[0]+b[2] && b[0] < a[0]+a[2] && a[1] < b[1]+b[3] && b[1] < a[1]+a[3];
+    return R.intersects(a, b) && !interior;
+  },
+  overlaps(a, b) {
+    const interior = a[0] < b[0]+b[2] && b[0] < a[0]+a[2] && a[1] < b[1]+b[3] && b[1] < a[1]+a[3];
+    return interior && !R.contains(a, b) && !R.contains(b, a);
+  },
+  equals(a, b) {
+    return Math.abs(a[0]-b[0]) < 2 && Math.abs(a[1]-b[1]) < 2 && Math.abs(a[2]-b[2]) < 2 && Math.abs(a[3]-b[3]) < 2;
+  },
+  dist(a, b) {
+    const dx = Math.max(0, Math.max(a[0]-(b[0]+b[2]), b[0]-(a[0]+a[2])));
+    const dy = Math.max(0, Math.max(a[1]-(b[1]+b[3]), b[1]-(a[1]+a[3])));
+    return Math.sqrt(dx*dx + dy*dy);
+  },
+  dwithin(a, b, d) { return R.dist(a, b) <= d; },
+};
+
+function lineCrossesRect(ln, rect) {
+  // ln = [x, y, length, 0] (horizontal line at y from x to x+length)
+  const ly = ln[1], lx1 = ln[0], lx2 = ln[0] + ln[2];
+  const rx1 = rect[0], ry1 = rect[1], rx2 = rect[0]+rect[2], ry2 = rect[1]+rect[3];
+  if (ly <= ry1 || ly >= ry2) return false;   // not in y range interior
+  if (lx2 <= rx1 || lx1 >= rx2) return false; // no x overlap
+  return lx1 < rx1 || lx2 > rx2;              // extends outside
+}
+
+/* ── Predicate definitions ───────────────────── */
+const binaryPredicates = [
+  {
+    name: 'contains',
+    sig: '(a, b)',
+    desc: 'True if geometry B is completely inside geometry A. No points of B lie in the exterior of A, and at least one interior point of B lies in the interior of A. A geometry does not contain its boundary, but does contain itself.',
+    rel: 'contains(A, B) == within(B, A)',
+    demo: {
+      a: [20,15,150,115], b: [50,40,90,65],
+      evaluate: (a, b) => R.contains(a, b),
+    },
+    trueExamples: [
+      function(svg) {
+        poly(svg, [[20,15],[170,15],[170,130],[20,130]], BLUE, BLUE_FILL);
+        poly(svg, [[50,40],[140,40],[140,105],[50,105]], ORANGE, ORANGE_FILL);
+        label(svg, 95, 11, 'A', BLUE); label(svg, 95, 77, 'B', ORANGE);
+        caption(svg, 'polygon in polygon');
+      },
+      function(svg) {
+        poly(svg, [[20,15],[170,15],[170,130],[20,130]], BLUE, BLUE_FILL);
+        dot(svg, 95, 75, ORANGE, 6);
+        label(svg, 95, 11, 'A', BLUE); label(svg, 108, 73, 'B', ORANGE);
+        caption(svg, 'point in polygon');
+      },
+      function(svg) {
+        poly(svg, [[20,15],[170,15],[170,130],[20,130]], BLUE, BLUE_FILL);
+        line(svg, [[40,75],[155,75]], ORANGE, { sw: 3 });
+        label(svg, 95, 11, 'A', BLUE); label(svg, 155, 68, 'B', ORANGE);
+        caption(svg, 'line in polygon');
+      },
+    ],
+    falseExamples: [
+      function(svg) {
+        poly(svg, [[10,20],[100,20],[100,130],[10,130]], BLUE, BLUE_FILL);
+        poly(svg, [[70,25],[180,25],[180,120],[70,120]], ORANGE, ORANGE_FILL);
+        label(svg, 40, 16, 'A', BLUE); label(svg, 140, 76, 'B', ORANGE);
+        caption(svg, 'overlapping');
+      },
+      function(svg) {
+        poly(svg, [[10,20],[80,20],[80,130],[10,130]], BLUE, BLUE_FILL);
+        poly(svg, [[110,20],[180,20],[180,130],[110,130]], ORANGE, ORANGE_FILL);
+        label(svg, 45, 16, 'A', BLUE); label(svg, 145, 16, 'B', ORANGE);
+        caption(svg, 'disjoint');
+      },
+    ],
+  },
+  {
+    name: 'contains_properly',
+    sig: '(a, b)',
+    desc: 'True if B is completely inside A, with no common boundary points. B intersects the interior of A but not the boundary or exterior. Unlike <code>contains</code>, a geometry does not contain_properly itself.',
+    rel: 'Stricter than contains &mdash; no shared boundary allowed',
+    demo: {
+      a: [15,15,160,110], b: [45,35,100,75],
+      evaluate: (a, b) => R.containsProperly(a, b),
+    },
+    trueExamples: [
+      function(svg) {
+        poly(svg, [[15,15],[175,15],[175,125],[15,125]], BLUE, BLUE_FILL);
+        poly(svg, [[45,35],[145,35],[145,110],[45,110]], ORANGE, ORANGE_FILL);
+        label(svg, 95, 8, 'A', BLUE); label(svg, 95, 78, 'B', ORANGE);
+        caption(svg, 'fully interior');
+      },
+    ],
+    falseExamples: [
+      function(svg) {
+        poly(svg, [[15,15],[175,15],[175,125],[15,125]], BLUE, BLUE_FILL);
+        poly(svg, [[45,35],[175,35],[175,110],[45,110]], ORANGE, ORANGE_FILL);
+        label(svg, 80, 8, 'A', BLUE); label(svg, 110, 78, 'B', ORANGE);
+        caption(svg, 'B shares right edge of A');
+      },
+      function(svg) {
+        poly(svg, [[15,15],[175,15],[175,125],[15,125]], BLUE, BLUE_FILL);
+        poly(svg, [[15,15],[175,15],[175,125],[15,125]], ORANGE, 'none', { dash: '5,4' });
+        label(svg, 95, 80, 'A = B', '#64748b');
+        caption(svg, 'A does not contain_properly itself');
+      },
+    ],
+  },
+  {
+    name: 'covered_by',
+    sig: '(a, b)',
+    desc: 'True if no point in geometry A is outside geometry B. Similar to <code>within</code> but also returns True when A is on the boundary of B.',
+    rel: 'covered_by(A, B) == covers(B, A)',
+    demo: {
+      a: [55,40,80,65], b: [15,15,160,110], aOnTop: true,
+      evaluate: (a, b) => R.contains(b, a),
+    },
+    trueExamples: [
+      function(svg) {
+        poly(svg, [[15,15],[175,15],[175,125],[15,125]], BLUE, BLUE_FILL);
+        poly(svg, [[45,35],[145,35],[145,110],[45,110]], ORANGE, ORANGE_FILL);
+        label(svg, 95, 78, 'A', ORANGE); label(svg, 95, 8, 'B', BLUE);
+        caption(svg, 'A fully inside B');
+      },
+      function(svg) {
+        poly(svg, [[15,15],[175,15],[175,125],[15,125]], BLUE, BLUE_FILL);
+        poly(svg, [[15,35],[145,35],[145,110],[15,110]], ORANGE, ORANGE_FILL);
+        label(svg, 80, 78, 'A', ORANGE); label(svg, 130, 8, 'B', BLUE);
+        caption(svg, 'A on boundary of B');
+      },
+    ],
+    falseExamples: [
+      function(svg) {
+        poly(svg, [[10,20],[100,20],[100,130],[10,130]], BLUE, BLUE_FILL);
+        poly(svg, [[70,25],[180,25],[180,120],[70,120]], ORANGE, ORANGE_FILL);
+        label(svg, 55, 80, 'A', BLUE); label(svg, 140, 76, 'B', ORANGE);
+        caption(svg, 'A extends beyond B');
+      },
+    ],
+  },
+  {
+    name: 'covers',
+    sig: '(a, b)',
+    desc: 'True if no point in geometry B is outside geometry A. Like <code>contains</code> but also returns True when B is on the boundary of A.',
+    rel: 'covers(A, B) == covered_by(B, A)',
+    demo: {
+      a: [15,15,160,110], b: [45,35,100,75],
+      evaluate: (a, b) => R.contains(a, b),
+    },
+    trueExamples: [
+      function(svg) {
+        poly(svg, [[15,15],[175,15],[175,125],[15,125]], BLUE, BLUE_FILL);
+        poly(svg, [[45,35],[145,35],[145,110],[45,110]], ORANGE, ORANGE_FILL);
+        label(svg, 95, 8, 'A', BLUE); label(svg, 95, 78, 'B', ORANGE);
+        caption(svg, 'B fully inside A');
+      },
+      function(svg) {
+        poly(svg, [[15,15],[175,15],[175,125],[15,125]], BLUE, BLUE_FILL);
+        poly(svg, [[15,35],[145,35],[145,110],[15,110]], ORANGE, ORANGE_FILL);
+        label(svg, 130, 8, 'A', BLUE); label(svg, 80, 78, 'B', ORANGE);
+        caption(svg, 'B on boundary of A');
+      },
+    ],
+    falseExamples: [
+      function(svg) {
+        poly(svg, [[10,20],[100,20],[100,130],[10,130]], BLUE, BLUE_FILL);
+        poly(svg, [[70,25],[180,25],[180,120],[70,120]], ORANGE, ORANGE_FILL);
+        label(svg, 40, 16, 'A', BLUE); label(svg, 140, 76, 'B', ORANGE);
+        caption(svg, 'B extends beyond A');
+      },
+    ],
+  },
+  {
+    name: 'crosses',
+    sig: '(a, b)',
+    desc: 'True if A and B have some but not all interior points in common, and the dimension of the intersection is less than the maximum dimension of the inputs.',
+    demo: {
+      a: [40,18,110,107], b: [5,75,180,0], bType: 'hline',
+      evaluate: (a, b) => lineCrossesRect(b, a),
+    },
+    trueExamples: [
+      function(svg) {
+        poly(svg, [[40,18],[150,18],[150,125],[40,125]], BLUE, BLUE_FILL);
+        line(svg, [[5,75],[185,75]], ORANGE, { sw: 3 });
+        label(svg, 95, 11, 'A', BLUE); label(svg, 175, 68, 'B', ORANGE);
+        caption(svg, 'line through polygon');
+      },
+      function(svg) {
+        line(svg, [[15,130],[175,15]], BLUE, { sw: 3 });
+        line(svg, [[15,15],[175,130]], ORANGE, { sw: 3 });
+        dot(svg, 95, 72, '#64748b', 5);
+        label(svg, 165, 11, 'A', BLUE); label(svg, 165, 126, 'B', ORANGE);
+        caption(svg, 'two lines crossing');
+      },
+    ],
+    falseExamples: [
+      function(svg) {
+        poly(svg, [[15,15],[175,15],[175,125],[15,125]], BLUE, BLUE_FILL);
+        line(svg, [[40,75],[150,75]], ORANGE, { sw: 3 });
+        label(svg, 95, 8, 'A', BLUE); label(svg, 95, 68, 'B', ORANGE);
+        caption(svg, 'line fully inside polygon');
+      },
+      function(svg) {
+        poly(svg, [[10,20],[90,20],[90,130],[10,130]], BLUE, BLUE_FILL);
+        poly(svg, [[100,20],[180,20],[180,130],[100,130]], ORANGE, ORANGE_FILL);
+        label(svg, 50, 16, 'A', BLUE); label(svg, 140, 16, 'B', ORANGE);
+        caption(svg, 'disjoint polygons');
+      },
+    ],
+  },
+  {
+    name: 'disjoint',
+    sig: '(a, b)',
+    desc: 'True if A and B have no points in common at all. When disjoint is True, all other spatial predicates (overlaps, touches, within, intersects) are False.',
+    rel: 'disjoint(A, B) == ~intersects(A, B)',
+    demo: {
+      a: [10,20,70,110], b: [110,20,70,110],
+      evaluate: (a, b) => R.disjoint(a, b),
+    },
+    trueExamples: [
+      function(svg) {
+        poly(svg, [[10,20],[80,20],[80,130],[10,130]], BLUE, BLUE_FILL);
+        poly(svg, [[110,20],[180,20],[180,130],[110,130]], ORANGE, ORANGE_FILL);
+        label(svg, 45, 16, 'A', BLUE); label(svg, 145, 16, 'B', ORANGE);
+      },
+      function(svg) {
+        circle(svg, 55, 75, 40, BLUE, BLUE_FILL);
+        circle(svg, 145, 75, 30, ORANGE, ORANGE_FILL);
+        label(svg, 55, 79, 'A', BLUE); label(svg, 145, 79, 'B', ORANGE);
+      },
+    ],
+    falseExamples: [
+      function(svg) {
+        poly(svg, [[10,20],[110,20],[110,130],[10,130]], BLUE, BLUE_FILL);
+        poly(svg, [[80,20],[180,20],[180,130],[80,130]], ORANGE, ORANGE_FILL);
+        label(svg, 40, 16, 'A', BLUE); label(svg, 150, 16, 'B', ORANGE);
+        caption(svg, 'overlapping');
+      },
+      function(svg) {
+        poly(svg, [[10,20],[95,20],[95,130],[10,130]], BLUE, BLUE_FILL);
+        poly(svg, [[95,20],[180,20],[180,130],[95,130]], ORANGE, ORANGE_FILL);
+        label(svg, 52, 16, 'A', BLUE); label(svg, 137, 16, 'B', ORANGE);
+        caption(svg, 'touching (shared boundary)');
+      },
+    ],
+  },
+  {
+    name: 'dwithin',
+    sig: '(a, b, distance)',
+    desc: 'True if the geometries are within a given distance of each other. More efficient than computing the full distance and comparing. Negative distances always return False.',
+    demo: {
+      a: [10,25,55,95], b: [105,25,65,95], dwithinDist: 42,
+      evaluate: (a, b) => R.dwithin(a, b, 42),
+    },
+    trueExamples: [
+      function(svg) {
+        poly(svg, [[10,25],[65,25],[65,120],[10,120]], BLUE, BLUE_FILL);
+        poly(svg, [[105,25],[170,25],[170,120],[105,120]], ORANGE, ORANGE_FILL);
+        distLine(svg, 65, 72, 105, 72, GRAY);
+        label(svg, 85, 66, 'd', GRAY, 12);
+        label(svg, 37, 21, 'A', BLUE); label(svg, 137, 21, 'B', ORANGE);
+      },
+    ],
+    falseExamples: [
+      function(svg) {
+        poly(svg, [[5,35],[40,35],[40,110],[5,110]], BLUE, BLUE_FILL);
+        poly(svg, [[150,35],[185,35],[185,110],[150,110]], ORANGE, ORANGE_FILL);
+        distLine(svg, 40, 72, 150, 72, GRAY);
+        label(svg, 95, 66, '> d', GRAY, 12);
+        label(svg, 22, 31, 'A', BLUE); label(svg, 167, 31, 'B', ORANGE);
+      },
+    ],
+  },
+  {
+    name: 'equals',
+    sig: '(a, b)',
+    desc: 'True if A and B are topologically equal (same point set). Vertex order and count may differ: <code>LineString([(0,0),(2,2)])</code> equals <code>LineString([(0,0),(1,1),(2,2)])</code>.',
+    rel: 'equals(A, B) == within(A, B) &amp; contains(A, B)',
+    note: 'See also: <code>equals_exact</code> (structural + tolerance), <code>equals_identical</code> (exact pointwise match).',
+    demo: {
+      a: [30,20,130,110], b: [30,20,130,110],
+      evaluate: (a, b) => R.equals(a, b),
+    },
+    trueExamples: [
+      function(svg) {
+        poly(svg, [[30,20],[160,20],[160,130],[30,130]], BLUE, BLUE_FILL);
+        poly(svg, [[30,20],[160,20],[160,130],[30,130]], ORANGE, 'none', { dash: '6,5', sw: 2.5 });
+        label(svg, 95, 80, 'A = B', '#64748b');
+      },
+      function(svg) {
+        line(svg, [[20,75],[170,75]], BLUE, { sw: 3 });
+        line(svg, [[20,85],[95,85],[170,85]], ORANGE, { sw: 2, dash: '6,4' });
+        dot(svg, 20, 75, BLUE); dot(svg, 170, 75, BLUE);
+        dot(svg, 20, 85, ORANGE); dot(svg, 95, 85, ORANGE); dot(svg, 170, 85, ORANGE);
+        label(svg, 15, 68, 'A', BLUE); label(svg, 15, 100, 'B', ORANGE);
+        caption(svg, 'same geometry, different vertices');
+      },
+    ],
+    falseExamples: [
+      function(svg) {
+        poly(svg, [[10,20],[90,20],[90,130],[10,130]], BLUE, BLUE_FILL);
+        poly(svg, [[80,30],[175,30],[175,120],[80,120]], ORANGE, ORANGE_FILL);
+        label(svg, 40, 16, 'A', BLUE); label(svg, 140, 26, 'B', ORANGE);
+      },
+    ],
+  },
+  {
+    name: 'intersects',
+    sig: '(a, b)',
+    desc: 'True if A and B share any portion of space &mdash; boundary or interior. This is the broadest spatial relationship test.',
+    rel: 'intersects(A, B) == ~disjoint(A, B)',
+    demo: {
+      a: [10,20,100,110], b: [80,20,100,110],
+      evaluate: (a, b) => R.intersects(a, b),
+    },
+    trueExamples: [
+      function(svg) {
+        poly(svg, [[10,20],[110,20],[110,130],[10,130]], BLUE, BLUE_FILL);
+        poly(svg, [[80,20],[180,20],[180,130],[80,130]], ORANGE, ORANGE_FILL);
+        label(svg, 40, 16, 'A', BLUE); label(svg, 150, 16, 'B', ORANGE);
+        caption(svg, 'overlapping');
+      },
+      function(svg) {
+        poly(svg, [[10,20],[95,20],[95,130],[10,130]], BLUE, BLUE_FILL);
+        poly(svg, [[95,20],[180,20],[180,130],[95,130]], ORANGE, ORANGE_FILL);
+        label(svg, 52, 16, 'A', BLUE); label(svg, 137, 16, 'B', ORANGE);
+        caption(svg, 'touching at boundary');
+      },
+      function(svg) {
+        poly(svg, [[15,15],[175,15],[175,125],[15,125]], BLUE, BLUE_FILL);
+        poly(svg, [[45,35],[145,35],[145,110],[45,110]], ORANGE, ORANGE_FILL);
+        label(svg, 95, 8, 'A', BLUE); label(svg, 95, 78, 'B', ORANGE);
+        caption(svg, 'contained');
+      },
+    ],
+    falseExamples: [
+      function(svg) {
+        poly(svg, [[10,20],[80,20],[80,130],[10,130]], BLUE, BLUE_FILL);
+        poly(svg, [[110,20],[180,20],[180,130],[110,130]], ORANGE, ORANGE_FILL);
+        label(svg, 45, 16, 'A', BLUE); label(svg, 145, 16, 'B', ORANGE);
+        caption(svg, 'disjoint');
+      },
+    ],
+  },
+  {
+    name: 'overlaps',
+    sig: '(a, b)',
+    desc: 'True if A and B have the same dimension, share some but not all interior space, and neither contains the other.',
+    demo: {
+      a: [10,20,100,110], b: [80,25,100,100],
+      evaluate: (a, b) => R.overlaps(a, b),
+    },
+    trueExamples: [
+      function(svg) {
+        poly(svg, [[10,20],[110,20],[110,130],[10,130]], BLUE, BLUE_FILL);
+        poly(svg, [[80,25],[180,25],[180,125],[80,125]], ORANGE, ORANGE_FILL);
+        label(svg, 40, 16, 'A', BLUE); label(svg, 150, 21, 'B', ORANGE);
+        caption(svg, 'partial overlap');
+      },
+      function(svg) {
+        circle(svg, 70, 75, 50, BLUE, BLUE_FILL);
+        circle(svg, 130, 75, 45, ORANGE, ORANGE_FILL);
+        label(svg, 45, 79, 'A', BLUE); label(svg, 155, 79, 'B', ORANGE);
+        caption(svg, 'overlapping circles');
+      },
+    ],
+    falseExamples: [
+      function(svg) {
+        poly(svg, [[15,15],[175,15],[175,125],[15,125]], BLUE, BLUE_FILL);
+        poly(svg, [[45,35],[145,35],[145,110],[45,110]], ORANGE, ORANGE_FILL);
+        label(svg, 95, 8, 'A', BLUE); label(svg, 95, 78, 'B', ORANGE);
+        caption(svg, 'A contains B');
+      },
+      function(svg) {
+        poly(svg, [[10,20],[80,20],[80,130],[10,130]], BLUE, BLUE_FILL);
+        poly(svg, [[110,20],[180,20],[180,130],[110,130]], ORANGE, ORANGE_FILL);
+        label(svg, 45, 16, 'A', BLUE); label(svg, 145, 16, 'B', ORANGE);
+        caption(svg, 'disjoint');
+      },
+      function(svg) {
+        poly(svg, [[10,25],[100,25],[100,125],[10,125]], BLUE, BLUE_FILL);
+        line(svg, [[10,75],[185,75]], ORANGE, { sw: 3 });
+        label(svg, 55, 21, 'A', BLUE); label(svg, 170, 68, 'B', ORANGE);
+        caption(svg, 'different dimensions');
+      },
+    ],
+  },
+  {
+    name: 'touches',
+    sig: '(a, b)',
+    desc: 'True if the only points shared between A and B are on their boundaries. Overlapping geometries do not touch.',
+    demo: {
+      a: [10,20,85,110], b: [95,20,85,110],
+      evaluate: (a, b) => R.touches(a, b),
+    },
+    trueExamples: [
+      function(svg) {
+        poly(svg, [[10,20],[95,20],[95,130],[10,130]], BLUE, BLUE_FILL);
+        poly(svg, [[95,20],[180,20],[180,130],[95,130]], ORANGE, ORANGE_FILL);
+        label(svg, 52, 16, 'A', BLUE); label(svg, 137, 16, 'B', ORANGE);
+        caption(svg, 'shared edge');
+      },
+      function(svg) {
+        poly(svg, [[10,15],[95,15],[95,75],[10,75]], BLUE, BLUE_FILL);
+        poly(svg, [[95,75],[180,75],[180,130],[95,130]], ORANGE, ORANGE_FILL);
+        dot(svg, 95, 75, '#64748b', 5);
+        label(svg, 52, 11, 'A', BLUE); label(svg, 137, 112, 'B', ORANGE);
+        caption(svg, 'single shared corner point');
+      },
+      function(svg) {
+        circle(svg, 65, 75, 45, BLUE, BLUE_FILL);
+        line(svg, [[110,15],[110,135]], ORANGE, { sw: 3 });
+        label(svg, 55, 79, 'A', BLUE); label(svg, 120, 25, 'B', ORANGE);
+        caption(svg, 'tangent line');
+      },
+    ],
+    falseExamples: [
+      function(svg) {
+        poly(svg, [[10,20],[110,20],[110,130],[10,130]], BLUE, BLUE_FILL);
+        poly(svg, [[80,25],[180,25],[180,125],[80,125]], ORANGE, ORANGE_FILL);
+        label(svg, 40, 16, 'A', BLUE); label(svg, 150, 21, 'B', ORANGE);
+        caption(svg, 'interiors overlap');
+      },
+      function(svg) {
+        poly(svg, [[10,20],[80,20],[80,130],[10,130]], BLUE, BLUE_FILL);
+        poly(svg, [[110,20],[180,20],[180,130],[110,130]], ORANGE, ORANGE_FILL);
+        label(svg, 45, 16, 'A', BLUE); label(svg, 145, 16, 'B', ORANGE);
+        caption(svg, 'disjoint');
+      },
+    ],
+  },
+  {
+    name: 'within',
+    sig: '(a, b)',
+    desc: 'True if geometry A is completely inside geometry B. No points of A lie in the exterior of B, and at least one interior point of A lies in the interior of B.',
+    rel: 'within(A, B) == contains(B, A)',
+    demo: {
+      a: [55,40,80,65], b: [15,15,160,110], aOnTop: true,
+      evaluate: (a, b) => R.contains(b, a),
+    },
+    trueExamples: [
+      function(svg) {
+        poly(svg, [[15,15],[175,15],[175,125],[15,125]], ORANGE, ORANGE_FILL);
+        poly(svg, [[45,35],[145,35],[145,110],[45,110]], BLUE, BLUE_FILL);
+        label(svg, 95, 78, 'A', BLUE); label(svg, 95, 8, 'B', ORANGE);
+        caption(svg, 'polygon within polygon');
+      },
+      function(svg) {
+        poly(svg, [[15,15],[175,15],[175,125],[15,125]], ORANGE, ORANGE_FILL);
+        dot(svg, 95, 75, BLUE, 6);
+        label(svg, 108, 73, 'A', BLUE); label(svg, 95, 8, 'B', ORANGE);
+        caption(svg, 'point within polygon');
+      },
+    ],
+    falseExamples: [
+      function(svg) {
+        poly(svg, [[10,20],[100,20],[100,130],[10,130]], BLUE, BLUE_FILL);
+        poly(svg, [[70,25],[180,25],[180,120],[70,120]], ORANGE, ORANGE_FILL);
+        label(svg, 40, 16, 'A', BLUE); label(svg, 140, 76, 'B', ORANGE);
+        caption(svg, 'A extends beyond B');
+      },
+    ],
+  },
+];
+
+const unaryPredicates = [
+  {
+    name: 'is_valid',
+    sig: '(geometry)',
+    desc: 'True if a geometry is well formed per OGC standards. Polygons must not self-intersect; MultiPolygons must not have overlapping components.',
+    note: 'See also: <code>is_valid_reason</code> returns a string explaining why a geometry is invalid.',
+    trueExamples: [
+      function(svg) {
+        poly(svg, [[30,18],[160,18],[160,125],[30,125]], VIOLET, VIOLET_FILL);
+        caption(svg, 'simple polygon');
+      },
+      function(svg) {
+        poly(svg, [[20,12],[170,12],[170,125],[20,125]], VIOLET, VIOLET_FILL);
+        poly(svg, [[60,45],[130,45],[130,105],[60,105]], '#fff', '#fff', { sw: 2 });
+        svg.appendChild(svgEl('path', {
+          d: 'M60,45 L130,45 L130,105 L60,105 Z',
+          stroke: VIOLET, fill: 'none', 'stroke-width': 2, 'stroke-dasharray': '4,3'
+        }));
+        caption(svg, 'polygon with hole');
+      },
+    ],
+    falseExamples: [
+      function(svg) {
+        poly(svg, [[30,18],[160,18],[30,125],[160,125]], RED, RED_FILL);
+        dot(svg, 95, 75, RED, 5);
+        caption(svg, 'self-intersecting (bowtie)');
+      },
+      function(svg) {
+        poly(svg, [[15,25],[105,25],[105,125],[15,125]], RED, RED_FILL);
+        poly(svg, [[85,25],[175,25],[175,125],[85,125]], RED, RED_FILL);
+        caption(svg, 'overlapping polygon components');
+      },
+    ],
+  },
+  {
+    name: 'is_simple',
+    sig: '(geometry)',
+    desc: 'True if the geometry has no anomalous geometric points such as self-intersections or self-tangency. Meaningful primarily for LineStrings; for Polygons use <code>is_valid</code> instead.',
+    trueExamples: [
+      function(svg) {
+        line(svg, [[15,120],[55,20],[115,130],[175,25]], VIOLET, { sw: 3 });
+        caption(svg, 'non-self-intersecting line');
+      },
+    ],
+    falseExamples: [
+      function(svg) {
+        line(svg, [[15,20],[175,130],[175,20],[15,130]], RED, { sw: 3 });
+        dot(svg, 95, 75, RED, 5);
+        caption(svg, 'self-intersecting line');
+      },
+      function(svg) {
+        line(svg, [[20,75],[95,20],[95,130],[95,20],[170,75]], RED, { sw: 3 });
+        dot(svg, 95, 20, RED, 5);
+        caption(svg, 'self-tangent (revisits a point)');
+      },
+    ],
+  },
+  {
+    name: 'is_ring',
+    sig: '(geometry)',
+    desc: 'True if a linestring is both closed and simple. Combines both checks into one predicate.',
+    rel: 'is_ring(g) == is_closed(g) &amp; is_simple(g)',
+    trueExamples: [
+      function(svg) {
+        line(svg, [[45,20],[145,20],[165,75],[145,130],[45,130],[25,75],[45,20]], VIOLET, { sw: 3 });
+        caption(svg, 'closed and simple');
+      },
+    ],
+    falseExamples: [
+      function(svg) {
+        line(svg, [[25,25],[165,125],[165,25],[25,125],[25,25]], RED, { sw: 3 });
+        dot(svg, 95, 75, RED, 5);
+        caption(svg, 'closed but self-intersecting');
+      },
+      function(svg) {
+        line(svg, [[20,30],[170,30],[170,120],[60,120]], RED, { sw: 3 });
+        dot(svg, 20, 30, RED); dot(svg, 60, 120, RED);
+        caption(svg, 'simple but not closed');
+      },
+    ],
+  },
+  {
+    name: 'is_closed',
+    sig: '(geometry)',
+    desc: "True if a linestring's first and last points are equal. Only checks endpoint equality, not simplicity.",
+    trueExamples: [
+      function(svg) {
+        line(svg, [[35,30],[155,20],[165,110],[60,125],[35,30]], VIOLET, { sw: 3 });
+        dot(svg, 35, 30, VIOLET, 5);
+        label(svg, 28, 18, 'start = end', VIOLET, 10);
+      },
+    ],
+    falseExamples: [
+      function(svg) {
+        line(svg, [[25,40],[155,20],[165,110],[60,125]], RED, { sw: 3 });
+        dot(svg, 25, 40, RED, 5); dot(svg, 60, 125, RED, 5);
+        label(svg, 25, 28, 'start', RED, 10); label(svg, 65, 140, 'end', RED, 10);
+      },
+    ],
+  },
+  {
+    name: 'is_ccw',
+    sig: '(geometry)',
+    desc: 'True if a linestring or linear ring is oriented counter-clockwise. Does not check whether the geometry is closed or non-self-intersecting.',
+    note: 'Recommended: combine with <code>is_simple</code> or <code>is_valid</code> for robust checks.',
+    trueExamples: [
+      function(svg) {
+        const pts = [[95,20],[30,115],[160,115],[95,20]];
+        line(svg, pts, VIOLET, { sw: 3 });
+        arrow(svg, 60, 70, 38, 102, VIOLET);
+        label(svg, 155, 20, 'CCW', VIOLET, 12);
+      },
+    ],
+    falseExamples: [
+      function(svg) {
+        const pts = [[95,20],[160,115],[30,115],[95,20]];
+        line(svg, pts, RED, { sw: 3 });
+        arrow(svg, 130, 70, 152, 102, RED);
+        label(svg, 155, 20, 'CW', RED, 12);
+      },
+    ],
+  },
+  {
+    name: 'is_empty',
+    sig: '(geometry)',
+    desc: 'True if a geometry has no coordinates (e.g. <code>Point()</code>, <code>Polygon()</code>). Empty geometries can result from operations like the intersection of non-overlapping shapes.',
+    trueExamples: [
+      function(svg) {
+        label(svg, 95, 65, 'EMPTY', '#94a3b8', 16);
+        poly(svg, [[35,30],[155,30],[155,110],[35,110]], '#cbd5e1', 'none', { dash: '5,5', sw: 1.5 });
+        caption(svg, 'Point() / Polygon()');
+      },
+    ],
+    falseExamples: [
+      function(svg) {
+        poly(svg, [[30,18],[160,18],[160,125],[30,125]], VIOLET, VIOLET_FILL);
+        caption(svg, 'has coordinates');
+      },
+    ],
+  },
+];
+
+/* ── Carousel widget ──────────────────────────── */
+function makeCarousel(examples, badgeClass, badgeText) {
+  const wrap = document.createElement('div');
+  wrap.className = 'carousel' + (examples.length <= 1 ? ' carousel-nav-hidden' : '');
+
+  const inner = document.createElement('div');
+  inner.className = 'carousel-inner';
+  const svgs = examples.map(fn => makeSVG(fn));
+  svgs.forEach((s, i) => { if (i > 0) s.style.display = 'none'; inner.appendChild(s); });
+  wrap.appendChild(inner);
+
+  const badge = document.createElement('span');
+  badge.className = 'badge ' + badgeClass;
+  badge.textContent = badgeText;
+  wrap.appendChild(badge);
+
+  const nav = document.createElement('div');
+  nav.className = 'carousel-nav';
+  const prev = document.createElement('button');
+  prev.className = 'carousel-btn';
+  prev.innerHTML = '&#8249;';
+  prev.setAttribute('aria-label', 'Previous example');
+  const next = document.createElement('button');
+  next.className = 'carousel-btn';
+  next.innerHTML = '&#8250;';
+  next.setAttribute('aria-label', 'Next example');
+
+  const dots = document.createElement('div');
+  dots.className = 'carousel-dots';
+  examples.forEach((_, i) => {
+    const d = document.createElement('div');
+    d.className = 'carousel-dot' + (i === 0 ? ' active' : '');
+    dots.appendChild(d);
+  });
+
+  nav.appendChild(prev);
+  nav.appendChild(dots);
+  nav.appendChild(next);
+  wrap.appendChild(nav);
+
+  let idx = 0;
+  function show(n) {
+    svgs[idx].style.display = 'none';
+    dots.children[idx].classList.remove('active');
+    idx = (n + examples.length) % examples.length;
+    svgs[idx].style.display = '';
+    dots.children[idx].classList.add('active');
+  }
+  prev.addEventListener('click', () => show(idx - 1));
+  next.addEventListener('click', () => show(idx + 1));
+
+  return wrap;
+}
+
+/* ── Interactive demo widget ─────────────────── */
+function getSvgPt(svg, e) {
+  const rect = svg.getBoundingClientRect();
+  return { x: (e.clientX - rect.left) * (W / rect.width), y: (e.clientY - rect.top) * (H / rect.height) };
+}
+
+function hitTestRect(pt, r, dx, dy) {
+  const x = r[0] + dx, y = r[1] + dy;
+  return pt.x >= x && pt.x <= x + r[2] && pt.y >= y && pt.y <= y + r[3];
+}
+
+function hitTestLine(pt, ln, dx, dy) {
+  const y = ln[1] + dy, x1 = ln[0] + dx, x2 = ln[0] + ln[2] + dx;
+  return pt.x >= x1 - 5 && pt.x <= x2 + 5 && Math.abs(pt.y - y) < 14;
+}
+
+function makeInteractive(p) {
+  const d = p.demo;
+  const isLine = d.bType === 'hline';
+  const wrap = document.createElement('div');
+  wrap.className = 'interactive';
+
+  const svg = svgEl('svg', { width: W, height: H, viewBox: `0 0 ${W} ${H}` });
+  svg.style.touchAction = 'none';
+
+  // -- Build B group (drawn first if aOnTop) --
+  const bGroup = svgEl('g');
+  bGroup.classList.add('b-group');
+  if (isLine) {
+    line(bGroup, [[d.b[0], d.b[1]], [d.b[0]+d.b[2], d.b[1]]], ORANGE, { sw: 3 });
+    label(bGroup, d.b[0]+d.b[2]-12, d.b[1]-8, 'B', ORANGE);
+  } else {
+    poly(bGroup, rectToPoly(d.b), ORANGE, ORANGE_FILL);
+    if (d.aOnTop) {
+      label(bGroup, d.b[0]+d.b[2]/2, d.b[1]+16, 'B', ORANGE);
+    } else {
+      label(bGroup, d.b[0]+d.b[2]/2, d.b[1]+d.b[3]/2+5, 'B', ORANGE);
+    }
+  }
+
+  // -- Build A elements --
+  function drawA(target) {
+    poly(target, rectToPoly(d.a), BLUE, BLUE_FILL);
+    if (d.aOnTop) {
+      label(target, d.a[0]+d.a[2]/2, d.a[1]+d.a[3]/2+5, 'A', BLUE);
+    } else {
+      label(target, d.a[0]+d.a[2]/2, d.a[1]+16, 'A', BLUE);
+    }
+  }
+
+  if (d.aOnTop) {
+    svg.appendChild(bGroup);
+    drawA(svg);
+  } else {
+    drawA(svg);
+    svg.appendChild(bGroup);
+  }
+
+  wrap.appendChild(svg);
+
+  // -- Badge --
+  const badge = document.createElement('span');
+  badge.className = 'badge badge-true';
+  badge.textContent = 'True';
+
+  // -- Reset button --
+  const resetBtn = document.createElement('button');
+  resetBtn.className = 'reset-btn';
+  resetBtn.title = 'Reset position';
+  resetBtn.innerHTML = '<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 2.5v4h4"/><path d="M2.9 6.5A5.5 5.5 0 1 1 2.5 8.5"/></svg>';
+
+  // -- Drag hint --
+  const hint = document.createElement('span');
+  hint.className = 'drag-hint';
+  hint.textContent = 'drag B';
+
+  const controls = document.createElement('div');
+  controls.className = 'interactive-controls';
+  controls.appendChild(badge);
+  controls.appendChild(resetBtn);
+  controls.appendChild(hint);
+  wrap.appendChild(controls);
+
+  // -- State --
+  let dx = 0, dy = 0, dragging = false, sx, sy;
+
+  function evaluate() {
+    const bCur = isLine
+      ? [d.b[0]+dx, d.b[1]+dy, d.b[2], 0]
+      : offsetRect(d.b, dx, dy);
+    return d.evaluate(d.a, bCur);
+  }
+
+  function redraw() {
+    bGroup.setAttribute('transform', `translate(${dx},${dy})`);
+    const result = evaluate();
+    badge.className = 'badge ' + (result ? 'badge-true' : 'badge-false');
+    badge.textContent = result ? 'True' : 'False';
+  }
+
+  svg.addEventListener('pointerdown', e => {
+    const pt = getSvgPt(svg, e);
+    const hit = isLine ? hitTestLine(pt, d.b, dx, dy) : hitTestRect(pt, d.b, dx, dy);
+    if (hit) {
+      dragging = true;
+      sx = pt.x - dx;
+      sy = pt.y - dy;
+      svg.setPointerCapture(e.pointerId);
+      svg.classList.add('dragging');
+      hint.style.display = 'none';
+      e.preventDefault();
+    }
+  });
+
+  svg.addEventListener('pointermove', e => {
+    if (!dragging) return;
+    const pt = getSvgPt(svg, e);
+    dx = pt.x - sx;
+    dy = pt.y - sy;
+    redraw();
+  });
+
+  const endDrag = () => { dragging = false; svg.classList.remove('dragging'); };
+  svg.addEventListener('pointerup', endDrag);
+  svg.addEventListener('pointercancel', endDrag);
+
+  resetBtn.addEventListener('click', () => {
+    dx = 0; dy = 0;
+    redraw();
+    hint.style.display = '';
+  });
+
+  return wrap;
+}
+
+/* ── Render ───────────────────────────────────── */
+function renderBinaryRow(p) {
+  const row = document.createElement('div');
+  row.className = 'pred-row binary';
+
+  const info = document.createElement('div');
+  info.className = 'pred-info';
+  const docUrl = `https://shapely.readthedocs.io/en/stable/reference/shapely.${p.name}.html`;
+  let html = `<div class="pred-name"><a href="${docUrl}" target="_blank" rel="noopener">${p.name}</a><span class="sig">${p.sig}</span></div>`;
+  html += `<div class="pred-desc">${p.desc}</div>`;
+  if (p.rel) html += `<div class="pred-rel">${p.rel}</div>`;
+  if (p.note) html += `<div class="pred-note">${p.note}</div>`;
+  info.innerHTML = html;
+
+  row.appendChild(info);
+  row.appendChild(makeCarousel(p.trueExamples, 'badge-true', 'True'));
+  row.appendChild(makeCarousel(p.falseExamples, 'badge-false', 'False'));
+  row.appendChild(makeInteractive(p));
+  return row;
+}
+
+function renderUnaryRow(p) {
+  const row = document.createElement('div');
+  row.className = 'pred-row unary';
+
+  const info = document.createElement('div');
+  info.className = 'pred-info';
+  const docUrl = `https://shapely.readthedocs.io/en/stable/reference/shapely.${p.name}.html`;
+  let html = `<div class="pred-name"><a href="${docUrl}" target="_blank" rel="noopener">${p.name}</a><span class="sig">${p.sig}</span></div>`;
+  html += `<div class="pred-desc">${p.desc}</div>`;
+  if (p.rel) html += `<div class="pred-rel">${p.rel}</div>`;
+  if (p.note) html += `<div class="pred-note">${p.note}</div>`;
+  info.innerHTML = html;
+
+  row.appendChild(info);
+  row.appendChild(makeCarousel(p.trueExamples, 'badge-true', 'True'));
+  row.appendChild(makeCarousel(p.falseExamples, 'badge-false', 'False'));
+  return row;
+}
+
+const binaryContainer = document.getElementById('binary');
+for (const p of binaryPredicates) binaryContainer.appendChild(renderBinaryRow(p));
+
+const unaryContainer = document.getElementById('unary');
+for (const p of unaryPredicates) unaryContainer.appendChild(renderUnaryRow(p));
+</script>
+</body>
+</html>
