@@ -1,0 +1,2191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Neural Networks in Action</title>
+
+  <meta property="og:title" content="Neural Networks in Action" />
+  <meta property="og:description" content="Draw a digit and watch a CNN or Vision Transformer classify it layer by layer with real activations and attention maps." />
+  <meta property="og:author" content="Caleb Robinson" />
+  <meta property="og:image" content="https://calebrob.com/images/face.jpg" />
+  <meta property="og:type" content="website" />
+  <style>
+    :root{
+      --bg:#f8fafc;
+      --text:#0f172a;
+      --muted:#475569;
+      --border:#e5e7eb;
+      --card:#ffffff;
+      --shadow:0 6px 20px rgba(15,23,42,0.06);
+      --blue:#3b82f6;
+      --blue-stroke:#2563eb;
+      --violet:#a855f7;
+      --violet-stroke:#7c3aed;
+      --amber:#f59e0b;
+      --amber-stroke:#b45309;
+      --green:#22c55e;
+      --red:#ef4444;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Apple Color Emoji","Segoe UI Emoji";background:var(--bg);color:var(--text)}
+    .wrap{max-width:1400px;margin:24px auto;padding:0 16px}
+
+    header{display:flex;flex-direction:column;gap:10px;margin-bottom:16px}
+    h1{font-size:24px;letter-spacing:.2px;margin:0}
+    .desc{color:var(--muted);line-height:1.45}
+
+    .grid{display:grid;grid-template-columns:1fr 320px;gap:16px}
+    @media(max-width:1024px){.grid{grid-template-columns:1fr}}
+
+    .card{background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow);overflow:hidden}
+    .head{padding:12px 14px;border-bottom:1px solid var(--border)}
+    .head h2{margin:0;font-size:16px}
+    .body{padding:14px}
+
+    .hint{color:var(--muted);font-size:13px;margin-top:10px}
+
+    /* Drawing area */
+    .draw-area{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap}
+    .draw-col{display:flex;flex-direction:column;gap:8px;align-items:center}
+    #drawCanvas{border:2px solid var(--border);border-radius:12px;cursor:crosshair;touch-action:none;image-rendering:auto;background:#000}
+    .btn-row{display:flex;gap:8px;flex-wrap:wrap}
+    .btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-size:14px;cursor:pointer;transition:all .15s ease;font-family:inherit}
+    .btn:hover{background:#f1f5f9;border-color:#cbd5e1}
+    .btn.primary{background:var(--blue);color:#fff;border-color:var(--blue-stroke)}
+    .btn.primary:hover{background:var(--blue-stroke)}
+    .btn.primary:disabled{opacity:.5;cursor:not-allowed}
+
+    /* Sample digit buttons */
+    .samples{display:flex;gap:6px;flex-wrap:wrap}
+    .sample-btn{width:36px;height:36px;border:1px solid var(--border);border-radius:8px;cursor:pointer;background:var(--card);padding:2px;transition:all .15s ease}
+    .sample-btn:hover{border-color:var(--blue);box-shadow:0 0 0 2px #3b82f633}
+    .sample-btn canvas{width:100%;height:100%;border-radius:4px}
+
+    /* Network viz */
+    .viz-wrap{position:relative;overflow-x:auto;overflow-y:visible}
+    #vizCanvas{display:block;border:1px solid var(--border);border-radius:12px;background:#fff}
+
+    /* Tooltip */
+    .tooltip{position:fixed;pointer-events:none;z-index:100;background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:0 8px 30px rgba(15,23,42,0.12);padding:12px;max-width:380px;opacity:0;transition:opacity .15s ease}
+    .tooltip.visible{opacity:1}
+    .tooltip h3{margin:0 0 8px;font-size:14px}
+    .tooltip .tt-row{display:flex;gap:12px;align-items:flex-start;margin-bottom:8px}
+    .tooltip .tt-label{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px}
+    .tooltip canvas{border:1px solid var(--border);border-radius:4px;image-rendering:pixelated}
+    .tooltip .tt-stats{font-size:12px;color:var(--muted)}
+
+    /* Bar chart */
+    .bar-chart{display:flex;flex-direction:column;gap:4px}
+    .bar-row{display:flex;align-items:center;gap:8px}
+    .bar-label{width:18px;font-size:13px;font-weight:600;text-align:right;flex-shrink:0}
+    .bar-track{flex:1;height:22px;background:#f1f5f9;border-radius:6px;overflow:hidden;position:relative}
+    .bar-fill{height:100%;border-radius:6px;transition:width .4s ease;min-width:0}
+    .bar-val{width:48px;font-size:12px;color:var(--muted);text-align:right;flex-shrink:0}
+    .bar-row.predicted .bar-label{color:var(--blue-stroke)}
+    .bar-row.predicted .bar-fill{background:var(--blue)}
+    .bar-row:not(.predicted) .bar-fill{background:#e2e8f0}
+
+    /* Arch list */
+    .arch-list{font-size:13px;color:var(--muted);line-height:1.8}
+    .arch-list .layer-name{font-weight:600;color:var(--text);display:inline-block;min-width:80px}
+    .arch-list .layer-shape{font-family:'SF Mono',SFMono-Regular,Consolas,'Liberation Mono',Menlo,monospace;font-size:12px;color:var(--violet-stroke)}
+    .arch-list .layer-active{background:#dbeafe;border-radius:4px;padding:1px 4px}
+
+    /* Anim controls */
+    .anim-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+    .speed-slider{width:80px}
+    .anim-status{font-size:13px;color:var(--muted)}
+
+    /* Prediction banner */
+    .prediction{text-align:center;padding:16px;font-size:20px;font-weight:700;border-radius:12px;margin-bottom:12px;transition:all .3s ease}
+    .prediction.show{background:#dbeafe;border:1px solid #bfdbfe;color:var(--blue-stroke)}
+    .prediction.hide{background:#f1f5f9;border:1px solid var(--border);color:var(--muted);font-size:14px;font-weight:400}
+
+    /* Model tabs */
+    .model-tabs{display:flex;gap:4px;margin-bottom:12px}
+    .model-tab{padding:8px 20px;border:1px solid var(--border);border-radius:8px;background:var(--card);cursor:pointer;font-size:14px;font-weight:500;transition:all .15s ease;font-family:inherit}
+    .model-tab:hover{background:#f1f5f9}
+    .model-tab.active{background:var(--blue);color:#fff;border-color:var(--blue-stroke)}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>Neural Networks in Action</h1>
+      <div class="desc">
+        <p style="margin:0 0 10px">
+          Draw a digit (0&ndash;9) on the canvas and hit <b>Run</b> to watch a neural network classify it
+          in real time. The animation shows the actual intermediate feature maps as the image passes through each layer.
+          <b>Hover</b> over any layer in the visualization to inspect individual channel activations and filter weights.
+          <b>Use the tabs to switch between a CNN and a Vision Transformer.</b>
+        </p>
+        <p style="margin:0 0 10px">
+          Both models are trained on <a href="https://en.wikipedia.org/wiki/MNIST_database" style="color:var(--blue-stroke)">MNIST</a>.
+          The CNN (~6.2k params) has three 3&times;3 conv layers, max pool, global avg pool, and a linear classifier &mdash;
+          trained 25 epochs reaching <b>96.3% test accuracy</b>.
+          The ViT (~19.7k params) splits the image into 7&times;7 patches and processes them with 2 transformer layers
+          with multi-head self-attention &mdash; trained 30 epochs reaching <b>97.2% test accuracy</b>.
+          Both were trained with the <a href="https://en.wikipedia.org/wiki/Stochastic_gradient_descent#Adam" style="color:var(--blue-stroke)">Adam optimizer</a>
+          on a laptop CPU.
+          All weights are hardcoded directly into the page source and inference is pure JavaScript.
+        </p>
+        <p style="margin:0;padding:10px 14px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;color:#0c4a6e">
+          <b>Challenge:</b> Can you break it, and can you figure out what part of it broke?<br>
+          <span style="font-size:12px;color:#475569">(Hint: some of the sample images are incorrectly classified.)</span>
+        </p>
+      </div>
+    </header>
+
+    <div class="grid">
+      <!-- Left column -->
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <!-- Model tabs -->
+        <div class="model-tabs" id="modelTabs">
+          <button class="model-tab active" data-model="cnn">CNN</button>
+          <button class="model-tab" data-model="vit">ViT</button>
+        </div>
+
+        <!-- Draw card -->
+        <div class="card">
+          <div class="head"><h2>Draw a Digit</h2></div>
+          <div class="body">
+            <div class="draw-area">
+              <div class="draw-col">
+                <canvas id="drawCanvas" width="280" height="280"></canvas>
+                <div class="btn-row">
+                  <button class="btn" id="clearBtn">Clear</button>
+                  <button class="btn primary" id="runBtn">Run Network</button>
+                </div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:8px">
+                <div style="font-size:13px;color:var(--muted)">Or try a sample:</div>
+                <div class="samples" id="samplesRow"></div>
+                <div id="inputPreview" style="margin-top:8px"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Viz card -->
+        <div class="card">
+          <div class="head">
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+              <h2>Network Visualization</h2>
+              <div class="anim-controls">
+                <button class="btn" id="stepBackBtn" title="Previous layer">&larr;</button>
+                <button class="btn" id="playBtn" title="Play/Pause">&#9654;</button>
+                <button class="btn" id="stepFwdBtn" title="Next layer">&rarr;</button>
+                <button class="btn" id="skipBtn" title="Skip to end">&#9193;</button>
+                <label style="font-size:12px;color:var(--muted)">Speed</label>
+                <input type="range" class="speed-slider" id="speedSlider" min="0.25" max="3" step="0.25" value="1">
+                <span class="anim-status" id="animStatus"></span>
+              </div>
+            </div>
+          </div>
+          <div class="body">
+            <div class="viz-wrap">
+              <canvas id="vizCanvas" width="900" height="400"></canvas>
+            </div>
+            <div class="hint">Hover over a layer to inspect individual channel activations and filter weights.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right column -->
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <!-- Prediction -->
+        <div class="card">
+          <div class="head"><h2>Prediction</h2></div>
+          <div class="body">
+            <div class="prediction hide" id="predBanner">Draw a digit and hit Run</div>
+            <div class="bar-chart" id="barChart"></div>
+          </div>
+        </div>
+
+        <!-- Architecture -->
+        <div class="card">
+          <div class="head"><h2>Architecture</h2></div>
+          <div class="body">
+            <div class="arch-list" id="archList"></div>
+            <div class="hint" id="archHint">Trained on MNIST (60k handwritten digits). The network has ~6.2k parameters.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tooltip (shared) -->
+    <div class="tooltip" id="tooltip">
+      <h3 id="ttTitle"></h3>
+      <div id="ttBody"></div>
+    </div>
+  </div>
+
+  <script>
+  // ============================================================
+  // WEIGHTS - placeholders replaced by build script
+  // ============================================================
+  const CNN_WEIGHTS = __CNN_WEIGHTS__;
+  const VIT_WEIGHTS = __VIT_WEIGHTS__;
+  const SAMPLE_DIGITS = __SAMPLES__;
+
+  const MNIST_MEAN = 0.1307;
+  const MNIST_STD = 0.3081;
+
+  // ============================================================
+  // CNN OPERATIONS
+  // ============================================================
+  function zeros(shape) {
+    if (shape.length === 1) return new Float32Array(shape[0]);
+    return Array.from({length: shape[0]}, () => zeros(shape.slice(1)));
+  }
+
+  function conv2d(input, weight, bias) {
+    // input: [Cin][H][W], weight: [Cout][Cin][kH][kW], bias: [Cout]
+    const Cin = input.length, H = input[0].length, W = input[0][0].length;
+    const Cout = weight.length, kH = weight[0][0].length, kW = weight[0][0][0].length;
+    const outH = H - kH + 1, outW = W - kW + 1;
+    const out = Array.from({length: Cout}, () =>
+      Array.from({length: outH}, () => new Float32Array(outW))
+    );
+    for (let co = 0; co < Cout; co++) {
+      for (let oh = 0; oh < outH; oh++) {
+        for (let ow = 0; ow < outW; ow++) {
+          let sum = bias[co];
+          for (let ci = 0; ci < Cin; ci++) {
+            for (let kh = 0; kh < kH; kh++) {
+              for (let kw = 0; kw < kW; kw++) {
+                sum += input[ci][oh + kh][ow + kw] * weight[co][ci][kh][kw];
+              }
+            }
+          }
+          out[co][oh][ow] = sum;
+        }
+      }
+    }
+    return out;
+  }
+
+  function relu3d(t) {
+    return t.map(ch => ch.map(row => {
+      const r = new Float32Array(row.length);
+      for (let i = 0; i < row.length; i++) r[i] = Math.max(0, row[i]);
+      return r;
+    }));
+  }
+
+  function maxpool2d(t) {
+    // 2x2 stride 2
+    const C = t.length, H = t[0].length, W = t[0][0].length;
+    const outH = Math.floor(H / 2), outW = Math.floor(W / 2);
+    const out = Array.from({length: C}, () =>
+      Array.from({length: outH}, () => new Float32Array(outW))
+    );
+    for (let c = 0; c < C; c++) {
+      for (let oh = 0; oh < outH; oh++) {
+        for (let ow = 0; ow < outW; ow++) {
+          const h = oh * 2, w = ow * 2;
+          out[c][oh][ow] = Math.max(
+            t[c][h][w], t[c][h][w+1],
+            t[c][h+1][w], t[c][h+1][w+1]
+          );
+        }
+      }
+    }
+    return out;
+  }
+
+  function globalAvgPool(t) {
+    // [C][H][W] -> [C]
+    const C = t.length, H = t[0].length, W = t[0][0].length;
+    const out = new Float32Array(C);
+    for (let c = 0; c < C; c++) {
+      let sum = 0;
+      for (let h = 0; h < H; h++)
+        for (let w = 0; w < W; w++)
+          sum += t[c][h][w];
+      out[c] = sum / (H * W);
+    }
+    return out;
+  }
+
+  function linear(input, weight, bias) {
+    // input: [in], weight: [out][in], bias: [out]
+    const outN = weight.length;
+    const out = new Float32Array(outN);
+    for (let o = 0; o < outN; o++) {
+      let sum = bias[o];
+      for (let i = 0; i < input.length; i++) sum += input[i] * weight[o][i];
+      out[o] = sum;
+    }
+    return out;
+  }
+
+  function softmax(logits) {
+    const max = Math.max(...logits);
+    const exps = logits.map(v => Math.exp(v - max));
+    const sum = exps.reduce((a, b) => a + b, 0);
+    return exps.map(v => v / sum);
+  }
+
+  // ============================================================
+  // CNN FORWARD PASS
+  // ============================================================
+  const CNN_LAYER_INFO = [
+    { name: 'Input',    type: 'input',  shape: [1, 28, 28] },
+    { name: 'Conv1',    type: 'conv',   shape: [8, 26, 26] },
+    { name: 'ReLU1',    type: 'relu',   shape: [8, 26, 26] },
+    { name: 'MaxPool',  type: 'pool',   shape: [8, 13, 13] },
+    { name: 'Conv2',    type: 'conv',   shape: [16, 11, 11] },
+    { name: 'ReLU2',    type: 'relu',   shape: [16, 11, 11] },
+    { name: 'Conv3',    type: 'conv',   shape: [32, 9, 9] },
+    { name: 'ReLU3',    type: 'relu',   shape: [32, 9, 9] },
+    { name: 'AvgPool',  type: 'pool',   shape: [32] },
+    { name: 'Linear',   type: 'linear', shape: [10] },
+    { name: 'Softmax',  type: 'output', shape: [10] },
+  ];
+
+  function cnnForwardPass(img28) {
+    // img28: [28][28] normalized
+    const W = CNN_WEIGHTS;
+    const x0 = [img28]; // [1,28,28]
+    const x1 = conv2d(x0, W['conv1.weight'], W['conv1.bias']);
+    const x2 = relu3d(x1);
+    const x3 = maxpool2d(x2);
+    const x4 = conv2d(x3, W['conv2.weight'], W['conv2.bias']);
+    const x5 = relu3d(x4);
+    const x6 = conv2d(x5, W['conv3.weight'], W['conv3.bias']);
+    const x7 = relu3d(x6);
+    const x8 = globalAvgPool(x7);
+    const x9 = linear(x8, W['fc.weight'], W['fc.bias']);
+    const x10 = softmax(x9);
+
+    const layers = [
+      { ...CNN_LAYER_INFO[0],  data: x0 },
+      { ...CNN_LAYER_INFO[1],  data: x1, weights: { w: W['conv1.weight'], b: W['conv1.bias'] } },
+      { ...CNN_LAYER_INFO[2],  data: x2 },
+      { ...CNN_LAYER_INFO[3],  data: x3 },
+      { ...CNN_LAYER_INFO[4],  data: x4, weights: { w: W['conv2.weight'], b: W['conv2.bias'] } },
+      { ...CNN_LAYER_INFO[5],  data: x5 },
+      { ...CNN_LAYER_INFO[6],  data: x6, weights: { w: W['conv3.weight'], b: W['conv3.bias'] } },
+      { ...CNN_LAYER_INFO[7],  data: x7 },
+      { ...CNN_LAYER_INFO[8],  data: x8 },
+      { ...CNN_LAYER_INFO[9],  data: x9 },
+      { ...CNN_LAYER_INFO[10], data: x10 },
+    ];
+
+    let pred = 0;
+    for (let i = 1; i < 10; i++) if (x10[i] > x10[pred]) pred = i;
+
+    return { layers, prediction: pred, probs: x10 };
+  }
+
+  // ============================================================
+  // ViT OPERATIONS
+  // ============================================================
+  function layerNorm(x, weight, bias) {
+    const eps = 1e-5;
+    // Check if 1D (x[0] is a number) or 2D (x[0] has .length)
+    if (typeof x[0] === 'number') {
+      // 1D case: x is [D]
+      const D = x.length;
+      let mean = 0;
+      for (let i = 0; i < D; i++) mean += x[i];
+      mean /= D;
+      let variance = 0;
+      for (let i = 0; i < D; i++) variance += (x[i] - mean) * (x[i] - mean);
+      variance /= D;
+      const std = Math.sqrt(variance + eps);
+      const out = new Float32Array(D);
+      for (let i = 0; i < D; i++) {
+        out[i] = ((x[i] - mean) / std) * weight[i] + bias[i];
+      }
+      return out;
+    } else {
+      // 2D case: x is [N][D]
+      const N = x.length;
+      const D = x[0].length;
+      const out = Array.from({length: N}, () => new Float32Array(D));
+      for (let n = 0; n < N; n++) {
+        let mean = 0;
+        for (let i = 0; i < D; i++) mean += x[n][i];
+        mean /= D;
+        let variance = 0;
+        for (let i = 0; i < D; i++) variance += (x[n][i] - mean) * (x[n][i] - mean);
+        variance /= D;
+        const std = Math.sqrt(variance + eps);
+        for (let i = 0; i < D; i++) {
+          out[n][i] = ((x[n][i] - mean) / std) * weight[i] + bias[i];
+        }
+      }
+      return out;
+    }
+  }
+
+  function linearFwd(x, weight, bias) {
+    // single vector [D_in] -> [D_out]
+    // weight: [D_out][D_in], bias: [D_out]
+    const D_out = weight.length;
+    const D_in = x.length;
+    const out = new Float32Array(D_out);
+    for (let o = 0; o < D_out; o++) {
+      let sum = bias[o];
+      for (let i = 0; i < D_in; i++) sum += x[i] * weight[o][i];
+      out[o] = sum;
+    }
+    return out;
+  }
+
+  function linearBatch(x, weight, bias) {
+    // [N][D_in] -> [N][D_out]
+    // weight: [D_out][D_in], bias: [D_out]
+    const N = x.length;
+    const D_out = weight.length;
+    const D_in = x[0].length;
+    const out = Array.from({length: N}, () => new Float32Array(D_out));
+    for (let n = 0; n < N; n++) {
+      for (let o = 0; o < D_out; o++) {
+        let sum = bias[o];
+        for (let i = 0; i < D_in; i++) sum += x[n][i] * weight[o][i];
+        out[n][o] = sum;
+      }
+    }
+    return out;
+  }
+
+  function gelu(x) {
+    // [N][D] element-wise GELU approximation
+    const N = x.length;
+    const D = x[0].length;
+    const out = Array.from({length: N}, () => new Float32Array(D));
+    const c = Math.sqrt(2 / Math.PI);
+    for (let n = 0; n < N; n++) {
+      for (let d = 0; d < D; d++) {
+        const v = x[n][d];
+        out[n][d] = 0.5 * v * (1 + Math.tanh(c * (v + 0.044715 * v * v * v)));
+      }
+    }
+    return out;
+  }
+
+  function softmax1d(x) {
+    // [D] -> [D]
+    const D = x.length;
+    let max = -Infinity;
+    for (let i = 0; i < D; i++) if (x[i] > max) max = x[i];
+    const exps = new Float32Array(D);
+    let sum = 0;
+    for (let i = 0; i < D; i++) {
+      exps[i] = Math.exp(x[i] - max);
+      sum += exps[i];
+    }
+    for (let i = 0; i < D; i++) exps[i] /= sum;
+    return exps;
+  }
+
+  function attention(x, qkvW, qkvB, projW, projB, numHeads) {
+    // x: [N][D], returns {out: [N][D], attnWeights: [heads][N][N]}
+    const N = x.length;
+    const D = x[0].length;
+    const headDim = D / numHeads;
+    const scale = 1 / Math.sqrt(headDim);
+
+    // QKV projection: [N][D] -> [N][3*D]
+    const qkv = linearBatch(x, qkvW, qkvB);
+
+    // Split into Q, K, V per head
+    // qkv[n] is [3*D], split as [Q_h0..Q_hH | K_h0..K_hH | V_h0..V_hH]
+    // Each Q,K,V block is [D], then split by heads: each head gets [headDim]
+    const attnWeights = Array.from({length: numHeads}, () =>
+      Array.from({length: N}, () => new Float32Array(N))
+    );
+    const headsOut = Array.from({length: numHeads}, () =>
+      Array.from({length: N}, () => new Float32Array(headDim))
+    );
+
+    for (let h = 0; h < numHeads; h++) {
+      // Extract Q, K, V for this head
+      const Q = Array.from({length: N}, (_, n) => {
+        const q = new Float32Array(headDim);
+        for (let d = 0; d < headDim; d++) q[d] = qkv[n][h * headDim + d];
+        return q;
+      });
+      const K = Array.from({length: N}, (_, n) => {
+        const k = new Float32Array(headDim);
+        for (let d = 0; d < headDim; d++) k[d] = qkv[n][D + h * headDim + d];
+        return k;
+      });
+      const V = Array.from({length: N}, (_, n) => {
+        const v = new Float32Array(headDim);
+        for (let d = 0; d < headDim; d++) v[d] = qkv[n][2 * D + h * headDim + d];
+        return v;
+      });
+
+      // Compute attention scores: Q @ K^T * scale
+      for (let i = 0; i < N; i++) {
+        const scores = new Float32Array(N);
+        for (let j = 0; j < N; j++) {
+          let dot = 0;
+          for (let d = 0; d < headDim; d++) dot += Q[i][d] * K[j][d];
+          scores[j] = dot * scale;
+        }
+        // Softmax
+        const sm = softmax1d(scores);
+        for (let j = 0; j < N; j++) attnWeights[h][i][j] = sm[j];
+
+        // Weighted sum of V
+        for (let d = 0; d < headDim; d++) {
+          let sum = 0;
+          for (let j = 0; j < N; j++) sum += sm[j] * V[j][d];
+          headsOut[h][i][d] = sum;
+        }
+      }
+    }
+
+    // Concatenate heads: [N][D]
+    const concat = Array.from({length: N}, () => new Float32Array(D));
+    for (let n = 0; n < N; n++) {
+      for (let h = 0; h < numHeads; h++) {
+        for (let d = 0; d < headDim; d++) {
+          concat[n][h * headDim + d] = headsOut[h][n][d];
+        }
+      }
+    }
+
+    // Output projection
+    const out = linearBatch(concat, projW, projB);
+
+    return { out, attnWeights };
+  }
+
+  function addArrays(a, b) {
+    // element-wise add [N][D]
+    const N = a.length;
+    const D = a[0].length;
+    const out = Array.from({length: N}, () => new Float32Array(D));
+    for (let n = 0; n < N; n++) {
+      for (let d = 0; d < D; d++) {
+        out[n][d] = a[n][d] + b[n][d];
+      }
+    }
+    return out;
+  }
+
+  // ============================================================
+  // ViT FORWARD PASS
+  // ============================================================
+  const VIT_LAYER_INFO = [
+    { name: 'Input',       type: 'input',     shape: [1, 28, 28] },
+    { name: 'Patches',     type: 'patches',   shape: [16, 49] },
+    { name: 'Patch Embed', type: 'embed',     shape: [17, 32] },
+    { name: 'Attention 1', type: 'attention',  shape: [2, 17, 17] },
+    { name: 'Block 1 Out', type: 'embed',     shape: [17, 32] },
+    { name: 'Attention 2', type: 'attention',  shape: [2, 17, 17] },
+    { name: 'Block 2 Out', type: 'embed',     shape: [17, 32] },
+    { name: 'CLS Token',   type: 'linear',    shape: [32] },
+    { name: 'Linear',      type: 'linear',    shape: [10] },
+    { name: 'Softmax',     type: 'output',    shape: [10] },
+  ];
+
+  function vitForwardPass(img28) {
+    const W = VIT_WEIGHTS;
+
+    // 1. Extract 7x7 patches (4x4 grid = 16 patches), flatten each to [49]
+    const patches = [];
+    for (let py = 0; py < 4; py++) {
+      for (let px = 0; px < 4; px++) {
+        const patch = new Float32Array(49);
+        for (let dy = 0; dy < 7; dy++) {
+          for (let dx = 0; dx < 7; dx++) {
+            patch[dy * 7 + dx] = img28[py * 7 + dy][px * 7 + dx];
+          }
+        }
+        patches.push(patch);
+      }
+    }
+    // patches: [16][49]
+
+    // 2. Linear projection: [16][49] -> [16][32]
+    const projected = linearBatch(patches, W['patch_embed.proj.weight'], W['patch_embed.proj.bias']);
+
+    // 3. Prepend CLS token: [17][32]
+    const D = 32;
+    const clsToken = W['cls_token'][0][0]; // shape in JSON is [1][1][32], extract [32]
+    const withCls = Array.from({length: 17}, (_, n) => {
+      const row = new Float32Array(D);
+      if (n === 0) {
+        for (let d = 0; d < D; d++) row[d] = clsToken[d];
+      } else {
+        for (let d = 0; d < D; d++) row[d] = projected[n - 1][d];
+      }
+      return row;
+    });
+
+    // 4. Add positional embeddings
+    const posEmbed = W['pos_embed'][0]; // shape in JSON is [1][17][32], extract [17][32]
+    let x = Array.from({length: 17}, (_, n) => {
+      const row = new Float32Array(D);
+      for (let d = 0; d < D; d++) row[d] = withCls[n][d] + posEmbed[n][d];
+      return row;
+    });
+    const embedAfterPos = x.map(row => Float32Array.from(row));
+
+    // Storage for attention weights
+    const allAttnWeights = [];
+
+    // 5. Transformer blocks
+    const blockOuts = [];
+    for (let block = 0; block < 2; block++) {
+      const prefix = `blocks.${block}`;
+
+      // a. LayerNorm -> Self-Attention
+      const normed1 = layerNorm(x, W[`${prefix}.norm1.weight`], W[`${prefix}.norm1.bias`]);
+      const attnResult = attention(
+        normed1,
+        W[`${prefix}.attn.qkv.weight`], W[`${prefix}.attn.qkv.bias`],
+        W[`${prefix}.attn.proj.weight`], W[`${prefix}.attn.proj.bias`],
+        2 // numHeads
+      );
+      allAttnWeights.push(attnResult.attnWeights);
+
+      // b. Residual add
+      x = addArrays(x, attnResult.out);
+      const afterAttnResidual = x.map(row => Float32Array.from(row));
+
+      // c. LayerNorm -> MLP (linear -> GELU -> linear)
+      const normed2 = layerNorm(x, W[`${prefix}.norm2.weight`], W[`${prefix}.norm2.bias`]);
+      const mlpHidden = linearBatch(normed2, W[`${prefix}.mlp.0.weight`], W[`${prefix}.mlp.0.bias`]);
+      const mlpAct = gelu(mlpHidden);
+      const mlpOut = linearBatch(mlpAct, W[`${prefix}.mlp.2.weight`], W[`${prefix}.mlp.2.bias`]);
+
+      // d. Residual add
+      x = addArrays(x, mlpOut);
+      blockOuts.push(x.map(row => Float32Array.from(row)));
+    }
+
+    // 6. Final LayerNorm
+    const xNormed = layerNorm(x, W['norm.weight'], W['norm.bias']);
+
+    // 7. Extract CLS token [0], linear head -> logits
+    const clsOut = xNormed[0]; // [32]
+    const logits = linearFwd(clsOut, W['head.weight'], W['head.bias']);
+
+    // 8. Softmax
+    const probs = softmax(Array.from(logits));
+
+    // Build layers array for visualization
+    const layers = [
+      { ...VIT_LAYER_INFO[0], data: [img28] },                        // Input [1,28,28]
+      { ...VIT_LAYER_INFO[1], data: patches },                        // Patches [16][49]
+      { ...VIT_LAYER_INFO[2], data: embedAfterPos },                  // Patch Embed [17][32]
+      { ...VIT_LAYER_INFO[3], data: allAttnWeights[0] },              // Attention 1 [2][17][17]
+      { ...VIT_LAYER_INFO[4], data: blockOuts[0] },                   // Block 1 Out [17][32]
+      { ...VIT_LAYER_INFO[5], data: allAttnWeights[1] },              // Attention 2 [2][17][17]
+      { ...VIT_LAYER_INFO[6], data: blockOuts[1] },                   // Block 2 Out [17][32]
+      { ...VIT_LAYER_INFO[7], data: clsOut },                         // CLS Token [32]
+      { ...VIT_LAYER_INFO[8], data: logits },                         // Linear [10]
+      { ...VIT_LAYER_INFO[9], data: Float32Array.from(probs) },       // Softmax [10]
+    ];
+
+    let pred = 0;
+    for (let i = 1; i < 10; i++) if (probs[i] > probs[pred]) pred = i;
+
+    return { layers, prediction: pred, probs: Float32Array.from(probs) };
+  }
+
+  // ============================================================
+  // MODEL REGISTRY
+  // ============================================================
+  const MODELS = {
+    cnn: {
+      name: 'CNN',
+      weights: CNN_WEIGHTS,
+      layerInfo: CNN_LAYER_INFO,
+      forwardPass: cnnForwardPass,
+      archHint: 'Trained on MNIST (60k handwritten digits). The network has ~6.2k parameters.'
+    },
+    vit: {
+      name: 'ViT',
+      weights: VIT_WEIGHTS,
+      layerInfo: VIT_LAYER_INFO,
+      forwardPass: vitForwardPass,
+      archHint: 'Trained on MNIST (60k handwritten digits). The network has ~19.7k parameters.'
+    }
+  };
+  let activeModel = 'cnn';
+
+  function getLayerInfo() {
+    return MODELS[activeModel].layerInfo;
+  }
+
+  // ============================================================
+  // DRAWING CANVAS
+  // ============================================================
+  const drawCanvas = document.getElementById('drawCanvas');
+  const drawCtx = drawCanvas.getContext('2d');
+  let isDrawing = false;
+  let hasDrawn = false;
+
+  function clearCanvas() {
+    drawCtx.fillStyle = '#000';
+    drawCtx.fillRect(0, 0, 280, 280);
+    hasDrawn = false;
+  }
+  clearCanvas();
+
+  drawCtx.strokeStyle = '#fff';
+  drawCtx.lineWidth = 22;
+  drawCtx.lineCap = 'round';
+  drawCtx.lineJoin = 'round';
+
+  drawCanvas.addEventListener('pointerdown', e => {
+    isDrawing = true;
+    hasDrawn = true;
+    drawCanvas.setPointerCapture(e.pointerId);
+    const r = drawCanvas.getBoundingClientRect();
+    drawCtx.beginPath();
+    drawCtx.moveTo(e.clientX - r.left, e.clientY - r.top);
+  });
+  drawCanvas.addEventListener('pointermove', e => {
+    if (!isDrawing) return;
+    const r = drawCanvas.getBoundingClientRect();
+    drawCtx.lineTo(e.clientX - r.left, e.clientY - r.top);
+    drawCtx.stroke();
+    drawCtx.beginPath();
+    drawCtx.moveTo(e.clientX - r.left, e.clientY - r.top);
+  });
+  drawCanvas.addEventListener('pointerup', () => { isDrawing = false; });
+  drawCanvas.addEventListener('pointerleave', () => { isDrawing = false; });
+
+  document.getElementById('clearBtn').addEventListener('click', () => {
+    clearCanvas();
+    drawCtx.strokeStyle = '#fff';
+    drawCtx.lineWidth = 22;
+    drawCtx.lineCap = 'round';
+    drawCtx.lineJoin = 'round';
+    resetViz();
+  });
+
+  function getImage28x28() {
+    // Downscale 280 -> 28
+    const small = document.createElement('canvas');
+    small.width = 28; small.height = 28;
+    const sctx = small.getContext('2d');
+    sctx.drawImage(drawCanvas, 0, 0, 28, 28);
+    const px = sctx.getImageData(0, 0, 28, 28).data;
+    const img = Array.from({length: 28}, () => new Float32Array(28));
+    for (let y = 0; y < 28; y++) {
+      for (let x = 0; x < 28; x++) {
+        const raw = px[(y * 28 + x) * 4] / 255;
+        img[y][x] = (raw - MNIST_MEAN) / MNIST_STD;
+      }
+    }
+    return img;
+  }
+
+  // ============================================================
+  // SAMPLE DIGITS
+  // ============================================================
+  const samplesRow = document.getElementById('samplesRow');
+  for (let d = 0; d < 10; d++) {
+    const btn = document.createElement('div');
+    btn.className = 'sample-btn';
+    btn.title = `Load digit ${d}`;
+    const c = document.createElement('canvas');
+    c.width = 28; c.height = 28;
+    const ctx = c.getContext('2d');
+    // Draw the raw (unnormalized) sample
+    if (SAMPLE_DIGITS && SAMPLE_DIGITS.raw && SAMPLE_DIGITS.raw[String(d)]) {
+      const raw = SAMPLE_DIGITS.raw[String(d)];
+      const id = ctx.createImageData(28, 28);
+      for (let y = 0; y < 28; y++) {
+        for (let x = 0; x < 28; x++) {
+          const v = Math.round(raw[y][x] * 255);
+          const i = (y * 28 + x) * 4;
+          id.data[i] = v; id.data[i+1] = v; id.data[i+2] = v; id.data[i+3] = 255;
+        }
+      }
+      ctx.putImageData(id, 0, 0);
+    }
+    btn.appendChild(c);
+    btn.addEventListener('click', () => {
+      // Draw sample onto main canvas
+      clearCanvas();
+      const raw = SAMPLE_DIGITS.raw[String(d)];
+      const id = drawCtx.createImageData(280, 280);
+      for (let y = 0; y < 280; y++) {
+        for (let x = 0; x < 280; x++) {
+          const sy = Math.floor(y / 10), sx = Math.floor(x / 10);
+          const v = Math.round(raw[sy][sx] * 255);
+          const i = (y * 280 + x) * 4;
+          id.data[i] = v; id.data[i+1] = v; id.data[i+2] = v; id.data[i+3] = 255;
+        }
+      }
+      drawCtx.putImageData(id, 0, 0);
+      hasDrawn = true;
+      // Use pre-normalized version
+      currentNormImg = SAMPLE_DIGITS.normalized[String(d)];
+      runNetwork();
+    });
+    samplesRow.appendChild(btn);
+  }
+  let currentNormImg = null;
+
+  // ============================================================
+  // ARCHITECTURE LIST
+  // ============================================================
+  const archList = document.getElementById('archList');
+  const archHint = document.getElementById('archHint');
+
+  function rebuildArchList() {
+    archList.innerHTML = '';
+    const info = getLayerInfo();
+    info.forEach((l, i) => {
+      const div = document.createElement('div');
+      div.id = `arch-layer-${i}`;
+      let shapeStr;
+      if (l.shape.length === 3) {
+        shapeStr = `[${l.shape[0]}, ${l.shape[1]}, ${l.shape[2]}]`;
+      } else if (l.shape.length === 2) {
+        shapeStr = `[${l.shape[0]}, ${l.shape[1]}]`;
+      } else {
+        shapeStr = `[${l.shape[0]}]`;
+      }
+      div.innerHTML = `<span class="layer-name">${l.name}</span> <span class="layer-shape">${shapeStr}</span>`;
+      archList.appendChild(div);
+    });
+    archHint.textContent = MODELS[activeModel].archHint;
+  }
+  rebuildArchList();
+
+  // ============================================================
+  // BAR CHART
+  // ============================================================
+  const barChart = document.getElementById('barChart');
+  const barRows = [];
+  for (let d = 0; d < 10; d++) {
+    const row = document.createElement('div');
+    row.className = 'bar-row';
+    row.innerHTML = `<div class="bar-label">${d}</div><div class="bar-track"><div class="bar-fill" id="bar-${d}"></div></div><div class="bar-val" id="barVal-${d}">—</div>`;
+    barChart.appendChild(row);
+    barRows.push(row);
+  }
+
+  function updateBars(probs, pred) {
+    for (let d = 0; d < 10; d++) {
+      const fill = document.getElementById(`bar-${d}`);
+      const val = document.getElementById(`barVal-${d}`);
+      const p = probs ? probs[d] : 0;
+      fill.style.width = (p * 100).toFixed(1) + '%';
+      val.textContent = probs ? (p * 100).toFixed(1) + '%' : '—';
+      barRows[d].className = (probs && d === pred) ? 'bar-row predicted' : 'bar-row';
+    }
+  }
+
+  // ============================================================
+  // VISUALIZATION - Isometric 3D layer rendering
+  // ============================================================
+  const vizCanvas = document.getElementById('vizCanvas');
+  const vizCtx = vizCanvas.getContext('2d');
+  const tooltip = document.getElementById('tooltip');
+  const ttTitle = document.getElementById('ttTitle');
+  const ttBody = document.getElementById('ttBody');
+  const predBanner = document.getElementById('predBanner');
+
+  // Animation state
+  let animState = {
+    running: false,
+    currentLayer: -1,
+    t: 0,
+    speed: 1,
+    result: null,
+    rafId: null,
+    lastTime: 0,
+  };
+
+  const TRANSITION_MS = 600;
+
+  // Compute the bounding size each layer will need when drawn.
+  // Returns {w, h} — total footprint including the 3D extrusion and label.
+  function measureLayer(layerInfo) {
+    const shape = layerInfo.shape;
+    const labelH = 28; // name + shape text below
+
+    if (layerInfo.type === 'patches') {
+      // 4x4 grid of 7x7 patches
+      const patchPx = 4; // pixel scale for each patch pixel
+      const patchW = 7 * patchPx;
+      const gap = 3;
+      const totalW = 4 * patchW + 3 * gap;
+      const totalH = 4 * patchW + 3 * gap;
+      return { w: totalW + 14, h: totalH + 14 + labelH };
+    }
+
+    if (layerInfo.type === 'embed') {
+      // Heatmap: rows = tokens, cols = embedding dims
+      const rows = shape[0]; // 17
+      const cols = shape[1]; // 32
+      const cellW = Math.max(2, Math.min(4, Math.floor(140 / cols)));
+      const cellH = Math.max(3, Math.min(6, Math.floor(120 / rows)));
+      return { w: cols * cellW + 14, h: rows * cellH + 14 + labelH };
+    }
+
+    if (layerInfo.type === 'attention') {
+      // Show attention heatmap for one head: 17x17
+      const N = shape[1]; // 17
+      const cellSize = Math.max(3, Math.min(5, Math.floor(100 / N)));
+      const mapW = N * cellSize;
+      const mapH = N * cellSize;
+      // Show heads side by side
+      const numHeads = shape[0];
+      const totalW = numHeads * mapW + (numHeads - 1) * 6;
+      return { w: totalW + 14, h: mapH + 14 + labelH };
+    }
+
+    if (shape.length === 3) {
+      const C = shape[0];
+      const H = shape[1], W = shape[2];
+      const pixScale = Math.min(4, Math.max(1.5, 110 / Math.max(H, W)));
+      const drawW = W * pixScale;
+      const drawH = H * pixScale;
+      const depthPx = Math.min(C * 2.5, 50);
+      const dx = depthPx * Math.cos(Math.PI / 6);
+      const dy = depthPx * Math.sin(Math.PI / 6);
+      return { w: drawW + dx + 10, h: drawH + dy + 10 + labelH };
+    } else if (layerInfo.type === 'output') {
+      const C = shape[0];
+      const rowH = 14, gap = 2, maxBarW = 100, labelW = 14;
+      return { w: labelW + 4 + maxBarW + 45, h: C * (rowH + gap) + 10 + labelH };
+    } else {
+      const C = shape[0];
+      const barW = C > 16 ? 5 : 10;
+      const barGap = C > 16 ? 1 : 2;
+      return { w: C * (barW + barGap) + 14, h: 80 + 14 + labelH };
+    }
+  }
+
+  // Flow layout: left-to-right, wrap to new rows.
+  // Recomputes positions and resizes canvas height.
+  const FLOW_PAD_X = 50;   // horizontal gap between layers
+  const FLOW_PAD_Y = 50;   // vertical gap between rows
+  const FLOW_MARGIN = 40;  // canvas edge margin
+
+  function computeFlowLayout() {
+    const canvasW = vizCanvas.width;
+    const info = getLayerInfo();
+    const sizes = info.map(measureLayer);
+    const positions = [];
+    const rowInfo = []; // {startIdx, endIdx, y, maxH} per row
+
+    let curX = FLOW_MARGIN;
+    let curRowStart = 0;
+    let curRowMaxH = 0;
+    let curRowY = FLOW_MARGIN;
+
+    for (let i = 0; i < info.length; i++) {
+      const sz = sizes[i];
+      // Would this layer overflow the row?
+      if (i > curRowStart && curX + sz.w + FLOW_MARGIN > canvasW) {
+        // Finish current row
+        rowInfo.push({ startIdx: curRowStart, endIdx: i - 1, y: curRowY, maxH: curRowMaxH });
+        // Start new row
+        curRowY += curRowMaxH + FLOW_PAD_Y;
+        curX = FLOW_MARGIN;
+        curRowStart = i;
+        curRowMaxH = 0;
+      }
+      positions.push({ x: curX + sz.w / 2, y: 0, size: sz, row: rowInfo.length });
+      curX += sz.w + FLOW_PAD_X;
+      curRowMaxH = Math.max(curRowMaxH, sz.h);
+    }
+    // Finish last row
+    rowInfo.push({ startIdx: curRowStart, endIdx: info.length - 1, y: curRowY, maxH: curRowMaxH });
+
+    // Now set y-positions: vertically center each layer within its row
+    for (let i = 0; i < positions.length; i++) {
+      const row = rowInfo[positions[i].row];
+      positions[i].y = row.y + row.maxH / 2;
+    }
+
+    // Resize canvas height
+    const lastRow = rowInfo[rowInfo.length - 1];
+    const totalH = lastRow.y + lastRow.maxH + FLOW_MARGIN;
+    vizCanvas.height = totalH;
+
+    return { positions, rowInfo, sizes };
+  }
+
+  let flowLayout = computeFlowLayout();
+  let layerPositions = flowLayout.positions;
+
+  // Hit areas for hover
+  let layerHitBoxes = [];
+
+  // Color maps
+  // Viridis colormap: 16-stop LUT with interpolation
+  const VIRIDIS_LUT = [
+    [68,1,84],[72,26,108],[71,47,125],[65,68,135],[56,87,140],
+    [46,107,142],[36,125,142],[30,144,140],[34,163,132],[53,183,120],
+    [83,198,103],[122,209,81],[164,218,56],[210,224,29],[253,231,37],[253,231,37]
+  ];
+  function viridis(t) {
+    t = Math.max(0, Math.min(1, t));
+    const idx = t * 14;
+    const i = Math.floor(idx);
+    const f = idx - i;
+    const a = VIRIDIS_LUT[i], b = VIRIDIS_LUT[i + 1];
+    return `rgb(${Math.round(a[0]+(b[0]-a[0])*f)},${Math.round(a[1]+(b[1]-a[1])*f)},${Math.round(a[2]+(b[2]-a[2])*f)})`;
+  }
+
+  function viridisRGB(t) {
+    t = Math.max(0, Math.min(1, t));
+    const idx = t * 14;
+    const i = Math.floor(idx);
+    const f = idx - i;
+    const a = VIRIDIS_LUT[i], b = VIRIDIS_LUT[i + 1];
+    return [Math.round(a[0]+(b[0]-a[0])*f), Math.round(a[1]+(b[1]-a[1])*f), Math.round(a[2]+(b[2]-a[2])*f)];
+  }
+
+  // Blue-white-red diverging colormap, t in [0,1]
+  function blueRedRGB(t) {
+    t = Math.max(0, Math.min(1, t));
+    if (t < 0.5) {
+      const s = t * 2;
+      return [Math.round(59 + s*196), Math.round(130 + s*125), Math.round(246 - s*46)];
+    } else {
+      const s = (t - 0.5) * 2;
+      return [255, Math.round(255 - s*180), Math.round(200 - s*200)];
+    }
+  }
+
+  // Efficient heatmap: build ImageData at native size, then scale up
+  function drawHeatmap(ctx, x, y, data2d, scale) {
+    const H = data2d.length, W = data2d[0].length;
+    let min = Infinity, max = -Infinity;
+    for (let h = 0; h < H; h++)
+      for (let w = 0; w < W; w++) {
+        if (data2d[h][w] < min) min = data2d[h][w];
+        if (data2d[h][w] > max) max = data2d[h][w];
+      }
+    const range = max - min || 1;
+    // Use offscreen canvas for crisp nearest-neighbor scaling
+    const off = document.createElement('canvas');
+    off.width = W; off.height = H;
+    const octx = off.getContext('2d');
+    const id = octx.createImageData(W, H);
+    for (let h = 0; h < H; h++) {
+      for (let w = 0; w < W; w++) {
+        const t = (data2d[h][w] - min) / range;
+        const idx = t * 14;
+        const i0 = Math.floor(idx);
+        const f = idx - i0;
+        const a = VIRIDIS_LUT[i0], b = VIRIDIS_LUT[i0 + 1];
+        const pi = (h * W + w) * 4;
+        id.data[pi] = a[0]+(b[0]-a[0])*f;
+        id.data[pi+1] = a[1]+(b[1]-a[1])*f;
+        id.data[pi+2] = a[2]+(b[2]-a[2])*f;
+        id.data[pi+3] = 255;
+      }
+    }
+    octx.putImageData(id, 0, 0);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(off, 0, 0, W, H, x, y, W * scale, H * scale);
+    ctx.imageSmoothingEnabled = true;
+  }
+
+  // Draw a grayscale heatmap (for patches - single channel)
+  function drawGrayscaleHeatmap(ctx, x, y, data2d, scale) {
+    const H = data2d.length, W = data2d[0].length;
+    let min = Infinity, max = -Infinity;
+    for (let h = 0; h < H; h++)
+      for (let w = 0; w < W; w++) {
+        if (data2d[h][w] < min) min = data2d[h][w];
+        if (data2d[h][w] > max) max = data2d[h][w];
+      }
+    const range = max - min || 1;
+    const off = document.createElement('canvas');
+    off.width = W; off.height = H;
+    const octx = off.getContext('2d');
+    const id = octx.createImageData(W, H);
+    for (let h = 0; h < H; h++) {
+      for (let w = 0; w < W; w++) {
+        const t = (data2d[h][w] - min) / range;
+        const v = Math.round(t * 255);
+        const pi = (h * W + w) * 4;
+        id.data[pi] = v; id.data[pi+1] = v; id.data[pi+2] = v; id.data[pi+3] = 255;
+      }
+    }
+    octx.putImageData(id, 0, 0);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(off, 0, 0, W, H, x, y, W * scale, H * scale);
+    ctx.imageSmoothingEnabled = true;
+  }
+
+  function drawVolumeIsometric(ctx, cx, cy, layer, channelIdx, alpha, isCurrent, animT, highlighted) {
+    const shape = layer.shape;
+
+    // --- Patches: 4x4 grid of 7x7 grayscale patches ---
+    if (layer.type === 'patches') {
+      const patchPx = 4;
+      const patchW = 7 * patchPx;
+      const gap = 3;
+      const totalW = 4 * patchW + 3 * gap;
+      const totalH = 4 * patchW + 3 * gap;
+      const left = cx - totalW / 2;
+      const top = cy - totalH / 2;
+
+      ctx.save();
+      ctx.globalAlpha = alpha;
+
+      if (isCurrent && animT < 1) {
+        ctx.shadowColor = '#3b82f6';
+        ctx.shadowBlur = 12 * (1 - animT);
+      }
+
+      if (layer.data) {
+        ctx.shadowBlur = 0;
+        for (let py = 0; py < 4; py++) {
+          for (let px = 0; px < 4; px++) {
+            const patchIdx = py * 4 + px;
+            const patch = layer.data[patchIdx]; // [49] flat
+            // Reshape to [7][7]
+            const patch2d = Array.from({length: 7}, (_, r) => {
+              const row = new Float32Array(7);
+              for (let c = 0; c < 7; c++) row[c] = patch[r * 7 + c];
+              return row;
+            });
+            const x = left + px * (patchW + gap);
+            const y = top + py * (patchW + gap);
+            drawGrayscaleHeatmap(ctx, x, y, patch2d, patchPx);
+            // Border
+            ctx.strokeStyle = highlighted ? '#000' : '#cbd5e1';
+            ctx.lineWidth = highlighted ? 1.5 : 0.5;
+            ctx.strokeRect(x, y, patchW, patchW);
+          }
+        }
+      } else {
+        ctx.strokeStyle = '#d1d5db';
+        ctx.setLineDash([4, 4]);
+        ctx.strokeRect(left, top, totalW, totalH);
+        ctx.setLineDash([]);
+      }
+      ctx.restore();
+
+      return {
+        x: left - 7, y: top - 7,
+        w: totalW + 14, h: totalH + 14,
+        cx: cx, cy: cy
+      };
+    }
+
+    // --- Embed: 2D heatmap (tokens x embedding dims) ---
+    if (layer.type === 'embed') {
+      const rows = shape[0]; // 17
+      const cols = shape[1]; // 32
+      const cellW = Math.max(2, Math.min(4, Math.floor(140 / cols)));
+      const cellH = Math.max(3, Math.min(6, Math.floor(120 / rows)));
+      const totalW = cols * cellW;
+      const totalH = rows * cellH;
+      const left = cx - totalW / 2;
+      const top = cy - totalH / 2;
+
+      ctx.save();
+      ctx.globalAlpha = alpha;
+
+      if (isCurrent && animT < 1) {
+        ctx.shadowColor = '#3b82f6';
+        ctx.shadowBlur = 12 * (1 - animT);
+      }
+
+      if (layer.data) {
+        ctx.shadowBlur = 0;
+        // layer.data is [N][D] — draw as heatmap
+        drawHeatmap(ctx, left, top, layer.data, cellW);
+        // Highlight CLS token row
+        ctx.strokeStyle = '#f59e0b';
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(left, top, totalW, cellH);
+        // Outer border
+        ctx.strokeStyle = highlighted ? '#000' : '#94a3b8';
+        ctx.lineWidth = highlighted ? 2 : 1;
+        ctx.strokeRect(left, top, totalW, totalH);
+      } else {
+        ctx.strokeStyle = '#d1d5db';
+        ctx.setLineDash([4, 4]);
+        ctx.strokeRect(left, top, totalW, totalH);
+        ctx.setLineDash([]);
+      }
+      ctx.restore();
+
+      return {
+        x: left - 7, y: top - 7,
+        w: totalW + 14, h: totalH + 14,
+        cx: cx, cy: cy
+      };
+    }
+
+    // --- Attention: heatmaps per head ---
+    if (layer.type === 'attention') {
+      const numHeads = shape[0];
+      const N = shape[1]; // 17
+      const cellSize = Math.max(3, Math.min(5, Math.floor(100 / N)));
+      const mapW = N * cellSize;
+      const mapH = N * cellSize;
+      const headGap = 6;
+      const totalW = numHeads * mapW + (numHeads - 1) * headGap;
+      const totalH = mapH;
+      const left = cx - totalW / 2;
+      const top = cy - totalH / 2;
+
+      ctx.save();
+      ctx.globalAlpha = alpha;
+
+      if (isCurrent && animT < 1) {
+        ctx.shadowColor = '#3b82f6';
+        ctx.shadowBlur = 12 * (1 - animT);
+      }
+
+      if (layer.data) {
+        ctx.shadowBlur = 0;
+        for (let h = 0; h < numHeads; h++) {
+          const hx = left + h * (mapW + headGap);
+          // layer.data[h] is [17][17] attention matrix
+          drawHeatmap(ctx, hx, top, layer.data[h], cellSize);
+          // Highlight CLS row (row 0)
+          ctx.strokeStyle = '#f59e0b';
+          ctx.lineWidth = 1;
+          ctx.strokeRect(hx, top, mapW, cellSize);
+          // Border
+          ctx.strokeStyle = highlighted ? '#000' : '#94a3b8';
+          ctx.lineWidth = highlighted ? 2 : 1;
+          ctx.strokeRect(hx, top, mapW, mapH);
+          // Head label
+          ctx.fillStyle = '#94a3b8';
+          ctx.font = '9px system-ui';
+          ctx.textAlign = 'center';
+          ctx.fillText(`H${h+1}`, hx + mapW / 2, top - 3);
+        }
+      } else {
+        ctx.strokeStyle = '#d1d5db';
+        ctx.setLineDash([4, 4]);
+        for (let h = 0; h < numHeads; h++) {
+          const hx = left + h * (mapW + headGap);
+          ctx.strokeRect(hx, top, mapW, mapH);
+        }
+        ctx.setLineDash([]);
+      }
+      ctx.restore();
+
+      return {
+        x: left - 7, y: top - 12,
+        w: totalW + 14, h: totalH + 19,
+        cx: cx, cy: cy
+      };
+    }
+
+    // --- Original 3D isometric for conv/pool layers ---
+    const is3d = shape.length === 3;
+    const C = shape[0];
+
+    if (is3d) {
+      const H = shape[1], W = shape[2];
+      // Scale spatial dims to fit
+      const pixScale = Math.min(4, Math.max(1.5, 110 / Math.max(H, W)));
+      const drawW = W * pixScale;
+      const drawH = H * pixScale;
+
+      // Depth extrusion proportional to channels
+      const depthPx = Math.min(C * 2.5, 50);
+      const angle = Math.PI / 6;
+      const dx = depthPx * Math.cos(angle);
+      const dy = depthPx * Math.sin(angle);
+
+      const left = cx - drawW / 2;
+      const top = cy - drawH / 2;
+
+      ctx.save();
+      ctx.globalAlpha = alpha;
+
+      // Glow effect for current layer
+      if (isCurrent && animT < 1) {
+        ctx.shadowColor = '#3b82f6';
+        ctx.shadowBlur = 12 * (1 - animT);
+      }
+
+      if (layer.data && layer.data[0] && Array.isArray(layer.data[0])) {
+        const ch = Math.min(channelIdx, layer.data.length - 1);
+        drawHeatmap(ctx, left, top, layer.data[ch], pixScale);
+
+        ctx.shadowBlur = 0;
+        ctx.strokeStyle = highlighted ? '#000' : isCurrent ? '#3b82f6' : '#94a3b8';
+        ctx.lineWidth = highlighted ? 2 : isCurrent ? 1.5 : 1;
+        ctx.strokeRect(left, top, drawW, drawH);
+
+        // Top face
+        ctx.beginPath();
+        ctx.moveTo(left, top);
+        ctx.lineTo(left + drawW, top);
+        ctx.lineTo(left + drawW + dx, top - dy);
+        ctx.lineTo(left + dx, top - dy);
+        ctx.closePath();
+        ctx.fillStyle = `rgba(168,85,247,${0.25 * alpha})`;
+        ctx.fill();
+        ctx.strokeStyle = '#94a3b8';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        // Right face
+        ctx.beginPath();
+        ctx.moveTo(left + drawW, top);
+        ctx.lineTo(left + drawW + dx, top - dy);
+        ctx.lineTo(left + drawW + dx, top - dy + drawH);
+        ctx.lineTo(left + drawW, top + drawH);
+        ctx.closePath();
+        ctx.fillStyle = `rgba(139,92,246,${0.18 * alpha})`;
+        ctx.fill();
+        ctx.stroke();
+
+        // Channel indicator on right face
+        if (layer.data.length > 1) {
+          const chFrac = channelIdx / (layer.data.length - 1);
+          const indicatorY = top + chFrac * drawH;
+          ctx.fillStyle = '#fff';
+          ctx.globalAlpha = alpha * 0.8;
+          ctx.beginPath();
+          ctx.arc(left + drawW + dx * 0.5, indicatorY - dy * 0.5, 3, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.globalAlpha = alpha;
+        }
+      } else {
+        // Wireframe
+        ctx.strokeStyle = '#d1d5db';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([4, 4]);
+        ctx.strokeRect(left, top, drawW, drawH);
+        ctx.beginPath();
+        ctx.moveTo(left, top); ctx.lineTo(left + drawW, top);
+        ctx.lineTo(left + drawW + dx, top - dy); ctx.lineTo(left + dx, top - dy);
+        ctx.closePath(); ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(left + drawW, top);
+        ctx.lineTo(left + drawW + dx, top - dy);
+        ctx.lineTo(left + drawW + dx, top - dy + drawH);
+        ctx.lineTo(left + drawW, top + drawH);
+        ctx.closePath(); ctx.stroke();
+        ctx.setLineDash([]);
+      }
+      ctx.restore();
+
+      return {
+        x: left - 5, y: top - dy - 5,
+        w: drawW + dx + 10, h: drawH + dy + 10,
+        cx: cx + dx/2, cy: cy - dy/2
+      };
+    } else if (layer.type === 'output') {
+      // Softmax: horizontal labeled bars (digit 0-9 with probabilities)
+      const rowH = 14;
+      const gap = 2;
+      const maxBarW = 100;
+      const labelW = 14;
+      const totalH = C * (rowH + gap);
+      const totalW = labelW + 4 + maxBarW + 40;
+      const bx = cx - totalW / 2;
+      const by = cy - totalH / 2;
+
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      if (isCurrent && animT < 1) {
+        ctx.shadowColor = '#3b82f6';
+        ctx.shadowBlur = 12 * (1 - animT);
+      }
+
+      if (layer.data) {
+        let predIdx = 0;
+        for (let i = 1; i < C; i++) if (layer.data[i] > layer.data[predIdx]) predIdx = i;
+        ctx.shadowBlur = 0;
+        for (let i = 0; i < C; i++) {
+          const y = by + i * (rowH + gap);
+          const prob = layer.data[i];
+          const w = prob * maxBarW;
+          const isPred = i === predIdx;
+          // Digit label
+          ctx.fillStyle = isPred ? '#2563eb' : '#64748b';
+          ctx.font = isPred ? 'bold 11px system-ui' : '11px system-ui';
+          ctx.textAlign = 'right';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(String(i), bx + labelW, y + rowH / 2);
+          // Bar background
+          ctx.fillStyle = '#f1f5f9';
+          ctx.fillRect(bx + labelW + 4, y, maxBarW, rowH);
+          // Bar fill
+          ctx.fillStyle = isPred ? '#3b82f6' : '#cbd5e1';
+          ctx.fillRect(bx + labelW + 4, y, w, rowH);
+          // Percentage label
+          ctx.fillStyle = isPred ? '#2563eb' : '#94a3b8';
+          ctx.font = '10px system-ui';
+          ctx.textAlign = 'left';
+          ctx.fillText((prob * 100).toFixed(1) + '%', bx + labelW + 4 + maxBarW + 4, y + rowH / 2);
+        }
+        if (highlighted) {
+          ctx.strokeStyle = '#000';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(bx - 2, by - 2, totalW + 4, totalH + 4);
+        }
+      } else {
+        ctx.strokeStyle = '#d1d5db';
+        ctx.setLineDash([4, 4]);
+        ctx.strokeRect(bx, by, totalW, totalH);
+        ctx.setLineDash([]);
+      }
+      ctx.restore();
+
+      return {
+        x: bx - 5, y: by - 5,
+        w: totalW + 10, h: totalH + 10,
+        cx: cx, cy: cy
+      };
+    } else {
+      // Generic 1D vector: draw as vertical bar chart
+      const barW = C > 16 ? 5 : 10;
+      const barGap = C > 16 ? 1 : 2;
+      const barMaxH = 80;
+      const totalW = C * (barW + barGap);
+      const bx = cx - totalW / 2;
+      const by = cy + barMaxH / 2;
+
+      ctx.save();
+      ctx.globalAlpha = alpha;
+
+      if (isCurrent && animT < 1) {
+        ctx.shadowColor = '#3b82f6';
+        ctx.shadowBlur = 12 * (1 - animT);
+      }
+
+      if (layer.data) {
+        let min = Infinity, max = -Infinity;
+        for (let i = 0; i < C; i++) {
+          if (layer.data[i] < min) min = layer.data[i];
+          if (layer.data[i] > max) max = layer.data[i];
+        }
+        const range = max - min || 1;
+        ctx.shadowBlur = 0;
+        for (let i = 0; i < C; i++) {
+          const t = (layer.data[i] - min) / range;
+          const h = Math.max(2, t * barMaxH);
+          ctx.fillStyle = viridis(t);
+          ctx.fillRect(bx + i * (barW + barGap), by - h, barW, h);
+        }
+        ctx.strokeStyle = highlighted ? '#000' : '#94a3b8';
+        ctx.lineWidth = highlighted ? 2 : 1;
+        ctx.strokeRect(bx - 2, by - barMaxH - 2, totalW + 4, barMaxH + 4);
+      } else {
+        ctx.strokeStyle = '#d1d5db';
+        ctx.setLineDash([4, 4]);
+        ctx.strokeRect(bx - 2, by - barMaxH - 2, totalW + 4, barMaxH + 4);
+        ctx.setLineDash([]);
+      }
+      ctx.restore();
+
+      return {
+        x: bx - 7, y: by - barMaxH - 7,
+        w: totalW + 14, h: barMaxH + 14,
+        cx: cx, cy: cy
+      };
+    }
+  }
+
+  // Channel selection per layer (used for CNN conv layers)
+  let selectedChannels = [];
+  function resetSelectedChannels() {
+    selectedChannels = new Array(getLayerInfo().length).fill(0);
+  }
+  resetSelectedChannels();
+
+  function renderViz() {
+    const ctx = vizCtx;
+    const cW = vizCanvas.width, cH = vizCanvas.height;
+    ctx.clearRect(0, 0, cW, cH);
+
+    layerHitBoxes = [];
+    const result = animState.result;
+    const visibleUpTo = animState.currentLayer;
+    const { positions, rowInfo } = flowLayout;
+    const info = getLayerInfo();
+
+    // --- Pass 1: draw arrows (behind volumes) ---
+    for (let i = 0; i < info.length - 1; i++) {
+      const pos = positions[i];
+      const nextPos = positions[i + 1];
+      const isVisible = result && i < visibleUpTo;
+      const isCurrTransition = result && i === visibleUpTo - 1;
+      const sameRow = pos.row === nextPos.row;
+
+      ctx.save();
+      ctx.globalAlpha = isVisible ? 0.5 : 0.15;
+      ctx.strokeStyle = isCurrTransition ? '#93c5fd' : '#cbd5e1';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash(isVisible || isCurrTransition ? [] : [4, 4]);
+
+      if (sameRow) {
+        // Horizontal arrow
+        const ax = pos.x + pos.size.w / 2 + 8;
+        const bx = nextPos.x - nextPos.size.w / 2 - 8;
+        const midY = pos.y;
+        if (bx > ax + 2) {
+          ctx.beginPath();
+          ctx.moveTo(ax, midY);
+          ctx.lineTo(bx, midY);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(bx, midY);
+          ctx.lineTo(bx - 6, midY - 4);
+          ctx.moveTo(bx, midY);
+          ctx.lineTo(bx - 6, midY + 4);
+          ctx.stroke();
+          if (isCurrTransition && animState.running) {
+            const px = ax + (bx - ax) * animState.t;
+            ctx.globalAlpha = 0.8;
+            ctx.fillStyle = '#3b82f6';
+            ctx.beginPath();
+            ctx.arc(px, midY, 4, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+      } else {
+        // Wrap arrow: go right from last item, curve down, go left to first item of next row
+        const row = rowInfo[pos.row];
+        // Right stub from current layer
+        const ax = pos.x + pos.size.w / 2 + 8;
+        const exitX = cW - FLOW_MARGIN + 10;
+        const ay = pos.y;
+        // Down and left to the start of next row
+        const entryX = FLOW_MARGIN - 10;
+        const bx = nextPos.x - nextPos.size.w / 2 - 8;
+        const by = nextPos.y;
+        const midY = row.y + row.maxH + FLOW_PAD_Y / 2;
+
+        ctx.beginPath();
+        ctx.moveTo(ax, ay);
+        ctx.lineTo(exitX, ay);
+        ctx.lineTo(exitX, midY);
+        ctx.lineTo(entryX, midY);
+        ctx.lineTo(entryX, by);
+        ctx.lineTo(bx, by);
+        ctx.stroke();
+        // Arrowhead
+        ctx.beginPath();
+        ctx.moveTo(bx, by);
+        ctx.lineTo(bx - 6, by - 4);
+        ctx.moveTo(bx, by);
+        ctx.lineTo(bx - 6, by + 4);
+        ctx.stroke();
+
+        if (isCurrTransition && animState.running) {
+          // Pulse travels along the multi-segment path
+          const t = animState.t;
+          const segs = [
+            {x0:ax,y0:ay,x1:exitX,y1:ay},
+            {x0:exitX,y0:ay,x1:exitX,y1:midY},
+            {x0:exitX,y0:midY,x1:entryX,y1:midY},
+            {x0:entryX,y0:midY,x1:entryX,y1:by},
+            {x0:entryX,y0:by,x1:bx,y1:by},
+          ];
+          let totalLen = 0;
+          for (const s of segs) totalLen += Math.hypot(s.x1-s.x0, s.y1-s.y0);
+          let target = t * totalLen, accum = 0;
+          let px = ax, py = ay;
+          for (const s of segs) {
+            const segLen = Math.hypot(s.x1-s.x0, s.y1-s.y0);
+            if (accum + segLen >= target) {
+              const frac = (target - accum) / segLen;
+              px = s.x0 + (s.x1 - s.x0) * frac;
+              py = s.y0 + (s.y1 - s.y0) * frac;
+              break;
+            }
+            accum += segLen;
+          }
+          ctx.globalAlpha = 0.8;
+          ctx.fillStyle = '#3b82f6';
+          ctx.beginPath();
+          ctx.arc(px, py, 4, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+      ctx.setLineDash([]);
+      ctx.restore();
+    }
+
+    // --- Pass 2: draw volumes and labels ---
+    for (let i = 0; i < info.length; i++) {
+      const pos = positions[i];
+      const isVisible = i <= visibleUpTo;
+      const isCurrent = i === visibleUpTo;
+
+      let alpha;
+      if (!result) {
+        alpha = 0.3;
+      } else if (i < visibleUpTo) {
+        alpha = 1;
+      } else if (isCurrent) {
+        alpha = Math.max(0.15, animState.t);
+      } else {
+        alpha = 0.15;
+      }
+
+      const layerData = isVisible && result ? result.layers[i] : { ...info[i], data: null };
+
+      const hitBox = drawVolumeIsometric(
+        ctx, pos.x, pos.y,
+        layerData,
+        selectedChannels[i],
+        alpha,
+        isCurrent && result != null,
+        animState.t,
+        hoveredLayer === i
+      );
+      layerHitBoxes.push(hitBox);
+
+      // Label below volume
+      const labelY = hitBox.y + hitBox.h + 12;
+      ctx.save();
+      ctx.globalAlpha = Math.max(alpha, 0.4);
+      ctx.fillStyle = (isCurrent && result) ? '#2563eb' : '#64748b';
+      ctx.font = (isCurrent && result) ? 'bold 11px system-ui' : '11px system-ui';
+      ctx.textAlign = 'center';
+      ctx.fillText(layerData.name, pos.x, labelY);
+
+      let shapeStr;
+      if (layerData.shape.length === 3) {
+        shapeStr = `${layerData.shape[0]}×${layerData.shape[1]}×${layerData.shape[2]}`;
+      } else if (layerData.shape.length === 2) {
+        shapeStr = `${layerData.shape[0]}×${layerData.shape[1]}`;
+      } else {
+        shapeStr = `${layerData.shape[0]}`;
+      }
+      ctx.font = '10px system-ui';
+      ctx.fillStyle = '#94a3b8';
+      ctx.fillText(shapeStr, pos.x, labelY + 13);
+      ctx.restore();
+    }
+
+    // Update architecture list highlight
+    for (let i = 0; i < info.length; i++) {
+      const el = document.getElementById(`arch-layer-${i}`);
+      if (el) {
+        const span = el.querySelector('.layer-name');
+        if (result && i === visibleUpTo) span.classList.add('layer-active');
+        else span.classList.remove('layer-active');
+      }
+    }
+  }
+
+  // ============================================================
+  // ANIMATION
+  // ============================================================
+  function animFrame(now) {
+    if (!animState.running) return;
+    if (!animState.lastTime) animState.lastTime = now;
+    const dt = now - animState.lastTime;
+    animState.lastTime = now;
+    const info = getLayerInfo();
+
+    animState.t += (dt / TRANSITION_MS) * animState.speed;
+    if (animState.t >= 1) {
+      animState.t = 1;
+      renderViz();
+      // Move to next layer
+      if (animState.currentLayer < info.length - 1) {
+        animState.currentLayer++;
+        animState.t = 0;
+        // Update prediction when we reach the end
+        if (animState.currentLayer === info.length - 1) {
+          showPrediction();
+        }
+      } else {
+        animState.running = false;
+        updatePlayBtn();
+        showPrediction();
+        renderViz();
+        return;
+      }
+    }
+
+    renderViz();
+    animState.rafId = requestAnimationFrame(animFrame);
+  }
+
+  function startAnimation() {
+    const info = getLayerInfo();
+    if (animState.currentLayer >= info.length - 1) {
+      // Reset to beginning
+      animState.currentLayer = 0;
+      animState.t = 0;
+    }
+    animState.running = true;
+    animState.lastTime = 0;
+    updatePlayBtn();
+    animState.rafId = requestAnimationFrame(animFrame);
+  }
+
+  function pauseAnimation() {
+    animState.running = false;
+    if (animState.rafId) cancelAnimationFrame(animState.rafId);
+    updatePlayBtn();
+  }
+
+  function stepForward() {
+    pauseAnimation();
+    const info = getLayerInfo();
+    if (animState.currentLayer < info.length - 1) {
+      animState.currentLayer++;
+      animState.t = 1;
+    }
+    if (animState.currentLayer === info.length - 1) showPrediction();
+    renderViz();
+  }
+
+  function stepBack() {
+    pauseAnimation();
+    if (animState.currentLayer > 0) {
+      animState.currentLayer--;
+      animState.t = 1;
+    }
+    renderViz();
+  }
+
+  function skipToEnd() {
+    pauseAnimation();
+    const info = getLayerInfo();
+    animState.currentLayer = info.length - 1;
+    animState.t = 1;
+    showPrediction();
+    renderViz();
+  }
+
+  function showPrediction() {
+    if (!animState.result) return;
+    const { prediction, probs } = animState.result;
+    predBanner.className = 'prediction show';
+    predBanner.textContent = `Predicted: ${prediction}`;
+    updateBars(Array.from(probs), prediction);
+  }
+
+  function resetViz() {
+    pauseAnimation();
+    animState.result = null;
+    animState.currentLayer = -1;
+    animState.t = 0;
+    predBanner.className = 'prediction hide';
+    predBanner.textContent = 'Draw a digit and hit Run';
+    updateBars(null, -1);
+    renderViz();
+  }
+
+  const playBtn = document.getElementById('playBtn');
+  function updatePlayBtn() {
+    playBtn.innerHTML = animState.running ? '&#9646;&#9646;' : '&#9654;';
+  }
+
+  // Controls
+  playBtn.addEventListener('click', () => {
+    if (!animState.result) return;
+    if (animState.running) pauseAnimation(); else startAnimation();
+  });
+  document.getElementById('stepBackBtn').addEventListener('click', stepBack);
+  document.getElementById('stepFwdBtn').addEventListener('click', stepForward);
+  document.getElementById('skipBtn').addEventListener('click', skipToEnd);
+  document.getElementById('speedSlider').addEventListener('input', e => {
+    animState.speed = parseFloat(e.target.value);
+  });
+
+  // ============================================================
+  // RUN BUTTON
+  // ============================================================
+  function runNetwork() {
+    const img = currentNormImg || getImage28x28();
+    currentNormImg = null;
+    const forwardFn = MODELS[activeModel].forwardPass;
+    const result = forwardFn(img);
+    animState.result = result;
+    animState.currentLayer = 0;
+    animState.t = 0;
+    predBanner.className = 'prediction hide';
+    predBanner.textContent = 'Running...';
+    updateBars(null, -1);
+    startAnimation();
+  }
+
+  document.getElementById('runBtn').addEventListener('click', () => {
+    if (!hasDrawn) return;
+    runNetwork();
+  });
+
+  // ============================================================
+  // MODEL TAB SWITCHING
+  // ============================================================
+  const modelTabs = document.getElementById('modelTabs');
+  modelTabs.addEventListener('click', e => {
+    const tab = e.target.closest('.model-tab');
+    if (!tab) return;
+    const model = tab.dataset.model;
+    if (model === activeModel) return;
+
+    // Switch model
+    activeModel = model;
+
+    // Update tab styling
+    modelTabs.querySelectorAll('.model-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+
+    // Reset animation and visualization state
+    pauseAnimation();
+    animState.result = null;
+    animState.currentLayer = -1;
+    animState.t = 0;
+    predBanner.className = 'prediction hide';
+    predBanner.textContent = 'Draw a digit and hit Run';
+    updateBars(null, -1);
+
+    // Rebuild arch list and reset channel selections
+    rebuildArchList();
+    resetSelectedChannels();
+
+    // Recompute flow layout (layer sizes differ between CNN and ViT)
+    resizeAndLayout();
+  });
+
+  // ============================================================
+  // HOVER / TOOLTIP
+  // ============================================================
+  let hoveredLayer = -1;
+
+  vizCanvas.addEventListener('mousemove', e => {
+    const rect = vizCanvas.getBoundingClientRect();
+    const scaleX = vizCanvas.width / rect.width;
+    const scaleY = vizCanvas.height / rect.height;
+    const mx = (e.clientX - rect.left) * scaleX;
+    const my = (e.clientY - rect.top) * scaleY;
+
+    let found = -1;
+    for (let i = 0; i < layerHitBoxes.length; i++) {
+      const hb = layerHitBoxes[i];
+      if (hb && mx >= hb.x && mx <= hb.x + hb.w && my >= hb.y && my <= hb.y + hb.h) {
+        found = i;
+        break;
+      }
+    }
+
+    const prev = hoveredLayer;
+    if (found >= 0 && animState.result && found <= animState.currentLayer) {
+      hoveredLayer = found;
+      showTooltip(e.clientX, e.clientY, found);
+    } else {
+      hoveredLayer = -1;
+      tooltip.classList.remove('visible');
+    }
+    if (hoveredLayer !== prev && !animState.running) renderViz();
+  });
+
+  vizCanvas.addEventListener('mouseleave', () => {
+    const prev = hoveredLayer;
+    hoveredLayer = -1;
+    tooltip.classList.remove('visible');
+    if (prev !== -1 && !animState.running) renderViz();
+  });
+
+  vizCanvas.addEventListener('click', e => {
+    // Cycle through channels on click
+    if (hoveredLayer >= 0 && animState.result) {
+      const layer = animState.result.layers[hoveredLayer];
+      if (layer.shape.length === 3 && layer.type !== 'attention') {
+        selectedChannels[hoveredLayer] = (selectedChannels[hoveredLayer] + 1) % layer.shape[0];
+        renderViz();
+        showTooltip(e.clientX, e.clientY, hoveredLayer);
+      }
+    }
+  });
+
+  function showTooltip(mx, my, layerIdx) {
+    if (!animState.result) return;
+    const layer = animState.result.layers[layerIdx];
+
+    let shapeJoin;
+    if (layer.shape.length === 3) {
+      shapeJoin = `${layer.shape[0]}×${layer.shape[1]}×${layer.shape[2]}`;
+    } else if (layer.shape.length === 2) {
+      shapeJoin = `${layer.shape[0]}×${layer.shape[1]}`;
+    } else {
+      shapeJoin = `${layer.shape[0]}`;
+    }
+    ttTitle.textContent = `${layer.name} — ${shapeJoin}`;
+    ttBody.innerHTML = '';
+
+    // --- Patches tooltip ---
+    if (layer.type === 'patches' && layer.data) {
+      const hint = document.createElement('div');
+      hint.style.cssText = 'font-size:11px;color:#94a3b8;margin-bottom:8px';
+      hint.textContent = '4×4 grid of 7×7 patches extracted from the input image';
+      ttBody.appendChild(hint);
+
+      const gridWrap = document.createElement('div');
+      gridWrap.style.cssText = 'display:grid;grid-template-columns:repeat(4,1fr);gap:3px;margin-bottom:8px';
+      for (let p = 0; p < 16; p++) {
+        const patch = layer.data[p]; // [49]
+        const patch2d = Array.from({length: 7}, (_, r) => {
+          const row = new Float32Array(7);
+          for (let c = 0; c < 7; c++) row[c] = patch[r * 7 + c];
+          return row;
+        });
+        const tc = document.createElement('canvas');
+        const s = 4;
+        tc.width = 7 * s; tc.height = 7 * s;
+        tc.style.cssText = 'border-radius:2px;border:1px solid #e2e8f0';
+        drawGrayscaleHeatmap(tc.getContext('2d'), 0, 0, patch2d, s);
+        gridWrap.appendChild(tc);
+      }
+      ttBody.appendChild(gridWrap);
+    }
+
+    // --- Embed tooltip ---
+    else if (layer.type === 'embed' && layer.data) {
+      const hint = document.createElement('div');
+      hint.style.cssText = 'font-size:11px;color:#94a3b8;margin-bottom:8px';
+      hint.textContent = `${layer.shape[0]} tokens × ${layer.shape[1]} embedding dims (top row = CLS token)`;
+      ttBody.appendChild(hint);
+
+      const tc = document.createElement('canvas');
+      const cellW = 4, cellH = 5;
+      tc.width = layer.shape[1] * cellW;
+      tc.height = layer.shape[0] * cellH;
+      tc.style.cssText = 'border-radius:4px;border:1px solid #e2e8f0';
+      drawHeatmap(tc.getContext('2d'), 0, 0, layer.data, cellW);
+      ttBody.appendChild(tc);
+
+      // Show CLS token values
+      const clsDiv = document.createElement('div');
+      clsDiv.style.cssText = 'font-size:11px;color:#94a3b8;margin-top:6px';
+      const clsRow = layer.data[0];
+      let cmin = Infinity, cmax = -Infinity, csum = 0;
+      for (let i = 0; i < clsRow.length; i++) {
+        if (clsRow[i] < cmin) cmin = clsRow[i];
+        if (clsRow[i] > cmax) cmax = clsRow[i];
+        csum += clsRow[i];
+      }
+      clsDiv.textContent = `CLS token — min: ${cmin.toFixed(2)}, max: ${cmax.toFixed(2)}, mean: ${(csum/clsRow.length).toFixed(2)}`;
+      ttBody.appendChild(clsDiv);
+    }
+
+    // --- Attention tooltip ---
+    else if (layer.type === 'attention' && layer.data) {
+      const numHeads = layer.shape[0];
+      const N = layer.shape[1];
+
+      const hint = document.createElement('div');
+      hint.style.cssText = 'font-size:11px;color:#94a3b8;margin-bottom:8px';
+      hint.textContent = `${numHeads} attention heads, ${N}×${N} attention matrices (row 0 = CLS token highlighted)`;
+      ttBody.appendChild(hint);
+
+      // Show full attention maps for each head
+      for (let h = 0; h < numHeads; h++) {
+        const headDiv = document.createElement('div');
+        headDiv.style.cssText = 'margin-bottom:10px';
+
+        const headLabel = document.createElement('div');
+        headLabel.className = 'tt-label';
+        headLabel.textContent = `Head ${h + 1} — Full Attention`;
+        headDiv.appendChild(headLabel);
+
+        const tc = document.createElement('canvas');
+        const cellSize = 5;
+        tc.width = N * cellSize;
+        tc.height = N * cellSize;
+        tc.style.cssText = 'border-radius:4px;border:1px solid #e2e8f0';
+        drawHeatmap(tc.getContext('2d'), 0, 0, layer.data[h], cellSize);
+        headDiv.appendChild(tc);
+
+        // Show CLS token attention as a 4x4 grid (patch positions)
+        const clsLabel = document.createElement('div');
+        clsLabel.className = 'tt-label';
+        clsLabel.style.marginTop = '6px';
+        clsLabel.textContent = `Head ${h + 1} — CLS→Patches Attention`;
+        headDiv.appendChild(clsLabel);
+
+        const clsAttn = layer.data[h][0]; // CLS row: [17] — index 0 is self, 1-16 are patches
+        const patchAttn = Array.from({length: 16}, (_, i) => clsAttn[i + 1]);
+        // Reshape to 4x4 for visualization
+        const attn4x4 = Array.from({length: 4}, (_, r) => {
+          const row = new Float32Array(4);
+          for (let c = 0; c < 4; c++) row[c] = patchAttn[r * 4 + c];
+          return row;
+        });
+        const patchCanvas = document.createElement('canvas');
+        const ps = 16;
+        patchCanvas.width = 4 * ps;
+        patchCanvas.height = 4 * ps;
+        patchCanvas.style.cssText = 'border-radius:4px;border:1px solid #e2e8f0';
+        drawHeatmap(patchCanvas.getContext('2d'), 0, 0, attn4x4, ps);
+        headDiv.appendChild(patchCanvas);
+
+        const statsDiv = document.createElement('div');
+        statsDiv.className = 'tt-stats';
+        const selfAttn = clsAttn[0];
+        let maxPatch = 0;
+        for (let i = 1; i < 16; i++) if (patchAttn[i] > patchAttn[maxPatch]) maxPatch = i;
+        statsDiv.textContent = `CLS self-attn: ${(selfAttn*100).toFixed(1)}%, max patch: pos ${maxPatch} (${(patchAttn[maxPatch]*100).toFixed(1)}%)`;
+        headDiv.appendChild(statsDiv);
+
+        ttBody.appendChild(headDiv);
+      }
+    }
+
+    // --- 3D conv/relu/pool layers (original CNN tooltip) ---
+    else if (layer.shape.length === 3 && layer.data && layer.type !== 'patches' && layer.type !== 'attention') {
+      const ch = selectedChannels[layerIdx];
+      const C = layer.shape[0];
+      const H = layer.data[ch].length, W = layer.data[ch][0].length;
+
+      // Channel selector hint
+      const hint = document.createElement('div');
+      hint.style.cssText = 'font-size:11px;color:#94a3b8;margin-bottom:8px';
+      hint.textContent = `Channel ${ch + 1}/${C} (click layer to cycle)`;
+      ttBody.appendChild(hint);
+
+      // All channels thumbnail grid
+      const thumbSize = Math.max(2, Math.min(4, Math.floor(50 / Math.max(H, W))));
+      const gridWrap = document.createElement('div');
+      gridWrap.style.cssText = 'display:flex;flex-wrap:wrap;gap:2px;margin-bottom:10px';
+      for (let c = 0; c < C; c++) {
+        const tc = document.createElement('canvas');
+        tc.width = W * thumbSize; tc.height = H * thumbSize;
+        tc.style.cssText = `border-radius:2px;border:${c === ch ? '2px solid #3b82f6' : '1px solid #e2e8f0'}`;
+        drawHeatmap(tc.getContext('2d'), 0, 0, layer.data[c], thumbSize);
+        gridWrap.appendChild(tc);
+      }
+      ttBody.appendChild(gridWrap);
+
+      const row = document.createElement('div');
+      row.className = 'tt-row';
+
+      // Selected activation map (larger)
+      const actCol = document.createElement('div');
+      const actLabel = document.createElement('div');
+      actLabel.className = 'tt-label';
+      actLabel.textContent = `Activation Map (ch ${ch + 1})`;
+      actCol.appendChild(actLabel);
+      const actCanvas = document.createElement('canvas');
+      const s = Math.max(3, Math.min(8, Math.floor(140 / Math.max(H, W))));
+      actCanvas.width = W * s;
+      actCanvas.height = H * s;
+      drawHeatmap(actCanvas.getContext('2d'), 0, 0, layer.data[ch], s);
+      actCol.appendChild(actCanvas);
+
+      // Stats
+      let min = Infinity, max = -Infinity, sum = 0;
+      for (let h = 0; h < H; h++)
+        for (let w = 0; w < W; w++) {
+          const v = layer.data[ch][h][w];
+          if (v < min) min = v;
+          if (v > max) max = v;
+          sum += v;
+        }
+      const stats = document.createElement('div');
+      stats.className = 'tt-stats';
+      stats.textContent = `min: ${min.toFixed(2)}, max: ${max.toFixed(2)}, mean: ${(sum/(H*W)).toFixed(2)}`;
+      actCol.appendChild(stats);
+      row.appendChild(actCol);
+
+      // Filter weights (if conv layer)
+      if (layer.weights) {
+        const filtCol = document.createElement('div');
+        const filtLabel = document.createElement('div');
+        filtLabel.className = 'tt-label';
+        filtLabel.textContent = `Filter Weights (ch ${ch + 1})`;
+        filtCol.appendChild(filtLabel);
+
+        const kernels = layer.weights.w[ch]; // [Cin][kH][kW]
+        const Cin = kernels.length;
+        const kH = kernels[0].length, kW = kernels[0][0].length;
+        const ks = Math.max(6, Math.min(12, Math.floor(100 / kH)));
+        const cols = Math.min(Cin, 4);
+        const rows = Math.ceil(Cin / cols);
+        const filtCanvas = document.createElement('canvas');
+        filtCanvas.width = cols * (kW * ks + 2);
+        filtCanvas.height = rows * (kH * ks + 2);
+        const fCtx = filtCanvas.getContext('2d');
+
+        for (let ci = 0; ci < Cin; ci++) {
+          const col = ci % cols;
+          const r = Math.floor(ci / cols);
+          let kmin = Infinity, kmax = -Infinity;
+          for (let h = 0; h < kH; h++)
+            for (let w = 0; w < kW; w++) {
+              if (kernels[ci][h][w] < kmin) kmin = kernels[ci][h][w];
+              if (kernels[ci][h][w] > kmax) kmax = kernels[ci][h][w];
+            }
+          const krange = kmax - kmin || 1;
+          for (let h = 0; h < kH; h++) {
+            for (let w = 0; w < kW; w++) {
+              const t = (kernels[ci][h][w] - kmin) / krange;
+              const rgb = blueRedRGB(t);
+              fCtx.fillStyle = `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
+              fCtx.fillRect(col * (kW * ks + 2) + w * ks, r * (kH * ks + 2) + h * ks, ks, ks);
+            }
+          }
+        }
+        filtCol.appendChild(filtCanvas);
+
+        const filtHint = document.createElement('div');
+        filtHint.className = 'tt-stats';
+        filtHint.textContent = `${Cin} input channel${Cin>1?'s':''}, ${kH}×${kW} kernel`;
+        filtCol.appendChild(filtHint);
+        row.appendChild(filtCol);
+      }
+
+      ttBody.appendChild(row);
+    } else if (layer.data) {
+      // 1D data
+      const vals = Array.from(layer.data);
+      const div = document.createElement('div');
+      div.style.cssText = 'font-size:12px;font-family:monospace;line-height:1.6';
+      if (layer.type === 'output') {
+        div.innerHTML = vals.map((v, i) => `<span style="color:${i === animState.result.prediction ? '#2563eb' : '#64748b'};font-weight:${i === animState.result.prediction ? '700' : '400'}">${i}: ${(v*100).toFixed(1)}%</span>`).join('<br>');
+      } else {
+        div.innerHTML = vals.map((v, i) => `${i}: ${v.toFixed(3)}`).join('<br>');
+      }
+      ttBody.appendChild(div);
+    }
+
+    // Position tooltip
+    const ttW = 380;
+    let tx = mx + 15;
+    let ty = my - 10;
+    if (tx + ttW > window.innerWidth - 10) tx = mx - ttW - 15;
+    if (ty < 10) ty = 10;
+    if (ty + 300 > window.innerHeight) ty = window.innerHeight - 310;
+    tooltip.style.left = tx + 'px';
+    tooltip.style.top = ty + 'px';
+    tooltip.classList.add('visible');
+  }
+
+  // ============================================================
+  // INIT — size canvas to container, compute layout, render
+  // ============================================================
+  function resizeAndLayout() {
+    const wrap = vizCanvas.parentElement;
+    const w = Math.max(600, wrap.clientWidth - 2); // -2 for border
+    vizCanvas.width = w;
+    flowLayout = computeFlowLayout();
+    layerPositions = flowLayout.positions;
+    renderViz();
+  }
+  resizeAndLayout();
+  window.addEventListener('resize', resizeAndLayout);
+
+  </script>
+
+  <footer style="text-align:center; padding:24px 16px; color:#6b7280; font-size:13px;">
+    By: Caleb Robinson, 2026
+  </footer>
+</body>
+</html>

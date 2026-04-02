@@ -39,8 +39,8 @@ Interactive demo showing how random forests improve on single decision trees thr
 ### [Precision / Recall / Prevalence @ Scale](/static/precision_at_scale.html)
 Explore how precision, recall, and false positive counts behave when deploying models at scale with varying prevalence. Understand why a model that looks great on balanced validation sets can produce many false positives in deployment.
 
-### [ConvNets in Action](/static/cnn_playground.html)
-Draw a digit and watch a convolutional neural network classify it layer by layer. A small CNN trained on MNIST runs entirely in the browser with weights hardcoded in the page source. Hover over layers to inspect individual channel activations and filter weights.
+### [Neural Networks in Action](/static/cnn_playground.html)
+Draw a digit and watch a neural network classify it layer by layer. Switch between a CNN and a Vision Transformer to compare how each architecture processes the same input. Both models are trained on MNIST and run entirely in the browser with weights hardcoded in the page source. Hover over layers to inspect activations, filter weights, and attention maps.
 
 ### [Monty Hall Explorer](/static/monty_hall_playground.html)
 Interactive playground that lets you play and simulate generalized Monty Hall games with N doors, K host openings, and optional uninformed host behavior to see how switching amplifies your odds.
