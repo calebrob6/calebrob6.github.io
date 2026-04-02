@@ -923,24 +923,24 @@
     }
 
     if (layerInfo.type === 'embed') {
-      // Heatmap: rows = tokens, cols = embedding dims
-      const rows = shape[0]; // 17
-      const cols = shape[1]; // 32
-      const cellW = Math.max(2, Math.min(4, Math.floor(140 / cols)));
-      const cellH = Math.max(3, Math.min(6, Math.floor(120 / rows)));
-      return { w: cols * cellW + 14, h: rows * cellH + 14 + labelH };
+      // CLS bar on top + 4×4 patch grid showing one embedding dim
+      const gridPx = 18; // each patch cell
+      const clsBarH = 12;
+      const gap = 6;
+      const gridW = 4 * gridPx;
+      const gridH = 4 * gridPx;
+      return { w: gridW + 14, h: clsBarH + gap + gridH + 14 + labelH };
     }
 
     if (layerInfo.type === 'attention') {
-      // Show attention heatmap for one head: 17x17
-      const N = shape[1]; // 17
-      const cellSize = Math.max(3, Math.min(5, Math.floor(100 / N)));
-      const mapW = N * cellSize;
-      const mapH = N * cellSize;
-      // Show heads side by side
+      // 4×4 CLS→patches attention grids per head, side by side
+      const gridPx = 16;
       const numHeads = shape[0];
-      const totalW = numHeads * mapW + (numHeads - 1) * 6;
-      return { w: totalW + 14, h: mapH + 14 + labelH };
+      const gridW = 4 * gridPx;
+      const headGap = 12;
+      const totalW = numHeads * gridW + (numHeads - 1) * headGap;
+      const totalH = gridW + 20; // grid + head labels
+      return { w: totalW + 14, h: totalH + 14 + labelH };
     }
 
     if (shape.length === 3) {
@@ -1179,41 +1179,79 @@
       };
     }
 
-    // --- Embed: 2D heatmap (tokens x embedding dims) ---
+    // --- Embed: CLS bar + 4×4 patch grid for selected dim ---
     if (layer.type === 'embed') {
-      const rows = shape[0]; // 17
-      const cols = shape[1]; // 32
-      const cellW = Math.max(2, Math.min(4, Math.floor(140 / cols)));
-      const cellH = Math.max(3, Math.min(6, Math.floor(120 / rows)));
-      const totalW = cols * cellW;
-      const totalH = rows * cellH;
+      const gridPx = 18;
+      const clsBarH = 12;
+      const gap = 6;
+      const gridW = 4 * gridPx;
+      const gridH = 4 * gridPx;
+      const totalW = gridW;
+      const totalH = clsBarH + gap + gridH;
       const left = cx - totalW / 2;
       const top = cy - totalH / 2;
 
       ctx.save();
       ctx.globalAlpha = alpha;
-
-      if (isCurrent && animT < 1) {
-        ctx.shadowColor = '#3b82f6';
-        ctx.shadowBlur = 12 * (1 - animT);
-      }
+      if (isCurrent && animT < 1) { ctx.shadowColor = '#3b82f6'; ctx.shadowBlur = 12 * (1 - animT); }
 
       if (layer.data) {
         ctx.shadowBlur = 0;
-        // layer.data is [N][D] — draw as heatmap
-        drawHeatmap(ctx, left, top, layer.data, cellW);
-        // Highlight CLS token row
+        const dim = channelIdx; // selected embedding dimension
+        const D = layer.data[0].length;
+        const dimIdx = Math.min(dim, D - 1);
+
+        // Gather values for this dim across all 17 tokens for normalization
+        let dmin = Infinity, dmax = -Infinity;
+        for (let n = 0; n < layer.data.length; n++) {
+          const v = layer.data[n][dimIdx];
+          if (v < dmin) dmin = v;
+          if (v > dmax) dmax = v;
+        }
+        const drange = dmax - dmin || 1;
+
+        // CLS bar — single cell showing CLS value for this dim
+        const clsT = (layer.data[0][dimIdx] - dmin) / drange;
+        ctx.fillStyle = viridis(clsT);
+        ctx.fillRect(left, top, totalW, clsBarH);
         ctx.strokeStyle = '#f59e0b';
         ctx.lineWidth = 1.5;
-        ctx.strokeRect(left, top, totalW, cellH);
+        ctx.strokeRect(left, top, totalW, clsBarH);
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 9px system-ui';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('CLS', left + totalW / 2, top + clsBarH / 2);
+
+        // 4×4 patch grid — patches are tokens 1..16
+        const gridTop = top + clsBarH + gap;
+        for (let py = 0; py < 4; py++) {
+          for (let px = 0; px < 4; px++) {
+            const tokenIdx = 1 + py * 4 + px;
+            const t = (layer.data[tokenIdx][dimIdx] - dmin) / drange;
+            ctx.fillStyle = viridis(t);
+            ctx.fillRect(left + px * gridPx, gridTop + py * gridPx, gridPx, gridPx);
+            ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+            ctx.lineWidth = 0.5;
+            ctx.strokeRect(left + px * gridPx, gridTop + py * gridPx, gridPx, gridPx);
+          }
+        }
         // Outer border
         ctx.strokeStyle = highlighted ? '#000' : '#94a3b8';
         ctx.lineWidth = highlighted ? 2 : 1;
-        ctx.strokeRect(left, top, totalW, totalH);
+        ctx.strokeRect(left, gridTop, gridW, gridH);
+
+        // Dim label
+        ctx.fillStyle = '#64748b';
+        ctx.font = '9px system-ui';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.fillText(`dim ${dimIdx}/${D}`, cx, top + totalH + 2);
       } else {
         ctx.strokeStyle = '#d1d5db';
         ctx.setLineDash([4, 4]);
-        ctx.strokeRect(left, top, totalW, totalH);
+        ctx.strokeRect(left, top, totalW, clsBarH);
+        ctx.strokeRect(left, top + clsBarH + gap, gridW, gridH);
         ctx.setLineDash([]);
       }
       ctx.restore();
@@ -1225,61 +1263,74 @@
       };
     }
 
-    // --- Attention: heatmaps per head ---
+    // --- Attention: CLS→patches 4×4 grids per head ---
     if (layer.type === 'attention') {
       const numHeads = shape[0];
-      const N = shape[1]; // 17
-      const cellSize = Math.max(3, Math.min(5, Math.floor(100 / N)));
-      const mapW = N * cellSize;
-      const mapH = N * cellSize;
-      const headGap = 6;
-      const totalW = numHeads * mapW + (numHeads - 1) * headGap;
-      const totalH = mapH;
+      const gridPx = 16;
+      const gridW = 4 * gridPx;
+      const headGap = 12;
+      const totalW = numHeads * gridW + (numHeads - 1) * headGap;
+      const labelH2 = 14;
+      const totalH = gridW + labelH2;
       const left = cx - totalW / 2;
       const top = cy - totalH / 2;
 
       ctx.save();
       ctx.globalAlpha = alpha;
-
-      if (isCurrent && animT < 1) {
-        ctx.shadowColor = '#3b82f6';
-        ctx.shadowBlur = 12 * (1 - animT);
-      }
+      if (isCurrent && animT < 1) { ctx.shadowColor = '#3b82f6'; ctx.shadowBlur = 12 * (1 - animT); }
 
       if (layer.data) {
         ctx.shadowBlur = 0;
         for (let h = 0; h < numHeads; h++) {
-          const hx = left + h * (mapW + headGap);
-          // layer.data[h] is [17][17] attention matrix
-          drawHeatmap(ctx, hx, top, layer.data[h], cellSize);
-          // Highlight CLS row (row 0)
-          ctx.strokeStyle = '#f59e0b';
-          ctx.lineWidth = 1;
-          ctx.strokeRect(hx, top, mapW, cellSize);
+          const hx = left + h * (gridW + headGap);
+          // CLS attention to patches: row 0, columns 1..16
+          const clsRow = layer.data[h][0];
+          let pmin = Infinity, pmax = -Infinity;
+          for (let i = 1; i <= 16; i++) {
+            if (clsRow[i] < pmin) pmin = clsRow[i];
+            if (clsRow[i] > pmax) pmax = clsRow[i];
+          }
+          const prange = pmax - pmin || 1;
+
+          for (let py = 0; py < 4; py++) {
+            for (let px = 0; px < 4; px++) {
+              const tokenIdx = 1 + py * 4 + px;
+              const t = (clsRow[tokenIdx] - pmin) / prange;
+              ctx.fillStyle = viridis(t);
+              ctx.fillRect(hx + px * gridPx, top + py * gridPx, gridPx, gridPx);
+              ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+              ctx.lineWidth = 0.5;
+              ctx.strokeRect(hx + px * gridPx, top + py * gridPx, gridPx, gridPx);
+            }
+          }
           // Border
           ctx.strokeStyle = highlighted ? '#000' : '#94a3b8';
           ctx.lineWidth = highlighted ? 2 : 1;
-          ctx.strokeRect(hx, top, mapW, mapH);
+          ctx.strokeRect(hx, top, gridW, gridW);
           // Head label
-          ctx.fillStyle = '#94a3b8';
-          ctx.font = '9px system-ui';
+          ctx.fillStyle = '#64748b';
+          ctx.font = 'bold 10px system-ui';
           ctx.textAlign = 'center';
-          ctx.fillText(`H${h+1}`, hx + mapW / 2, top - 3);
+          ctx.fillText(`Head ${h+1}`, hx + gridW / 2, top + gridW + 11);
+          // CLS self-attention value
+          ctx.font = '9px system-ui';
+          ctx.fillStyle = '#94a3b8';
+          ctx.fillText(`self: ${(clsRow[0]*100).toFixed(0)}%`, hx + gridW / 2, top - 4);
         }
       } else {
         ctx.strokeStyle = '#d1d5db';
         ctx.setLineDash([4, 4]);
         for (let h = 0; h < numHeads; h++) {
-          const hx = left + h * (mapW + headGap);
-          ctx.strokeRect(hx, top, mapW, mapH);
+          const hx = left + h * (gridW + headGap);
+          ctx.strokeRect(hx, top, gridW, gridW);
         }
         ctx.setLineDash([]);
       }
       ctx.restore();
 
       return {
-        x: left - 7, y: top - 12,
-        w: totalW + 14, h: totalH + 19,
+        x: left - 7, y: top - 14,
+        w: totalW + 14, h: totalH + 21,
         cx: cx, cy: cy
       };
     }
@@ -1895,11 +1946,19 @@
   });
 
   vizCanvas.addEventListener('click', e => {
-    // Cycle through channels on click
+    // Cycle through channels/dims on click
     if (hoveredLayer >= 0 && animState.result) {
       const layer = animState.result.layers[hoveredLayer];
-      if (layer.shape.length === 3 && layer.type !== 'attention') {
-        selectedChannels[hoveredLayer] = (selectedChannels[hoveredLayer] + 1) % layer.shape[0];
+      let maxIdx = 0;
+      if (layer.type === 'embed') {
+        maxIdx = layer.shape[1]; // cycle through embedding dimensions
+      } else if (layer.type === 'attention') {
+        maxIdx = layer.shape[0]; // cycle through heads
+      } else if (layer.shape.length === 3) {
+        maxIdx = layer.shape[0]; // cycle through channels
+      }
+      if (maxIdx > 0) {
+        selectedChannels[hoveredLayer] = (selectedChannels[hoveredLayer] + 1) % maxIdx;
         renderViz();
         showTooltip(e.clientX, e.clientY, hoveredLayer);
       }
@@ -1947,33 +2006,94 @@
       ttBody.appendChild(gridWrap);
     }
 
-    // --- Embed tooltip ---
+    // --- Embed tooltip: grid of all dims as 4×4 thumbnails ---
     else if (layer.type === 'embed' && layer.data) {
+      const D = layer.data[0].length; // 32
+      const ch = selectedChannels[layerIdx];
+
       const hint = document.createElement('div');
       hint.style.cssText = 'font-size:11px;color:#94a3b8;margin-bottom:8px';
-      hint.textContent = `${layer.shape[0]} tokens × ${layer.shape[1]} embedding dims (top row = CLS token)`;
+      hint.textContent = `${layer.shape[0]} tokens × ${D} dims — viewing dim ${ch}/${D} (click layer to cycle)`;
       ttBody.appendChild(hint);
 
-      const tc = document.createElement('canvas');
-      const cellW = 4, cellH = 5;
-      tc.width = layer.shape[1] * cellW;
-      tc.height = layer.shape[0] * cellH;
-      tc.style.cssText = 'border-radius:4px;border:1px solid #e2e8f0';
-      drawHeatmap(tc.getContext('2d'), 0, 0, layer.data, cellW);
-      ttBody.appendChild(tc);
-
-      // Show CLS token values
-      const clsDiv = document.createElement('div');
-      clsDiv.style.cssText = 'font-size:11px;color:#94a3b8;margin-top:6px';
-      const clsRow = layer.data[0];
-      let cmin = Infinity, cmax = -Infinity, csum = 0;
-      for (let i = 0; i < clsRow.length; i++) {
-        if (clsRow[i] < cmin) cmin = clsRow[i];
-        if (clsRow[i] > cmax) cmax = clsRow[i];
-        csum += clsRow[i];
+      // Grid of all dims as tiny 4×4 thumbnails
+      const thumbPx = 6;
+      const gridWrap = document.createElement('div');
+      gridWrap.style.cssText = 'display:flex;flex-wrap:wrap;gap:2px;margin-bottom:10px';
+      for (let d = 0; d < D; d++) {
+        // Gather dim d across the 16 patch tokens (skip CLS at index 0)
+        let dmin = Infinity, dmax = -Infinity;
+        for (let n = 1; n <= 16; n++) {
+          const v = layer.data[n][d];
+          if (v < dmin) dmin = v;
+          if (v > dmax) dmax = v;
+        }
+        const drange = dmax - dmin || 1;
+        const tc = document.createElement('canvas');
+        tc.width = 4 * thumbPx; tc.height = 4 * thumbPx;
+        tc.style.cssText = `border-radius:2px;border:${d === ch ? '2px solid #3b82f6' : '1px solid #e2e8f0'}`;
+        const tctx = tc.getContext('2d');
+        for (let py = 0; py < 4; py++) {
+          for (let px = 0; px < 4; px++) {
+            const tokenIdx = 1 + py * 4 + px;
+            const t = (layer.data[tokenIdx][d] - dmin) / drange;
+            const idx2 = t * 14;
+            const i0 = Math.floor(idx2);
+            const f = idx2 - i0;
+            const a = VIRIDIS_LUT[i0], b = VIRIDIS_LUT[i0 + 1];
+            tctx.fillStyle = `rgb(${Math.round(a[0]+(b[0]-a[0])*f)},${Math.round(a[1]+(b[1]-a[1])*f)},${Math.round(a[2]+(b[2]-a[2])*f)})`;
+            tctx.fillRect(px * thumbPx, py * thumbPx, thumbPx, thumbPx);
+          }
+        }
+        gridWrap.appendChild(tc);
       }
-      clsDiv.textContent = `CLS token — min: ${cmin.toFixed(2)}, max: ${cmax.toFixed(2)}, mean: ${(csum/clsRow.length).toFixed(2)}`;
-      ttBody.appendChild(clsDiv);
+      ttBody.appendChild(gridWrap);
+
+      // Larger view of selected dim
+      const selLabel = document.createElement('div');
+      selLabel.className = 'tt-label';
+      selLabel.textContent = `Dim ${ch} — spatial activation (4×4 patches)`;
+      ttBody.appendChild(selLabel);
+
+      const selRow = document.createElement('div');
+      selRow.className = 'tt-row';
+
+      // 4×4 grid at larger scale
+      const bigPx = 20;
+      const bigCanvas = document.createElement('canvas');
+      bigCanvas.width = 4 * bigPx; bigCanvas.height = 4 * bigPx;
+      bigCanvas.style.cssText = 'border-radius:4px;border:1px solid #e2e8f0';
+      const bctx = bigCanvas.getContext('2d');
+      let dmin2 = Infinity, dmax2 = -Infinity;
+      for (let n = 0; n < layer.data.length; n++) {
+        const v = layer.data[n][ch];
+        if (v < dmin2) dmin2 = v;
+        if (v > dmax2) dmax2 = v;
+      }
+      const drange2 = dmax2 - dmin2 || 1;
+      for (let py = 0; py < 4; py++) {
+        for (let px = 0; px < 4; px++) {
+          const tokenIdx = 1 + py * 4 + px;
+          const t = (layer.data[tokenIdx][ch] - dmin2) / drange2;
+          const idx2 = t * 14;
+          const i0 = Math.floor(idx2);
+          const f = idx2 - i0;
+          const a = VIRIDIS_LUT[i0], b2 = VIRIDIS_LUT[i0 + 1];
+          bctx.fillStyle = `rgb(${Math.round(a[0]+(b2[0]-a[0])*f)},${Math.round(a[1]+(b2[1]-a[1])*f)},${Math.round(a[2]+(b2[2]-a[2])*f)})`;
+          bctx.fillRect(px * bigPx, py * bigPx, bigPx, bigPx);
+        }
+      }
+      selRow.appendChild(bigCanvas);
+
+      // CLS value for this dim
+      const statsCol = document.createElement('div');
+      statsCol.style.cssText = 'font-size:12px;color:var(--muted);line-height:1.6';
+      const clsVal = layer.data[0][ch];
+      statsCol.innerHTML = `<b>CLS:</b> ${clsVal.toFixed(3)}<br>` +
+        `<span style="font-size:11px;color:#f59e0b">&#9632;</span> CLS token value<br>` +
+        `<span style="font-size:11px">Range: ${dmin2.toFixed(2)}..${dmax2.toFixed(2)}</span>`;
+      selRow.appendChild(statsCol);
+      ttBody.appendChild(selRow);
     }
 
     // --- Attention tooltip ---
@@ -1982,61 +2102,66 @@
       const N = layer.shape[1];
 
       const hint = document.createElement('div');
-      hint.style.cssText = 'font-size:11px;color:#94a3b8;margin-bottom:8px';
-      hint.textContent = `${numHeads} attention heads, ${N}×${N} attention matrices (row 0 = CLS token highlighted)`;
+      hint.style.cssText = 'font-size:11px;color:#94a3b8;margin-bottom:10px';
+      hint.textContent = `Where does the CLS token look? ${numHeads} attention heads over ${N-1} patches.`;
       ttBody.appendChild(hint);
 
-      // Show full attention maps for each head
+      // CLS→patches grids side by side
+      const headsRow = document.createElement('div');
+      headsRow.style.cssText = 'display:flex;gap:16px;margin-bottom:12px';
+
       for (let h = 0; h < numHeads; h++) {
-        const headDiv = document.createElement('div');
-        headDiv.style.cssText = 'margin-bottom:10px';
+        const headCol = document.createElement('div');
 
         const headLabel = document.createElement('div');
         headLabel.className = 'tt-label';
-        headLabel.textContent = `Head ${h + 1} — Full Attention`;
-        headDiv.appendChild(headLabel);
+        headLabel.textContent = `Head ${h + 1} — CLS → Patches`;
+        headCol.appendChild(headLabel);
 
-        const tc = document.createElement('canvas');
-        const cellSize = 5;
-        tc.width = N * cellSize;
-        tc.height = N * cellSize;
-        tc.style.cssText = 'border-radius:4px;border:1px solid #e2e8f0';
-        drawHeatmap(tc.getContext('2d'), 0, 0, layer.data[h], cellSize);
-        headDiv.appendChild(tc);
-
-        // Show CLS token attention as a 4x4 grid (patch positions)
-        const clsLabel = document.createElement('div');
-        clsLabel.className = 'tt-label';
-        clsLabel.style.marginTop = '6px';
-        clsLabel.textContent = `Head ${h + 1} — CLS→Patches Attention`;
-        headDiv.appendChild(clsLabel);
-
-        const clsAttn = layer.data[h][0]; // CLS row: [17] — index 0 is self, 1-16 are patches
-        const patchAttn = Array.from({length: 16}, (_, i) => clsAttn[i + 1]);
-        // Reshape to 4x4 for visualization
+        const clsRow = layer.data[h][0];
+        const patchAttn = Array.from({length: 16}, (_, i) => clsRow[i + 1]);
         const attn4x4 = Array.from({length: 4}, (_, r) => {
           const row = new Float32Array(4);
           for (let c = 0; c < 4; c++) row[c] = patchAttn[r * 4 + c];
           return row;
         });
+        const ps = 20;
         const patchCanvas = document.createElement('canvas');
-        const ps = 16;
-        patchCanvas.width = 4 * ps;
-        patchCanvas.height = 4 * ps;
+        patchCanvas.width = 4 * ps; patchCanvas.height = 4 * ps;
         patchCanvas.style.cssText = 'border-radius:4px;border:1px solid #e2e8f0';
         drawHeatmap(patchCanvas.getContext('2d'), 0, 0, attn4x4, ps);
-        headDiv.appendChild(patchCanvas);
+        headCol.appendChild(patchCanvas);
 
+        // Stats
         const statsDiv = document.createElement('div');
         statsDiv.className = 'tt-stats';
-        const selfAttn = clsAttn[0];
-        let maxPatch = 0;
-        for (let i = 1; i < 16; i++) if (patchAttn[i] > patchAttn[maxPatch]) maxPatch = i;
-        statsDiv.textContent = `CLS self-attn: ${(selfAttn*100).toFixed(1)}%, max patch: pos ${maxPatch} (${(patchAttn[maxPatch]*100).toFixed(1)}%)`;
-        headDiv.appendChild(statsDiv);
+        let maxP = 0;
+        for (let i = 1; i < 16; i++) if (patchAttn[i] > patchAttn[maxP]) maxP = i;
+        const maxRow = Math.floor(maxP / 4), maxCol = maxP % 4;
+        statsDiv.innerHTML = `Self: ${(clsRow[0]*100).toFixed(1)}% &middot; Peak: (${maxRow},${maxCol}) ${(patchAttn[maxP]*100).toFixed(1)}%`;
+        headCol.appendChild(statsDiv);
 
-        ttBody.appendChild(headDiv);
+        headsRow.appendChild(headCol);
       }
+      ttBody.appendChild(headsRow);
+
+      // Full attention matrix (smaller, secondary)
+      const fullLabel = document.createElement('div');
+      fullLabel.className = 'tt-label';
+      fullLabel.textContent = 'Full Attention Matrices (17×17)';
+      ttBody.appendChild(fullLabel);
+
+      const fullRow = document.createElement('div');
+      fullRow.style.cssText = 'display:flex;gap:8px';
+      for (let h = 0; h < numHeads; h++) {
+        const tc = document.createElement('canvas');
+        const cs = 4;
+        tc.width = N * cs; tc.height = N * cs;
+        tc.style.cssText = 'border-radius:4px;border:1px solid #e2e8f0';
+        drawHeatmap(tc.getContext('2d'), 0, 0, layer.data[h], cs);
+        fullRow.appendChild(tc);
+      }
+      ttBody.appendChild(fullRow);
     }
 
     // --- 3D conv/relu/pool layers (original CNN tooltip) ---
