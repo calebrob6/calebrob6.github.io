@@ -3,9 +3,9 @@ title: "Fields of The World: A Machine Learning Benchmark Dataset For Global Agr
 collection: publications
 permalink: /publication/2024-09-24-Fields-of-The-World
 date: 2024-09-24
-venue: 'arXiv preprint arXiv:2409.16252'
+venue: 'AAAI Conference on Artificial Intelligence (AAAI)'
 paperurl: 'https://arxiv.org/abs/2409.16252'
-citation: 'Hannah Kerner, Snehal Chaudhari, Aninda Ghosh, Caleb Robinson, Adeel Ahmad, Eddie Choi, Nathan Jacobs, Chris Holmes, Matthias Mohr, Rahul Dodhia, Juan M Lavista Ferres, Jennifer Marcus. &quot;Fields of The World: A Machine Learning Benchmark Dataset For Global Agricultural Field Boundary Segmentation.&quot; arXiv preprint arXiv:2409.16252, 2024.'
+citation: 'Hannah Kerner, Snehal Chaudhari, Aninda Ghosh, Caleb Robinson, Adeel Ahmad, Eddie Choi, Nathan Jacobs, Chris Holmes, Matthias Mohr, Rahul Dodhia, Juan M Lavista Ferres, Jennifer Marcus. &quot;Fields of The World: A Machine Learning Benchmark Dataset For Global Agricultural Field Boundary Segmentation.&quot; AAAI Conference on Artificial Intelligence (AAAI), 2025.'
 excerpt: 'We present Fields of The World (FTW) -- a novel ML benchmark dataset for agricultural field instance segmentation spanning 24 countries on four continents (Europe, Africa, Asia, and South America). FTW is an order of magnitude larger than previous datasets with 70,462 samples, each containing instance and semantic segmentation masks paired with multi-date, multi-spectral Sentinel-2 satellite images.
 <br/><br/>
 [Webpage](https://fieldsofthe.world/) / [Paper](https://arxiv.org/abs/2409.16252) / [Code](https://github.com/fieldsoftheworld/ftw-baselines) 
@@ -23,10 +23,10 @@ We provide results from baseline models for the new Fields of The World (FTW) be
 
 Cite as: 
 ```bibtex
-@article{kerner2024fields,
+@inproceedings{kerner2024fields,
   title={Fields of The World: A Machine Learning Benchmark Dataset For Global Agricultural Field Boundary Segmentation},
-  author={Kerner, Hannah and Chaudhari, Snehal and Ghosh, Aninda and Robinson, Caleb and Ahmad, Adeel and Choi, Eddie and Jacobs, Nathan and Holmes, Chris and Mohr, Matthias and Dodhia, Rahul and others},
-  journal={arXiv preprint arXiv:2409.16252},
-  year={2024}
+  author={Kerner, Hannah and Chaudhari, Snehal and Ghosh, Aninda and Robinson, Caleb and Ahmad, Adeel and Choi, Eddie and Jacobs, Nathan and Holmes, Chris and Mohr, Matthias and Dodhia, Rahul and Ferres, Juan M Lavista and Marcus, Jennifer},
+  booktitle={AAAI Conference on Artificial Intelligence (AAAI)},
+  year={2025}
 }
 ```
