@@ -42,6 +42,9 @@ Explore how precision, recall, and false positive counts behave when deploying m
 ### [Vision Models in Action](/static/cnn-vit_playground.html)
 Draw a digit and watch a neural network classify it layer by layer. Switch between a CNN and a Vision Transformer to compare how each architecture processes the same input. Both models are trained on MNIST and run entirely in the browser with weights hardcoded in the page source. Hover over layers to inspect activations, filter weights, and attention maps.
 
+### [Multi-Head Attention Walkthrough](/static/mha_walkthrough.html)
+Step through multi-head self-attention on image patches to see exactly how queries, keys, and values are computed, how attention scores become weights, and how heads combine to produce the output. Uses tiny weights running entirely in the browser.
+
 ### [Monty Hall Explorer](/static/monty_hall_playground.html)
 Interactive playground that lets you play and simulate generalized Monty Hall games with N doors, K host openings, and optional uninformed host behavior to see how switching amplifies your odds.
 
