@@ -149,6 +149,43 @@
     .legend-item{display:flex;align-items:center;gap:4px}
     .legend-swatch{width:12px;height:12px;border-radius:3px;border:1px solid var(--border)}
 
+    /* View tabs */
+    .view-tabs{display:flex;gap:4px;margin-bottom:12px}
+    .view-tab{padding:6px 16px;border:1px solid var(--border);border-radius:8px;background:var(--card);cursor:pointer;font-size:13px;font-weight:500;transition:all .15s ease;font-family:inherit}
+    .view-tab:hover{background:#f1f5f9}
+    .view-tab.active{background:var(--blue);color:#fff;border-color:var(--blue-stroke)}
+
+    /* Token flow view */
+    .token-flow{padding:16px}
+    .token-flow-grid{display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start}
+    .token-flow-panel{display:flex;flex-direction:column;gap:8px}
+    .token-flow-panel h3{margin:0;font-size:14px;color:var(--blue-stroke)}
+
+    /* Token node */
+    .token-node{display:inline-flex;align-items:center;justify-content:center;border-radius:50%;font-size:10px;font-weight:700;cursor:pointer;transition:all .15s ease;border:2px solid var(--border);position:relative}
+    .token-node:hover{transform:scale(1.1)}
+    .token-node.cls{background:var(--amber);color:#fff;border-color:var(--amber-stroke)}
+    .token-node.patch{background:#e2e8f0;color:var(--text);border-color:#cbd5e1}
+    .token-node.selected{box-shadow:0 0 0 3px var(--blue);border-color:var(--blue)}
+
+    /* Spatial attention canvas */
+    .spatial-attn-canvas{border:1px solid var(--border);border-radius:6px;image-rendering:pixelated}
+
+    /* Token embedding bars */
+    .embed-bar-row{display:flex;align-items:center;gap:6px;font-size:11px}
+    .embed-bar-label{width:50px;text-align:right;color:var(--muted);flex-shrink:0}
+    .embed-bar-track{display:flex;gap:1px;flex:1}
+    .embed-bar-cell{height:16px;border-radius:2px;flex:1}
+
+    /* Prediction bar chart */
+    .bar-row{display:flex;align-items:center;gap:6px}
+    .bar-label{width:14px;font-size:12px;font-weight:600;text-align:right;flex-shrink:0}
+    .bar-track{flex:1;height:18px;background:#f1f5f9;border-radius:5px;overflow:hidden}
+    .bar-fill{height:100%;border-radius:5px;transition:width .3s ease;background:#e2e8f0}
+    .bar-val{width:40px;font-size:11px;color:var(--muted);text-align:right;flex-shrink:0}
+    .bar-row.predicted .bar-label{color:var(--blue-stroke)}
+    .bar-row.predicted .bar-fill{background:var(--blue)}
+
     /* Config selects */
     .cfg-select{width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-family:inherit;background:var(--card);color:var(--text);cursor:pointer}
     .cfg-select:focus{outline:2px solid var(--blue);outline-offset:-1px}
@@ -197,7 +234,7 @@
                 <div style="font-size:13px;color:var(--muted)">Or try a sample:</div>
                 <div class="samples" id="samplesRow"></div>
                 <div id="inputHint" style="font-size:12px;color:var(--muted);margin-top:4px">
-                  Drawing is downsampled to 12&times;12, then split into a 3&times;3 grid of 4&times;4 patches (9 patches total).
+                  Drawing is downsampled to 32&times;32, then split into a 4&times;4 grid of 8&times;8 patches (16 patches total).
                 </div>
               </div>
             </div>
@@ -218,19 +255,25 @@
             </div>
           </div>
           <div class="body">
+            <!-- View tabs -->
+            <div class="view-tabs" id="viewTabs">
+              <button class="view-tab active" data-view="steps">Step-by-Step</button>
+              <button class="view-tab" data-view="flow">Token Flow</button>
+            </div>
             <div class="viz-wrap">
               <div id="vizContainer" class="viz-container">
                 <div class="viz-placeholder">Draw or pick a sample, then click Run</div>
               </div>
+              <div id="tokenFlowContainer" class="token-flow" style="display:none"></div>
             </div>
             <!-- Explanation (inline below visualization) -->
             <div class="explain" id="explainPanel">
               <h3>Welcome</h3>
               <p>Draw something on the canvas (or pick a sample pattern), then click <b>Run Attention</b> to
               step through multi-head self-attention.</p>
-              <p>We use a tiny setup with a fixed <span class="math">12&times;12</span> input image,
-              configurable patch size, embedding dimension, and number of heads. Adjust these in the
-              Architecture panel on the right. All matrices are small enough to inspect cell by cell.</p>
+              <p>Choose between <b>Random Weights</b> (explore the mechanics) and
+              <b>Pretrained MNIST</b> (see real learned attention patterns on handwritten digits).
+              Adjust patch size, embedding dimension, and number of heads in the Architecture panel.</p>
             </div>
           </div>
         </div>
@@ -243,22 +286,26 @@
         <div class="card">
           <div class="head"><h2>Architecture</h2></div>
           <div class="body">
+            <!-- Mode toggle -->
+            <div style="display:flex;gap:4px;margin-bottom:10px">
+              <button class="view-tab active" id="modeRandom" data-mode="random">Random Weights</button>
+              <button class="view-tab" id="modePretrained" data-mode="pretrained">Pretrained MNIST</button>
+            </div>
             <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
               <div>
                 <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:2px">Patch size</label>
                 <select id="cfgPatchSize" class="cfg-select">
-                  <option value="2">2&times;2</option>
-                  <option value="3">3&times;3</option>
-                  <option value="4" selected>4&times;4</option>
+                  <option value="4">4&times;4</option>
+                  <option value="8" selected>8&times;8</option>
+                  <option value="16">16&times;16</option>
                 </select>
               </div>
               <div>
                 <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:2px">Embed dim</label>
                 <select id="cfgEmbedDim" class="cfg-select">
-                  <option value="4">4</option>
-                  <option value="6">6</option>
-                  <option value="8" selected>8</option>
-                  <option value="12">12</option>
+                  <option value="16">16</option>
+                  <option value="32" selected>32</option>
+                  <option value="64">64</option>
                 </select>
               </div>
               <div>
@@ -270,9 +317,26 @@
                 </select>
               </div>
             </div>
-            <div class="hint" id="cfgStatus">
-              Image: 12&times;12 &mdash; 3&times;3 grid of 4&times;4 patches (9 patches) &mdash; D=8, 2 heads (head_dim=4) &mdash; 10 tokens
+            <div class="hint" id="cfgStatus"></div>
+            <!-- Model info (pretrained mode) -->
+            <div id="modelInfo" style="display:none;margin-top:8px;padding:8px 10px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;font-size:12px;color:#166534"></div>
+            <!-- Block selector (pretrained mode) -->
+            <div id="blockSelector" style="display:none;margin-top:8px">
+              <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Transformer block:</div>
+              <div style="display:flex;gap:4px">
+                <button class="head-btn" id="blockBtn0" data-block="0">Block 1</button>
+                <button class="head-btn active" id="blockBtn1" data-block="1">Block 2</button>
+              </div>
             </div>
+          </div>
+        </div>
+
+        <!-- Prediction (pretrained mode) -->
+        <div class="card" id="predictionCard" style="display:none">
+          <div class="head"><h2>Prediction</h2></div>
+          <div class="body">
+            <div id="predBanner" style="text-align:center;padding:8px;font-size:18px;font-weight:700;margin-bottom:8px"></div>
+            <div id="barChart" style="display:flex;flex-direction:column;gap:3px"></div>
           </div>
         </div>
 
@@ -334,7 +398,7 @@
   // ============================================================
   // CONFIGURATION (mutable — reconfigured via UI)
   // ============================================================
-  const IMG_SIZE = 12;         // fixed 12×12 input (divisible by 2, 3, 4)
+  const IMG_SIZE = 32;         // fixed 32×32 input (divisible by 4, 8, 16)
   let PATCH_SIZE = 4;
   let GRID_SIZE;               // patches per side (IMG_SIZE / PATCH_SIZE)
   let NUM_PATCHES, PATCH_DIM, EMBED_DIM, NUM_HEADS, HEAD_DIM, NUM_TOKENS, TOKEN_NAMES;
@@ -352,7 +416,7 @@
   }
 
   // Initial defaults
-  deriveConfig(4, 8, 2);
+  deriveConfig(8, 32, 2);
 
   // ============================================================
   // SIMPLE PRNG (LCG) for reproducible random weights
@@ -376,9 +440,14 @@
 
   function generateWeights() {
     seedRng(rngState);
-    const scale_embed = 0.3 / Math.sqrt(PATCH_DIM);
-    const scale_qkv = 0.3 / Math.sqrt(EMBED_DIM);
-    const scale_proj = 0.3 / Math.sqrt(EMBED_DIM);
+
+    // Scales chosen so that:
+    // - Patch embeddings produce vectors with magnitude ~1
+    // - CLS and positional embeddings are large enough to differentiate tokens
+    // - QKV weights are large enough that Q·K dot products vary → non-uniform attention
+    const scale_embed = 1.0 / Math.sqrt(PATCH_DIM);
+    const scale_qkv = 1.0 / Math.sqrt(EMBED_DIM);
+    const scale_proj = 1.0 / Math.sqrt(EMBED_DIM);
 
     // Patch embedding: [EMBED_DIM][PATCH_DIM]
     const embedW = Array.from({length: EMBED_DIM}, () => {
@@ -387,16 +456,16 @@
       return row;
     });
     const embedB = new Float32Array(EMBED_DIM);
-    for (let i = 0; i < EMBED_DIM; i++) embedB[i] = rngNormal() * 0.01;
+    for (let i = 0; i < EMBED_DIM; i++) embedB[i] = rngNormal() * 0.1;
 
-    // CLS token: [EMBED_DIM]
+    // CLS token: [EMBED_DIM] — large enough to be distinct from patch embeddings
     const clsToken = new Float32Array(EMBED_DIM);
-    for (let i = 0; i < EMBED_DIM; i++) clsToken[i] = rngNormal() * 0.02;
+    for (let i = 0; i < EMBED_DIM; i++) clsToken[i] = rngNormal() * 0.5;
 
-    // Positional encoding: [NUM_TOKENS][EMBED_DIM]
+    // Positional encoding: [NUM_TOKENS][EMBED_DIM] — large enough to break symmetry
     const posEmbed = Array.from({length: NUM_TOKENS}, () => {
       const row = new Float32Array(EMBED_DIM);
-      for (let i = 0; i < EMBED_DIM; i++) row[i] = rngNormal() * 0.02;
+      for (let i = 0; i < EMBED_DIM; i++) row[i] = rngNormal() * 0.5;
       return row;
     });
 
@@ -407,7 +476,7 @@
       return row;
     });
     const qkvB = new Float32Array(3 * EMBED_DIM);
-    for (let i = 0; i < 3 * EMBED_DIM; i++) qkvB[i] = rngNormal() * 0.01;
+    for (let i = 0; i < 3 * EMBED_DIM; i++) qkvB[i] = rngNormal() * 0.1;
 
     // Output projection: [EMBED_DIM][EMBED_DIM]
     const projW = Array.from({length: EMBED_DIM}, () => {
@@ -416,7 +485,7 @@
       return row;
     });
     const projB = new Float32Array(EMBED_DIM);
-    for (let i = 0; i < EMBED_DIM; i++) projB[i] = rngNormal() * 0.01;
+    for (let i = 0; i < EMBED_DIM; i++) projB[i] = rngNormal() * 0.1;
 
     weights = { embedW, embedB, clsToken, posEmbed, qkvW, qkvB, projW, projB };
   }
@@ -480,7 +549,184 @@
   }
 
   // ============================================================
-  // DECOMPOSED ATTENTION (returns all intermediates)
+  // MATH HELPERS (for full ViT forward pass)
+  // ============================================================
+  function layerNorm(x, weight, bias) {
+    const eps = 1e-5, N = x.length, D = x[0].length;
+    const out = Array.from({length: N}, () => new Float32Array(D));
+    for (let n = 0; n < N; n++) {
+      let mean = 0;
+      for (let i = 0; i < D; i++) mean += x[n][i];
+      mean /= D;
+      let v = 0;
+      for (let i = 0; i < D; i++) v += (x[n][i] - mean) ** 2;
+      const std = Math.sqrt(v / D + eps);
+      for (let i = 0; i < D; i++) out[n][i] = ((x[n][i] - mean) / std) * weight[i] + bias[i];
+    }
+    return out;
+  }
+
+  function geluBatch(x) {
+    const c = Math.sqrt(2 / Math.PI);
+    return x.map(row => {
+      const out = new Float32Array(row.length);
+      for (let i = 0; i < row.length; i++) {
+        const v = row[i];
+        out[i] = 0.5 * v * (1 + Math.tanh(c * (v + 0.044715 * v * v * v)));
+      }
+      return out;
+    });
+  }
+
+  function addArrays(a, b) {
+    const N = a.length, D = a[0].length;
+    return Array.from({length: N}, (_, n) => {
+      const out = new Float32Array(D);
+      for (let d = 0; d < D; d++) out[d] = a[n][d] + b[n][d];
+      return out;
+    });
+  }
+
+  // MHA block using pretrained weight keys
+  function runMHABlock(x, W, prefix, nHeads) {
+    const N = x.length, D = x[0].length, hd = D / nHeads;
+    const scale = 1 / Math.sqrt(hd);
+    const qkv = linearBatch(x, W[prefix+'.attn.qkv.weight'], W[prefix+'.attn.qkv.bias']);
+    const Q = Array.from({length: N}, (_, n) => { const r = new Float32Array(D); for (let d=0;d<D;d++) r[d]=qkv[n][d]; return r; });
+    const K = Array.from({length: N}, (_, n) => { const r = new Float32Array(D); for (let d=0;d<D;d++) r[d]=qkv[n][D+d]; return r; });
+    const V = Array.from({length: N}, (_, n) => { const r = new Float32Array(D); for (let d=0;d<D;d++) r[d]=qkv[n][2*D+d]; return r; });
+    // Per-head split
+    const Qh = Array.from({length:nHeads}, (_,h) => Array.from({length:N}, (_,n) => { const r=new Float32Array(hd); for(let d=0;d<hd;d++) r[d]=Q[n][h*hd+d]; return r; }));
+    const Kh = Array.from({length:nHeads}, (_,h) => Array.from({length:N}, (_,n) => { const r=new Float32Array(hd); for(let d=0;d<hd;d++) r[d]=K[n][h*hd+d]; return r; }));
+    const Vh = Array.from({length:nHeads}, (_,h) => Array.from({length:N}, (_,n) => { const r=new Float32Array(hd); for(let d=0;d<hd;d++) r[d]=V[n][h*hd+d]; return r; }));
+    // Attention
+    const rawScores = Array.from({length:nHeads},()=>Array.from({length:N},()=>new Float32Array(N)));
+    const attnWeights = Array.from({length:nHeads},()=>Array.from({length:N},()=>new Float32Array(N)));
+    const headsOut = Array.from({length:nHeads},()=>Array.from({length:N},()=>new Float32Array(hd)));
+    for (let h=0;h<nHeads;h++) {
+      for (let i=0;i<N;i++) {
+        const scores = new Float32Array(N);
+        for (let j=0;j<N;j++) { let dot=0; for(let d=0;d<hd;d++) dot+=Qh[h][i][d]*Kh[h][j][d]; scores[j]=dot*scale; }
+        for (let j=0;j<N;j++) rawScores[h][i][j]=scores[j];
+        const sm = softmax1d(scores);
+        for (let j=0;j<N;j++) attnWeights[h][i][j]=sm[j];
+        for (let d=0;d<hd;d++) { let s=0; for(let j=0;j<N;j++) s+=sm[j]*Vh[h][j][d]; headsOut[h][i][d]=s; }
+      }
+    }
+    const concat = Array.from({length:N},()=>new Float32Array(D));
+    for (let n=0;n<N;n++) for (let h=0;h<nHeads;h++) for (let d=0;d<hd;d++) concat[n][h*hd+d]=headsOut[h][n][d];
+    const output = linearBatch(concat, W[prefix+'.attn.proj.weight'], W[prefix+'.attn.proj.bias']);
+    return { Q, K, V, Qh, Kh, Vh, rawScores, attnWeights, headsOut, concat, output };
+  }
+
+  // Full ViT forward pass with pretrained weights
+  function runFullViT(inputImage, W) {
+    const D = W['patch_embed.proj.weight'].length;
+    const nHeads = W['blocks.0.attn.qkv.weight'].length / (3 * D);
+    const ps = Math.round(Math.sqrt(W['patch_embed.proj.weight'][0].length));
+    const gs = IMG_SIZE / ps;
+    const np = gs * gs;
+    const nt = np + 1;
+
+    // Extract patches
+    const patches = [], patchImages = [];
+    for (let pr=0;pr<gs;pr++) for (let pc=0;pc<gs;pc++) {
+      const flat = new Float32Array(ps*ps);
+      const img = Array.from({length:ps},()=>new Float32Array(ps));
+      for (let r=0;r<ps;r++) for (let c=0;c<ps;c++) {
+        const v = inputImage[pr*ps+r][pc*ps+c];
+        flat[r*ps+c]=v; img[r][c]=v;
+      }
+      patches.push(flat); patchImages.push(img);
+    }
+
+    // Patch embedding
+    const embedded = linearBatch(patches, W['patch_embed.proj.weight'], W['patch_embed.proj.bias']);
+    // Prepend CLS + pos embed
+    const cls = W['cls_token'][0][0];
+    const withCLS = [Float32Array.from(cls), ...embedded.map(r=>Float32Array.from(r))];
+    const posEmb = W['pos_embed'][0];
+    let x = Array.from({length:nt}, (_,n) => {
+      const row = new Float32Array(D);
+      for (let d=0;d<D;d++) row[d] = withCLS[n][d] + posEmb[n][d];
+      return row;
+    });
+    const tokensInput = x.map(r=>Float32Array.from(r));
+
+    // Transformer blocks
+    const blocks = [];
+    for (let b=0;b<2;b++) {
+      const pf = `blocks.${b}`;
+      const blockInput = x.map(r=>Float32Array.from(r));
+      const normed1 = layerNorm(x, W[pf+'.norm1.weight'], W[pf+'.norm1.bias']);
+      const mha = runMHABlock(normed1, W, pf, nHeads);
+      x = addArrays(x, mha.output);
+      const afterMHA = x.map(r=>Float32Array.from(r));
+      const normed2 = layerNorm(x, W[pf+'.norm2.weight'], W[pf+'.norm2.bias']);
+      const mlpH = linearBatch(normed2, W[pf+'.mlp.0.weight'], W[pf+'.mlp.0.bias']);
+      const mlpA = geluBatch(mlpH);
+      const mlpOut = linearBatch(mlpA, W[pf+'.mlp.2.weight'], W[pf+'.mlp.2.bias']);
+      x = addArrays(x, mlpOut);
+      blocks.push({ input: blockInput, norm1: normed1, mha, afterMHA, output: x.map(r=>Float32Array.from(r)) });
+    }
+
+    // Final norm + head
+    const finalNorm = layerNorm(x, W['norm.weight'], W['norm.bias']);
+    const logitsRow = linearBatch([finalNorm[0]], W['head.weight'], W['head.bias']);
+    const probs = softmax1d(logitsRow[0]);
+    let pred = 0;
+    for (let i=1;i<probs.length;i++) if (probs[i]>probs[pred]) pred=i;
+
+    return {
+      inputImage, patches, patchImages, embedded, withCLS, tokens: tokensInput,
+      blocks, probs: Array.from(probs), prediction: pred,
+      // Provide MHA result for selected block (set by caller)
+    };
+  }
+
+  // ============================================================
+  // WEIGHT LOADING & CACHING
+  // ============================================================
+  const weightCache = {};
+  let mnistSamples = null;
+  let manifestData = null;
+
+  async function loadWeights(patchSize, embedDim, numHeads) {
+    const key = `vit_p${patchSize}_d${embedDim}_h${numHeads}`;
+    if (weightCache[key]) return weightCache[key];
+    const resp = await fetch(`vit_weights/${key}.json`);
+    if (!resp.ok) throw new Error(`Failed to load ${key}.json`);
+    const data = await resp.json();
+    weightCache[key] = data;
+    return data;
+  }
+
+  async function loadMnistSamples() {
+    if (mnistSamples) return mnistSamples;
+    const resp = await fetch('vit_weights/samples.json');
+    mnistSamples = await resp.json();
+    return mnistSamples;
+  }
+
+  async function loadManifest() {
+    if (manifestData) return manifestData;
+    const resp = await fetch('vit_weights/manifest.json');
+    manifestData = await resp.json();
+    return manifestData;
+  }
+
+  const MNIST_MEAN = 0.1307, MNIST_STD = 0.3081;
+
+  function normalizeForMNIST(img) {
+    return img.map(row => {
+      const out = new Float32Array(row.length);
+      for (let i = 0; i < row.length; i++) out[i] = (row[i] - MNIST_MEAN) / MNIST_STD;
+      return out;
+    });
+  }
+
+  // ============================================================
+  // DECOMPOSED ATTENTION (returns all intermediates, for random mode)
   // ============================================================
   function runAttention(inputImage) {
     const result = {};
@@ -890,12 +1136,13 @@
       explain: () => `<h3>Step 0: Input Patches</h3>
         <p>Before a Vision Transformer can process an image, it needs to break it into pieces &mdash;
         just like how a language model breaks a sentence into words. The image is divided into a
-        <b>2&times;2 grid</b> of non-overlapping <span class="math">4&times;4</span> patches,
-        and each patch is flattened into a vector of 16 pixel values.</p>
+        <b>${GRID_SIZE}&times;${GRID_SIZE} grid</b> of non-overlapping
+        <span class="math">${PATCH_SIZE}&times;${PATCH_SIZE}</span> patches,
+        and each patch is flattened into a vector of ${PATCH_DIM} pixel values.</p>
         <p>This is a fundamental design choice of ViTs: instead of sliding convolutional filters
         across the image, we chop it into fixed-size patches and treat each one as a "token" in a
         sequence. The model will learn to relate these patches to each other through attention.</p>
-        <p><span class="math">4 patches &times; 16 values = [4][16] matrix</span></p>`,
+        <p><span class="math">${NUM_PATCHES} patches &times; ${PATCH_DIM} values = [${NUM_PATCHES}][${PATCH_DIM}] matrix</span></p>`,
       render: r => renderStep0(r)
     },
     {
@@ -904,8 +1151,8 @@
         <p>Raw pixel values aren't a useful representation for the transformer &mdash; a pixel being
         bright or dark doesn't directly encode the kind of features (edges, textures, shapes) the
         model needs to reason about. So we <b>project</b> each flattened patch through a learned
-        linear layer into a lower-dimensional embedding space.</p>
-        <p><span class="math">[4][16] &times; W<sub>embed</sub><sup>T</sup> + b = [4][8]</span></p>
+        linear layer into the embedding space.</p>
+        <p><span class="math">[${NUM_PATCHES}][${PATCH_DIM}] &times; W<sub>embed</sub><sup>T</sup> + b = [${NUM_PATCHES}][${EMBED_DIM}]</span></p>
         <p>This is the same idea as word embeddings in NLP: raw inputs (pixels / one-hot words) are
         mapped into a dense vector space where the model can learn meaningful representations.
         During training, the weight matrix <span class="math">W<sub>embed</sub></span> learns to
@@ -917,7 +1164,8 @@
       explain: () => `<h3>Step 2: CLS Token + Positional Encoding</h3>
         <p>Two things are added before attention can begin:</p>
         <p><b>1. The CLS token</b> <span class="highlight">(amber row)</span> is a special learnable
-        vector prepended to the sequence. It has no spatial meaning &mdash; it exists purely to
+        vector prepended to the sequence, giving us <span class="math">${NUM_TOKENS}</span> tokens.
+        It has no spatial meaning &mdash; it exists purely to
         aggregate information from all patches via attention and serve as the "summary" of the entire
         image. After all transformer layers, it's the CLS token's output that gets fed to the
         classifier.</p>
@@ -925,7 +1173,7 @@
         the model has no way to know <em>where</em> each patch came from &mdash; shuffling the
         patches would produce the same output. The positional embeddings break this symmetry, letting
         the model learn that "top-left patch" behaves differently from "bottom-right patch."</p>
-        <p><span class="math">tokens = [CLS; P1; P2; P3; P4] + pos_embed &rarr; [${NUM_TOKENS}][${EMBED_DIM}]</span></p>`,
+        <p><span class="math">tokens = [CLS; P1; &hellip;; P${NUM_PATCHES}] + pos_embed &rarr; [${NUM_TOKENS}][${EMBED_DIM}]</span></p>`,
       render: r => renderStep2(r)
     },
     {
@@ -976,7 +1224,7 @@
     {
       name: 'Attention Scores',
       explain: () => {
-        const focusName = TOKEN_NAMES[state.focusToken];
+        const focusName = TOKEN_NAMES[safeFocus()] || 'CLS';
         return `<h3>Step 5: Scaled Dot-Product Attention</h3>
         <p>Now the Queries and Keys interact. For each head, every token's Query is compared
         against every other token's Key via dot product:</p>
@@ -991,15 +1239,14 @@
         distribution: each row now represents how much attention token i pays to every other
         token.</p>
         <p>The <b>${focusName}</b> row is highlighted (amber border) &mdash; use the token buttons
-        in the sidebar to see how different tokens distribute their attention. Notice how the
-        attention patterns differ between the two heads.</p>`;
+        in the sidebar to see how different tokens distribute their attention.${NUM_HEADS > 1 ? ' Notice how the attention patterns differ between heads.' : ''}</p>`;
       },
       render: r => renderStep5(r)
     },
     {
       name: 'Weighted Values',
       explain: () => {
-        const focusName = TOKEN_NAMES[state.focusToken];
+        const focusName = TOKEN_NAMES[safeFocus()] || 'CLS';
         return `<h3>Step 6: Weighted Sum of Values</h3>
         <p>The attention weights from Step 5 now determine how information flows. Each token's
         output is computed as a <b>weighted average of all Value vectors</b>:</p>
@@ -1025,24 +1272,40 @@
         <b>This is the final step of the MHA block.</b> The output
         <span class="math">[${NUM_TOKENS}&times;${EMBED_DIM}]</span> has the same shape as the input
         from Step 3 &mdash; this is by design. The MHA block is a <b>drop-in module</b>: it takes in
-        a sequence of token embeddings and returns a refined sequence of the same shape. In a full
-        transformer, multiple MHA blocks are stacked in series.</p>
+        a sequence of token embeddings and returns a refined sequence of the same shape.</p>
         <p>The separate head outputs are <b>concatenated</b> back into a single matrix:</p>
         <p><span class="math">[${NUM_TOKENS}][${HEAD_DIM}] &times; ${NUM_HEADS} heads &rarr; [${NUM_TOKENS}][${EMBED_DIM}]</span></p>
         <p>Then a final linear projection mixes information <em>across</em> heads:</p>
         <p><span class="math">output = concat &times; W<sub>proj</sub><sup>T</sup> + b</span></p>
         <p>This projection is important: without it, each head's contribution would stay in its own
         ${HEAD_DIM}-dimensional subspace. The output projection lets the model learn how to combine
-        the different "types" of attention each head computed &mdash; for example, blending spatial
-        proximity attention (from head 1) with content similarity attention (from head 2).</p>
-        <p>The result is the same shape as the input tokens
-        <span class="math">[${NUM_TOKENS}][${EMBED_DIM}]</span>. In a full transformer, this output
-        would be added to the original input via a <b>residual connection</b> (so the model can
-        always preserve the original representation and just add refinements), then passed through
-        layer normalization and a feedforward network before repeating the process in the next
-        layer.</p>
-        <p>The "Difference" matrix below shows what attention <em>changed</em> &mdash; this is
-        effectively the information that was routed between tokens.</p>`,
+        the different "types" of attention each head computed.</p>
+
+        <h3>The "MHA Update" matrix</h3>
+        <p>The bottom section shows <span class="math">output &minus; input</span> for each token.
+        This is the raw MHA output, <em>not</em> the final token representation. In a real
+        transformer, this output gets <em>added</em> to the input via a residual connection
+        (<span class="math">x + MHA(x)</span>), so the original representation is always preserved
+        and MHA only contributes a refinement.</p>
+
+        <h3>Where MHA fits in a transformer</h3>
+        <p>A complete transformer block looks like this:</p>
+        <p><span class="math">x&prime; = x + MHA(LayerNorm(x))</span><br>
+        <span class="math">x&prime;&prime; = x&prime; + FFN(LayerNorm(x&prime;))</span></p>
+        <p>The components around MHA serve specific roles:</p>
+        <ul style="margin:6px 0;padding-left:20px;font-size:13px">
+        <li><b>LayerNorm</b> normalizes each token to zero mean and unit variance before MHA and
+        FFN. This prevents activations from exploding or vanishing across layers.</li>
+        <li><b>Residual connections</b> (<span class="math">x + f(x)</span>) ensure information
+        can flow unchanged through the network. MHA only needs to learn the <em>useful delta</em>
+        to add.</li>
+        <li><b>FFN</b> (Feed-Forward Network: <span class="math">Linear &rarr; GELU &rarr;
+        Linear</span>) processes each token independently. While MHA lets tokens communicate,
+        FFN does per-token feature transformation.</li>
+        </ul>
+        <p>A full transformer stacks multiple such blocks. Early layers tend to learn
+        local/spatial patterns; later layers learn more global, semantic relationships.
+        Switch to the <b>Token Flow</b> tab for more details.</p>`,
       render: r => renderStep7(r)
     }
   ];
@@ -1052,11 +1315,14 @@
   // ============================================================
   const state = {
     currentStep: 0,
-    result: null,        // output of runAttention()
+    result: null,        // output of runAttention() (random mode)
+    fullResult: null,    // output of runFullViT() (pretrained mode)
     focusToken: 0,       // CLS by default
     showNumbers: false,
     showAllHeads: true,
-    hasRun: false
+    hasRun: false,
+    mode: 'random',      // 'random' or 'pretrained'
+    selectedBlock: 1,    // 0 or 1 (which transformer block to show in steps 3-7)
   };
 
   // ============================================================
@@ -1119,32 +1385,58 @@
 
   function buildSampleButtons() {
     samplesRow.innerHTML = '';
-    SAMPLES.forEach((s) => {
-      const btn = document.createElement('div');
-      btn.className = 'sample-btn';
-      btn.title = s.name;
-      const c = document.createElement('canvas');
-      c.width = IMG_SIZE; c.height = IMG_SIZE;
-      const sc = c.getContext('2d');
-      const id = sc.createImageData(IMG_SIZE, IMG_SIZE);
-      for (let r = 0; r < IMG_SIZE; r++) {
-        for (let ci = 0; ci < IMG_SIZE; ci++) {
+    if (state.mode === 'pretrained' && mnistSamples) {
+      // MNIST digit samples (0-9)
+      for (let digit = 0; digit < 10; digit++) {
+        const rawImg = mnistSamples.raw[String(digit)];
+        const normImg = mnistSamples.normalized[String(digit)];
+        const btn = document.createElement('div');
+        btn.className = 'sample-btn';
+        btn.title = `Digit ${digit}`;
+        const c = document.createElement('canvas');
+        c.width = IMG_SIZE; c.height = IMG_SIZE;
+        const sc = c.getContext('2d');
+        const id = sc.createImageData(IMG_SIZE, IMG_SIZE);
+        for (let r = 0; r < IMG_SIZE; r++) for (let ci = 0; ci < IMG_SIZE; ci++) {
+          const v = Math.round(rawImg[r][ci] * 255);
+          const pi = (r * IMG_SIZE + ci) * 4;
+          id.data[pi] = v; id.data[pi+1] = v; id.data[pi+2] = v; id.data[pi+3] = 255;
+        }
+        sc.putImageData(id, 0, 0);
+        btn.appendChild(c);
+        btn.addEventListener('click', () => {
+          drawSampleOnCanvas(rawImg);
+          runAndShow(rawImg);
+        });
+        samplesRow.appendChild(btn);
+      }
+    } else {
+      // Geometric pattern samples
+      SAMPLES.forEach((s) => {
+        const btn = document.createElement('div');
+        btn.className = 'sample-btn';
+        btn.title = s.name;
+        const c = document.createElement('canvas');
+        c.width = IMG_SIZE; c.height = IMG_SIZE;
+        const sc = c.getContext('2d');
+        const id = sc.createImageData(IMG_SIZE, IMG_SIZE);
+        for (let r = 0; r < IMG_SIZE; r++) for (let ci = 0; ci < IMG_SIZE; ci++) {
           const v = Math.round(s.data[r][ci] * 255);
           const pi = (r * IMG_SIZE + ci) * 4;
           id.data[pi] = v; id.data[pi+1] = v; id.data[pi+2] = v; id.data[pi+3] = 255;
         }
-      }
-      sc.putImageData(id, 0, 0);
-      btn.appendChild(c);
-      btn.addEventListener('click', () => {
-        dctx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
-        dctx.imageSmoothingEnabled = false;
-        dctx.drawImage(c, 0, 0, drawCanvas.width, drawCanvas.height);
-        dctx.imageSmoothingEnabled = true;
-        runAndShow(s.data);
+        sc.putImageData(id, 0, 0);
+        btn.appendChild(c);
+        btn.addEventListener('click', () => {
+          dctx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+          dctx.imageSmoothingEnabled = false;
+          dctx.drawImage(c, 0, 0, drawCanvas.width, drawCanvas.height);
+          dctx.imageSmoothingEnabled = true;
+          runAndShow(s.data);
+        });
+        samplesRow.appendChild(btn);
       });
-      samplesRow.appendChild(btn);
-    });
+    }
   }
 
   buildSampleButtons();
@@ -1166,7 +1458,7 @@
         tokenRow.querySelectorAll('.token-btn').forEach((b, i) => {
           b.classList.toggle('active', i === idx);
         });
-        if (state.hasRun) renderCurrentStep();
+        if (state.hasRun) renderActiveView();
       });
       tokenRow.appendChild(btn);
     });
@@ -1179,12 +1471,26 @@
   // ============================================================
   const headRow = document.getElementById('headRow');
 
+  // Sync both head controls (checkbox + button row) and re-render
+  function setHeadVisibility(showAll, singleHead) {
+    state.showAllHeads = showAll;
+    if (singleHead !== undefined) state.singleHead = singleHead;
+    // Sync checkbox
+    const cb = document.getElementById('showAllHeads');
+    if (cb) cb.checked = showAll;
+    // Sync button row
+    headRow.querySelectorAll('.head-btn').forEach((b, i) => {
+      if (NUM_HEADS === 1) { b.classList.add('active'); return; }
+      b.classList.toggle('active', showAll ? i === 0 : i === (state.singleHead + 1));
+    });
+    if (state.hasRun) renderActiveView();
+  }
+
   function buildHeadSelector() {
     headRow.innerHTML = '';
     state.showAllHeads = true;
     state.singleHead = 0;
     if (NUM_HEADS === 1) {
-      // Only one head — no selector needed
       const btn = document.createElement('button');
       btn.className = 'head-btn active';
       btn.textContent = 'Head 1';
@@ -1197,15 +1503,13 @@
       btn.className = 'head-btn' + (idx === 0 ? ' active' : '');
       btn.textContent = name;
       btn.addEventListener('click', () => {
-        if (idx === 0) state.showAllHeads = true;
-        else { state.showAllHeads = false; state.singleHead = idx - 1; }
-        headRow.querySelectorAll('.head-btn').forEach((b, i) => {
-          b.classList.toggle('active', i === idx);
-        });
-        if (state.hasRun) renderCurrentStep();
+        setHeadVisibility(idx === 0, idx > 0 ? idx - 1 : undefined);
       });
       headRow.appendChild(btn);
     });
+    // Sync checkbox initial state
+    const cb = document.getElementById('showAllHeads');
+    if (cb) cb.checked = true;
   }
 
   buildHeadSelector();
@@ -1247,28 +1551,38 @@
     cfgStatus.innerHTML = `Image: ${IMG_SIZE}&times;${IMG_SIZE} &mdash; ${gs}&times;${gs} grid of ${ps}&times;${ps} patches (${np} patches) &mdash; D=${D}, ${H} head${H>1?'s':''} (head_dim=${D/H}) &mdash; ${np+1} tokens`;
   }
 
-  function reconfigure() {
+  async function reconfigure() {
     const ps = parseInt(cfgPatchSize.value);
     const D = parseInt(cfgEmbedDim.value);
     const H = parseInt(cfgHeads.value);
     const savedStep = state.currentStep;
+    state.result = null; // clear stale result during reconfigure
     deriveConfig(ps, D, H);
-    rngState = 42;
-    generateWeights();
-    generateSamples();
-    buildSampleButtons();
     buildTokenSelector();
     buildHeadSelector();
     updateCfgStatus();
-    // Update the input hint text
     document.getElementById('inputHint').innerHTML =
       `Drawing is downsampled to ${IMG_SIZE}&times;${IMG_SIZE}, then split into a ${GRID_SIZE}&times;${GRID_SIZE} grid of ${PATCH_SIZE}&times;${PATCH_SIZE} patches (${NUM_PATCHES} patches total).`;
-    // Re-run with current canvas content, preserving current step
-    const img = getImageFromCanvas();
-    state.result = runAttention(img);
-    state.hasRun = true;
+
+    if (state.mode === 'pretrained') {
+      // Update model info
+      const manifest = await loadManifest();
+      const info = manifest.find(m => m.patch_size === ps && m.embed_dim === D && m.num_heads === H);
+      if (info) updateModelInfo(info);
+      // Re-run with pretrained weights
+      const img = getImageFromCanvas();
+      await runAndShow(img);
+    } else {
+      rngState = 42;
+      generateWeights();
+      generateSamples();
+      buildSampleButtons();
+      const img = getImageFromCanvas();
+      state.result = runAttention(img);
+      state.hasRun = true;
+    }
     state.currentStep = savedStep;
-    renderCurrentStep();
+    renderActiveView();
     updateStepUI();
   }
 
@@ -1281,15 +1595,10 @@
   // ============================================================
   document.getElementById('showNumbers').addEventListener('change', e => {
     state.showNumbers = e.target.checked;
-    if (state.hasRun) renderCurrentStep();
+    if (state.hasRun) renderActiveView();
   });
   document.getElementById('showAllHeads').addEventListener('change', e => {
-    // This is the separate checkbox - sync with head buttons
-    state.showAllHeads = e.target.checked;
-    if (e.target.checked) {
-      headRow.querySelectorAll('.head-btn').forEach((b, i) => b.classList.toggle('active', i === 0));
-    }
-    if (state.hasRun) renderCurrentStep();
+    setHeadVisibility(e.target.checked);
   });
 
   // ============================================================
@@ -1342,17 +1651,160 @@
   // ============================================================
   // RUN BUTTON
   // ============================================================
-  document.getElementById('runBtn').addEventListener('click', () => {
+  document.getElementById('runBtn').addEventListener('click', async () => {
     const img = getImageFromCanvas();
-    runAndShow(img);
+    await runAndShow(img);
   });
 
-  function runAndShow(img) {
-    state.result = runAttention(img);
+  async function runAndShow(img) {
+    if (state.mode === 'pretrained') {
+      const W = await loadWeights(PATCH_SIZE, EMBED_DIM, NUM_HEADS);
+      const normImg = normalizeForMNIST(img);
+      state.fullResult = runFullViT(normImg, W);
+      state.fullResult.rawImage = img; // keep unnormalized for display
+      // Provide result adapter for step renderers
+      state.result = getResultForBlock(state.selectedBlock);
+      updatePrediction();
+    } else {
+      state.result = runAttention(img);
+      state.fullResult = null;
+    }
     state.currentStep = 0;
     state.hasRun = true;
-    renderCurrentStep();
+    renderActiveView();
     updateStepUI();
+  }
+
+  // Adapt pretrained full result to the format step renderers expect
+  function getResultForBlock(blockIdx) {
+    const fr = state.fullResult;
+    if (!fr) return state.result;
+    const blk = fr.blocks[blockIdx];
+    const mha = blk.mha;
+    return {
+      inputImage: fr.rawImage || fr.inputImage,
+      patches: fr.patches,
+      patchImages: fr.patchImages,
+      embedded: fr.embedded,
+      withCLS: fr.withCLS,
+      tokens: blk.norm1,    // MHA input is the post-LayerNorm tokens
+      posEmbed: fr.tokens,  // for display
+      Q: mha.Q, K: mha.K, V: mha.V,
+      Qh: mha.Qh, Kh: mha.Kh, Vh: mha.Vh,
+      rawScores: mha.rawScores,
+      attnWeights: mha.attnWeights,
+      headsOut: mha.headsOut,
+      concat: mha.concat,
+      output: mha.output,
+    };
+  }
+
+  function updatePrediction() {
+    const card = document.getElementById('predictionCard');
+    const banner = document.getElementById('predBanner');
+    const chart = document.getElementById('barChart');
+    if (state.mode !== 'pretrained' || !state.fullResult) {
+      card.style.display = 'none';
+      return;
+    }
+    card.style.display = '';
+    const fr = state.fullResult;
+    banner.innerHTML = `Predicted: <span style="color:var(--blue-stroke)">${fr.prediction}</span> <span style="font-size:13px;font-weight:400;color:var(--muted)">(${(fr.probs[fr.prediction]*100).toFixed(1)}%)</span>`;
+    chart.innerHTML = '';
+    for (let d = 0; d < 10; d++) {
+      const pct = (fr.probs[d] * 100);
+      const row = document.createElement('div');
+      row.className = 'bar-row' + (d === fr.prediction ? ' predicted' : '');
+      row.innerHTML = `<div class="bar-label">${d}</div><div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div><div class="bar-val">${pct.toFixed(1)}%</div>`;
+      chart.appendChild(row);
+    }
+  }
+
+  // ============================================================
+  // MODE TOGGLE
+  // ============================================================
+  document.getElementById('modeRandom').addEventListener('click', () => switchMode('random'));
+  document.getElementById('modePretrained').addEventListener('click', () => switchMode('pretrained'));
+
+  async function switchMode(mode) {
+    if (state.mode === mode) return;
+    state.mode = mode;
+    state.result = null; // clear stale result during async transition
+    document.getElementById('modeRandom').classList.toggle('active', mode === 'random');
+    document.getElementById('modePretrained').classList.toggle('active', mode === 'pretrained');
+    document.getElementById('randomizeBtn').style.display = mode === 'random' ? '' : 'none';
+    document.getElementById('blockSelector').style.display = mode === 'pretrained' ? '' : 'none';
+    document.getElementById('predictionCard').style.display = mode === 'pretrained' && state.fullResult ? '' : 'none';
+
+    if (mode === 'pretrained') {
+      // Load manifest for model info
+      const manifest = await loadManifest();
+      const info = manifest.find(m => m.patch_size === PATCH_SIZE && m.embed_dim === EMBED_DIM && m.num_heads === NUM_HEADS);
+      if (info) updateModelInfo(info);
+      // Load MNIST samples and rebuild sample buttons
+      await loadMnistSamples();
+      buildSampleButtons();
+      // Auto-run with first MNIST sample if nothing loaded
+      if (!state.hasRun || !state.fullResult) {
+        const s = mnistSamples.normalized['0'];
+        const rawS = mnistSamples.raw['0'];
+        drawSampleOnCanvas(rawS);
+        await runAndShow(rawS);
+      }
+    } else {
+      document.getElementById('modelInfo').style.display = 'none';
+      generateSamples();
+      buildSampleButtons();
+      // Re-run with random weights
+      state.fullResult = null;
+      if (state.hasRun) {
+        const img = getImageFromCanvas();
+        state.result = runAttention(img);
+        renderActiveView();
+        updateStepUI();
+      }
+    }
+    updatePrediction();
+  }
+
+  function updateModelInfo(info) {
+    const el = document.getElementById('modelInfo');
+    el.style.display = '';
+    el.innerHTML = `<b>${info.name}</b> &mdash; ${info.params.toLocaleString()} params &mdash; ${info.accuracy}% accuracy &mdash; ${info.size_kb} KB`;
+  }
+
+  function drawSampleOnCanvas(rawImg) {
+    const tmpC = document.createElement('canvas');
+    tmpC.width = IMG_SIZE; tmpC.height = IMG_SIZE;
+    const tc = tmpC.getContext('2d');
+    const tid = tc.createImageData(IMG_SIZE, IMG_SIZE);
+    for (let r = 0; r < IMG_SIZE; r++) for (let c = 0; c < IMG_SIZE; c++) {
+      const v = Math.round(rawImg[r][c] * 255);
+      const pi = (r * IMG_SIZE + c) * 4;
+      tid.data[pi] = v; tid.data[pi+1] = v; tid.data[pi+2] = v; tid.data[pi+3] = 255;
+    }
+    tc.putImageData(tid, 0, 0);
+    dctx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+    dctx.imageSmoothingEnabled = false;
+    dctx.drawImage(tmpC, 0, 0, drawCanvas.width, drawCanvas.height);
+    dctx.imageSmoothingEnabled = true;
+  }
+
+  // ============================================================
+  // BLOCK SELECTOR
+  // ============================================================
+  document.getElementById('blockBtn0').addEventListener('click', () => selectBlock(0));
+  document.getElementById('blockBtn1').addEventListener('click', () => selectBlock(1));
+
+  function selectBlock(b) {
+    state.selectedBlock = b;
+    document.getElementById('blockBtn0').classList.toggle('active', b === 0);
+    document.getElementById('blockBtn1').classList.toggle('active', b === 1);
+    if (state.mode === 'pretrained' && state.fullResult) {
+      state.result = getResultForBlock(b);
+      renderActiveView();
+      updateStepUI();
+    }
   }
 
   // ============================================================
@@ -1361,12 +1813,10 @@
   document.getElementById('randomizeBtn').addEventListener('click', () => {
     rngState = Math.floor(Math.random() * 1000000);
     generateWeights();
-    if (state.hasRun) {
-      // Re-run with current image
+    if (state.hasRun && state.result) {
       const img = state.result.inputImage;
       state.result = runAttention(img);
-      state.currentStep = 0;
-      renderCurrentStep();
+      renderActiveView();
       updateStepUI();
     }
   });
@@ -1374,15 +1824,45 @@
   // ============================================================
   // RENDER CURRENT STEP
   // ============================================================
-  function cellSize() { return state.showNumbers ? 32 : 22; }
+  // Clamped focus token index (safe for current result dimensions)
+  function safeFocus() { return Math.min(state.focusToken, NUM_TOKENS - 1); }
+
+  // Safe heads-to-show list, clamped to what the result actually has
+  function safeHeads(r) {
+    const rHeads = r && r.attnWeights ? r.attnWeights.length : NUM_HEADS;
+    if (state.showAllHeads) return Array.from({length: rHeads}, (_, i) => i);
+    return [Math.min(state.singleHead, rHeads - 1)];
+  }
+
+  function cellSize() {
+    // Scale down for large token counts to keep matrices readable
+    const base = state.showNumbers ? 32 : 22;
+    if (NUM_TOKENS > 20) return Math.max(state.showNumbers ? 16 : 10, Math.floor(base * 17 / NUM_TOKENS));
+    return base;
+  }
+
+  // Re-render whichever view is active
+  function renderActiveView() {
+    if (state.currentView === 'flow') {
+      renderTokenFlow();
+      updateTokenFlowExplanation();
+    } else {
+      renderCurrentStep();
+    }
+  }
 
   function renderCurrentStep() {
     vizContainer.innerHTML = '';
-    if (!state.hasRun) {
+    if (!state.hasRun || !state.result) {
       vizContainer.innerHTML = '<div class="viz-placeholder">Draw or pick a sample, then click Run</div>';
       return;
     }
-    STEPS[state.currentStep].render(state.result);
+    try {
+      STEPS[state.currentStep].render(state.result);
+    } catch(e) {
+      vizContainer.innerHTML = `<div class="viz-placeholder" style="color:var(--red)">Rendering error — try clicking Run again.<br><small>${e.message}</small></div>`;
+      console.error('Render error:', e);
+    }
   }
 
   // ============================================================
@@ -1400,7 +1880,7 @@
     // Input image with patch grid overlay
     const imgDiv = document.createElement('div');
     imgDiv.className = 'matrix-block';
-    const imgPx = Math.max(6, Math.floor(120 / IMG_SIZE));
+    const imgPx = Math.max(4, Math.floor(160 / IMG_SIZE));
     imgDiv.innerHTML = `<div class="matrix-title">Input Image (${IMG_SIZE}×${IMG_SIZE})</div>`;
     const imgCanv = makeImageCanvas(r.inputImage, imgPx);
     // Draw red dashed patch boundaries
@@ -1547,7 +2027,7 @@
       rowLabels: TOKEN_NAMES,
       borderColor: '#3b82f6',
       titleColor: '#2563eb',
-      highlightRow: state.focusToken
+      highlightRow: safeFocus()
     }));
 
     col.appendChild(makeMatrixBlock(`K [${N}×${D}]`, r.K.map(row => Array.from(row)), cs, {
@@ -1555,7 +2035,7 @@
       rowLabels: TOKEN_NAMES,
       borderColor: '#22c55e',
       titleColor: '#15803d',
-      highlightRow: state.focusToken
+      highlightRow: safeFocus()
     }));
 
     col.appendChild(makeMatrixBlock(`V [${N}×${D}]`, r.V.map(row => Array.from(row)), cs, {
@@ -1563,7 +2043,7 @@
       rowLabels: TOKEN_NAMES,
       borderColor: '#ef4444',
       titleColor: '#dc2626',
-      highlightRow: state.focusToken
+      highlightRow: safeFocus()
     }));
 
     const mhaInner = wrapInMHABlock(col, 'Inside MHA Block');
@@ -1573,7 +2053,7 @@
 
   function renderStep4(r) {
     const cs = cellSize();
-    const headsToShow = state.showAllHeads ? Array.from({length: NUM_HEADS}, (_, i) => i) : [state.singleHead];
+    const headsToShow = safeHeads(r);
     const section = document.createElement('div');
     section.className = 'viz-row';
     section.style.alignItems = 'flex-start';
@@ -1601,7 +2081,7 @@
             showNumbers: state.showNumbers,
             rowLabels: TOKEN_NAMES,
             borderColor: lab.border,
-            highlightRow: state.focusToken
+            highlightRow: safeFocus()
           }));
         col.appendChild(hg);
       }
@@ -1613,7 +2093,7 @@
 
   function renderStep5(r) {
     const cs = state.showNumbers ? 32 : 26;
-    const headsToShow = state.showAllHeads ? Array.from({length: NUM_HEADS}, (_, i) => i) : [state.singleHead];
+    const headsToShow = safeHeads(r);
     const section = document.createElement('div');
     section.className = 'viz-section';
 
@@ -1629,7 +2109,7 @@
           colormap: 'bluered',
           rowLabels: TOKEN_NAMES,
           colLabels: TOKEN_NAMES,
-          highlightRow: state.focusToken
+          highlightRow: safeFocus()
         }));
 
       row.appendChild(makeArrow('softmax'));
@@ -1639,7 +2119,7 @@
           showNumbers: state.showNumbers,
           rowLabels: TOKEN_NAMES,
           colLabels: TOKEN_NAMES,
-          highlightRow: state.focusToken,
+          highlightRow: safeFocus(),
           fixedRange: [0, 1]
         }));
 
@@ -1651,7 +2131,7 @@
 
   function renderStep6(r) {
     const cs = state.showNumbers ? 30 : 24;
-    const headsToShow = state.showAllHeads ? Array.from({length: NUM_HEADS}, (_, i) => i) : [state.singleHead];
+    const headsToShow = safeHeads(r);
     const section = document.createElement('div');
     section.className = 'viz-section';
 
@@ -1666,7 +2146,7 @@
           showNumbers: state.showNumbers,
           rowLabels: TOKEN_NAMES,
           colLabels: TOKEN_NAMES,
-          highlightRow: state.focusToken,
+          highlightRow: safeFocus(),
           fixedRange: [0, 1]
         }));
 
@@ -1677,7 +2157,7 @@
           showNumbers: state.showNumbers,
           rowLabels: TOKEN_NAMES,
           borderColor: '#ef4444',
-          highlightRow: state.focusToken
+          highlightRow: safeFocus()
         }));
 
       row.appendChild(makeOp('='));
@@ -1687,7 +2167,7 @@
           showNumbers: state.showNumbers,
           rowLabels: TOKEN_NAMES,
           borderColor: '#a855f7',
-          highlightRow: state.focusToken
+          highlightRow: safeFocus()
         }));
 
       section.appendChild(row);
@@ -1699,7 +2179,7 @@
   function renderStep7(r) {
     const cs = cellSize();
     const N = NUM_TOKENS, D = EMBED_DIM;
-    const headsToShow = state.showAllHeads ? Array.from({length: NUM_HEADS}, (_, i) => i) : [state.singleHead];
+    const headsToShow = safeHeads(r);
 
     const outer = document.createElement('div');
     outer.className = 'viz-section';
@@ -1751,7 +2231,7 @@
     const section = outer;
 
     // Row 2: Comparison
-    section.appendChild(makeSectionTitle('Comparison with Input'));
+    section.appendChild(makeSectionTitle('MHA output vs. input'));
 
     const row2 = document.createElement('div');
     row2.className = 'viz-row';
@@ -1769,7 +2249,7 @@
       return Array.from(d);
     });
 
-    row2.appendChild(makeMatrixBlock('Difference (Output − Input)', diff, cs, {
+    row2.appendChild(makeMatrixBlock('MHA Update (Output − Input)', diff, cs, {
       showNumbers: state.showNumbers,
       rowLabels: TOKEN_NAMES,
       colormap: 'bluered',
@@ -1779,6 +2259,419 @@
     section.appendChild(row2);
     vizContainer.appendChild(section);
   }
+
+  // ============================================================
+  // VIEW TAB SWITCHING
+  // ============================================================
+  const tokenFlowContainer = document.getElementById('tokenFlowContainer');
+  state.currentView = 'steps'; // 'steps' or 'flow'
+
+  document.getElementById('viewTabs').addEventListener('click', e => {
+    const tab = e.target.closest('.view-tab');
+    if (!tab) return;
+    const view = tab.dataset.view;
+    if (view === state.currentView) return;
+    state.currentView = view;
+    document.querySelectorAll('.view-tab').forEach(t => t.classList.toggle('active', t.dataset.view === view));
+    vizContainer.style.display = view === 'steps' ? '' : 'none';
+    tokenFlowContainer.style.display = view === 'flow' ? '' : 'none';
+    document.querySelector('.step-controls').style.display = view === 'steps' ? '' : 'none';
+    if (view === 'steps') {
+      renderCurrentStep();
+      updateStepUI();
+    } else if (view === 'flow') {
+      renderTokenFlow();
+      updateTokenFlowExplanation();
+    }
+  });
+
+  // ============================================================
+  // TOKEN FLOW VIEW
+  // ============================================================
+  function renderTokenFlow() {
+    tokenFlowContainer.innerHTML = '';
+    if (!state.hasRun || !state.result || !state.result.attnWeights) {
+      tokenFlowContainer.innerHTML = '<div class="viz-placeholder">Draw or pick a sample, then click Run</div>';
+      return;
+    }
+
+    const r = state.result;
+    // Derive dimensions from the actual result data, not global config (may be stale during transitions)
+    const rHeads = r.attnWeights.length;
+    const rTokens = r.attnWeights[0].length;
+    const headsToShow = state.showAllHeads ? Array.from({length: rHeads}, (_, i) => i) : [Math.min(state.singleHead, rHeads - 1)];
+    const focusIdx = Math.min(state.focusToken, rTokens - 1);
+
+    const grid = document.createElement('div');
+    grid.className = 'token-flow-grid';
+
+    // Panel 1: Spatial attention map on the image
+    const spatialPanel = document.createElement('div');
+    spatialPanel.className = 'token-flow-panel';
+    const focusName = TOKEN_NAMES[focusIdx] || `Token ${focusIdx}`;
+    spatialPanel.innerHTML = `<h3>Where does ${focusName} attend?</h3>`;
+
+    for (const h of headsToShow) {
+      const headLabel = NUM_HEADS > 1 ? document.createElement('div') : null;
+      if (headLabel) {
+        headLabel.className = 'head-label';
+        headLabel.textContent = `Head ${h + 1}`;
+        spatialPanel.appendChild(headLabel);
+      }
+
+      // Draw the image with attention overlay
+      const cellPx = Math.max(16, Math.floor(200 / IMG_SIZE));
+      const canvW = IMG_SIZE * cellPx;
+      const canv = document.createElement('canvas');
+      canv.width = canvW; canv.height = canvW;
+      canv.style.width = canvW + 'px'; canv.style.height = canvW + 'px';
+      canv.className = 'spatial-attn-canvas';
+      const cx = canv.getContext('2d');
+
+      // Draw grayscale image
+      for (let row = 0; row < IMG_SIZE; row++) {
+        for (let col = 0; col < IMG_SIZE; col++) {
+          const v = Math.round(r.inputImage[row][col] * 255);
+          cx.fillStyle = `rgb(${v},${v},${v})`;
+          cx.fillRect(col * cellPx, row * cellPx, cellPx, cellPx);
+        }
+      }
+
+      // Overlay attention weights as colored patches
+      // attnWeights[h][focusToken] is [NUM_TOKENS] — first is CLS, rest are patches
+      const attnRow = r.attnWeights[h][focusIdx];
+      // Skip CLS (index 0), patches are indices 1..NUM_PATCHES
+      let maxAttn = 0;
+      for (let p = 0; p < NUM_PATCHES; p++) maxAttn = Math.max(maxAttn, attnRow[p + 1]);
+      const attnScale = maxAttn > 0 ? 1 / maxAttn : 1;
+
+      for (let p = 0; p < NUM_PATCHES; p++) {
+        const pr = Math.floor(p / GRID_SIZE);
+        const pc = p % GRID_SIZE;
+        const weight = attnRow[p + 1];
+        const alpha = weight * attnScale * 0.7;
+        const rgb = viridisRGB(weight * attnScale);
+        cx.fillStyle = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${alpha.toFixed(3)})`;
+        cx.fillRect(pc * PATCH_SIZE * cellPx, pr * PATCH_SIZE * cellPx,
+                    PATCH_SIZE * cellPx, PATCH_SIZE * cellPx);
+
+        // Attention weight label
+        cx.font = `bold ${Math.min(14, cellPx)}px system-ui`;
+        cx.fillStyle = alpha > 0.4 ? '#000' : '#fff';
+        cx.textAlign = 'center';
+        cx.textBaseline = 'middle';
+        cx.fillText((weight * 100).toFixed(0) + '%',
+          (pc + 0.5) * PATCH_SIZE * cellPx,
+          (pr + 0.5) * PATCH_SIZE * cellPx);
+      }
+
+      // Draw patch grid lines
+      cx.strokeStyle = 'rgba(255,255,255,0.5)';
+      cx.lineWidth = 1;
+      for (let i = 0; i <= GRID_SIZE; i++) {
+        cx.beginPath();
+        cx.moveTo(i * PATCH_SIZE * cellPx, 0);
+        cx.lineTo(i * PATCH_SIZE * cellPx, canvW);
+        cx.stroke();
+        cx.beginPath();
+        cx.moveTo(0, i * PATCH_SIZE * cellPx);
+        cx.lineTo(canvW, i * PATCH_SIZE * cellPx);
+        cx.stroke();
+      }
+
+      // CLS self-attention indicator
+      const clsAttn = attnRow[0];
+      const clsDiv = document.createElement('div');
+      clsDiv.style.cssText = 'font-size:11px;color:var(--muted);margin-top:2px';
+      clsDiv.textContent = `${focusName} → CLS self-attn: ${(clsAttn * 100).toFixed(1)}%`;
+
+      spatialPanel.appendChild(canv);
+      spatialPanel.appendChild(clsDiv);
+    }
+
+    grid.appendChild(spatialPanel);
+
+    // Panel 2: Token graph — nodes with arrows
+    const graphPanel = document.createElement('div');
+    graphPanel.className = 'token-flow-panel';
+    graphPanel.innerHTML = `<h3>Attention flow from ${focusName}</h3>`;
+
+    for (const h of headsToShow) {
+      if (NUM_HEADS > 1) {
+        const hl = document.createElement('div');
+        hl.className = 'head-label';
+        hl.textContent = `Head ${h + 1}`;
+        graphPanel.appendChild(hl);
+      }
+
+      const graphCanv = document.createElement('canvas');
+      const graphSize = 280;
+      graphCanv.width = graphSize; graphCanv.height = graphSize;
+      graphCanv.style.width = graphSize + 'px'; graphCanv.style.height = graphSize + 'px';
+      graphCanv.style.border = '1px solid var(--border)';
+      graphCanv.style.borderRadius = '8px';
+      graphCanv.style.background = '#fff';
+      const gx = graphCanv.getContext('2d');
+
+      // Position tokens: CLS at top center, patches in grid below
+      const nodeR = 18;
+      const positions = [];
+      // CLS
+      positions.push({ x: graphSize / 2, y: 35, label: 'CLS', isCls: true });
+      // Patches in grid
+      const gridPad = 50;
+      const gridW = graphSize - 2 * gridPad;
+      for (let p = 0; p < NUM_PATCHES; p++) {
+        const pr = Math.floor(p / GRID_SIZE);
+        const pc = p % GRID_SIZE;
+        positions.push({
+          x: gridPad + (pc + 0.5) * (gridW / GRID_SIZE),
+          y: 80 + (pr + 0.5) * ((graphSize - 100) / GRID_SIZE),
+          label: `P${p + 1}`,
+          isCls: false
+        });
+      }
+
+      const attnRow = r.attnWeights[h][focusIdx];
+      const focusPos = positions[focusIdx];
+
+      // Draw arrows from focus token to all others
+      for (let t = 0; t < NUM_TOKENS; t++) {
+        if (t === focusIdx) continue;
+        const weight = attnRow[t];
+        if (weight < 0.01) continue;
+        const target = positions[t];
+        const dx = target.x - focusPos.x;
+        const dy = target.y - focusPos.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const nx = dx / dist, ny = dy / dist;
+        // Start/end offset by node radius
+        const sx = focusPos.x + nx * nodeR;
+        const sy = focusPos.y + ny * nodeR;
+        const ex = target.x - nx * nodeR;
+        const ey = target.y - ny * nodeR;
+
+        gx.beginPath();
+        gx.moveTo(sx, sy);
+        gx.lineTo(ex, ey);
+        gx.strokeStyle = `rgba(59,130,246,${Math.max(0.15, weight)})`;
+        gx.lineWidth = 1 + weight * 6;
+        gx.stroke();
+
+        // Arrowhead
+        const angle = Math.atan2(ey - sy, ex - sx);
+        const headLen = 8;
+        gx.beginPath();
+        gx.moveTo(ex, ey);
+        gx.lineTo(ex - headLen * Math.cos(angle - 0.4), ey - headLen * Math.sin(angle - 0.4));
+        gx.lineTo(ex - headLen * Math.cos(angle + 0.4), ey - headLen * Math.sin(angle + 0.4));
+        gx.closePath();
+        gx.fillStyle = `rgba(59,130,246,${Math.max(0.3, weight)})`;
+        gx.fill();
+
+        // Weight label at midpoint
+        if (weight > 0.05) {
+          const mx = (sx + ex) / 2, my = (sy + ey) / 2;
+          gx.font = '9px system-ui';
+          gx.fillStyle = '#475569';
+          gx.textAlign = 'center';
+          gx.textBaseline = 'middle';
+          gx.fillText((weight * 100).toFixed(0) + '%', mx + ny * 10, my - nx * 10);
+        }
+      }
+
+      // Self-attention arc
+      const selfAttn = attnRow[focusIdx];
+      if (selfAttn > 0.01) {
+        gx.beginPath();
+        gx.arc(focusPos.x, focusPos.y - nodeR - 8, 10, 0.3 * Math.PI, 0.7 * Math.PI);
+        gx.strokeStyle = `rgba(245,158,11,${Math.max(0.3, selfAttn)})`;
+        gx.lineWidth = 1 + selfAttn * 4;
+        gx.stroke();
+        gx.font = '9px system-ui';
+        gx.fillStyle = '#b45309';
+        gx.textAlign = 'center';
+        gx.fillText((selfAttn * 100).toFixed(0) + '%', focusPos.x, focusPos.y - nodeR - 22);
+      }
+
+      // Draw nodes
+      for (let t = 0; t < NUM_TOKENS; t++) {
+        const pos = positions[t];
+        gx.beginPath();
+        gx.arc(pos.x, pos.y, nodeR, 0, 2 * Math.PI);
+        if (t === focusIdx) {
+          gx.fillStyle = '#3b82f6';
+          gx.strokeStyle = '#2563eb';
+        } else if (pos.isCls) {
+          gx.fillStyle = '#f59e0b';
+          gx.strokeStyle = '#b45309';
+        } else {
+          gx.fillStyle = '#e2e8f0';
+          gx.strokeStyle = '#94a3b8';
+        }
+        gx.lineWidth = 2;
+        gx.fill();
+        gx.stroke();
+
+        gx.font = 'bold 10px system-ui';
+        gx.fillStyle = (t === focusIdx || pos.isCls) ? '#fff' : '#334155';
+        gx.textAlign = 'center';
+        gx.textBaseline = 'middle';
+        gx.fillText(pos.label, pos.x, pos.y);
+      }
+
+      graphPanel.appendChild(graphCanv);
+    }
+
+    grid.appendChild(graphPanel);
+
+    // Panel 3: Embedding comparison (before/after MHA)
+    const embedPanel = document.createElement('div');
+    embedPanel.className = 'token-flow-panel';
+    embedPanel.innerHTML = `<h3>How ${focusName} changes</h3>`;
+
+    const inputEmbed = r.tokens[focusIdx];
+    const outputEmbed = r.output[focusIdx];
+
+    // Find global range for consistent coloring
+    let gMin = Infinity, gMax = -Infinity;
+    for (let d = 0; d < EMBED_DIM; d++) {
+      gMin = Math.min(gMin, inputEmbed[d], outputEmbed[d]);
+      gMax = Math.max(gMax, inputEmbed[d], outputEmbed[d]);
+    }
+    const gRange = gMax - gMin || 1;
+
+    function makeEmbedRow(label, data, color) {
+      const row = document.createElement('div');
+      row.className = 'embed-bar-row';
+      const lbl = document.createElement('div');
+      lbl.className = 'embed-bar-label';
+      lbl.textContent = label;
+      if (color) lbl.style.color = color;
+      row.appendChild(lbl);
+      const track = document.createElement('div');
+      track.className = 'embed-bar-track';
+      for (let d = 0; d < EMBED_DIM; d++) {
+        const cell = document.createElement('div');
+        cell.className = 'embed-bar-cell';
+        const t = (data[d] - gMin) / gRange;
+        const rgb = viridisRGB(t);
+        cell.style.background = `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
+        cell.title = `dim ${d}: ${data[d].toFixed(3)}`;
+        track.appendChild(cell);
+      }
+      row.appendChild(track);
+      return row;
+    }
+
+    embedPanel.appendChild(makeEmbedRow('Input', inputEmbed));
+    embedPanel.appendChild(makeEmbedRow('Output', outputEmbed));
+
+    // Difference
+    const diffData = new Float32Array(EMBED_DIM);
+    let dMin = Infinity, dMax = -Infinity;
+    for (let d = 0; d < EMBED_DIM; d++) {
+      diffData[d] = outputEmbed[d] - inputEmbed[d];
+      dMin = Math.min(dMin, diffData[d]);
+      dMax = Math.max(dMax, diffData[d]);
+    }
+    const dRange = Math.max(Math.abs(dMin), Math.abs(dMax)) || 1;
+
+    const diffRow = document.createElement('div');
+    diffRow.className = 'embed-bar-row';
+    const diffLbl = document.createElement('div');
+    diffLbl.className = 'embed-bar-label';
+    diffLbl.textContent = 'Change';
+    diffLbl.style.color = '#7c3aed';
+    diffRow.appendChild(diffLbl);
+    const diffTrack = document.createElement('div');
+    diffTrack.className = 'embed-bar-track';
+    for (let d = 0; d < EMBED_DIM; d++) {
+      const cell = document.createElement('div');
+      cell.className = 'embed-bar-cell';
+      const t = (diffData[d] / dRange + 1) / 2; // map [-1,1] to [0,1]
+      const rgb = blueRedRGB(t);
+      cell.style.background = `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
+      cell.title = `dim ${d}: ${diffData[d] > 0 ? '+' : ''}${diffData[d].toFixed(3)}`;
+      diffTrack.appendChild(cell);
+    }
+    diffRow.appendChild(diffTrack);
+    embedPanel.appendChild(diffRow);
+
+    const dimNote = document.createElement('div');
+    dimNote.style.cssText = 'font-size:10px;color:var(--muted);margin-top:4px';
+    dimNote.textContent = `${EMBED_DIM} dimensions — hover cells for values. Change row: blue=decreased, red=increased.`;
+    embedPanel.appendChild(dimNote);
+
+    grid.appendChild(embedPanel);
+    tokenFlowContainer.appendChild(grid);
+  }
+
+  function updateTokenFlowExplanation() {
+    const focusName = TOKEN_NAMES[Math.min(state.focusToken, NUM_TOKENS - 1)] || 'CLS';
+    document.getElementById('explainPanel').innerHTML = `
+      <h3>Token Flow View</h3>
+      <p>This view shows what multi-head attention computes at a <b>high level</b> &mdash;
+      how tokens communicate and how their representations change. Use the <b>token selector</b>
+      and <b>head selector</b> in the sidebar to explore different perspectives.</p>
+
+      <h3>What are the attention weights?</h3>
+      <p>Each attention weight is a number between 0 and 1 (each row sums to 1). The weight at
+      position (i, j) tells you the fraction of token j's <b>Value vector</b> that gets mixed
+      into token i's output. They are computed as:</p>
+      <p><span class="math">attn(i, j) = softmax(Q<sub>i</sub> &middot; K<sub>j</sub> / &radic;d<sub>k</sub>)</span></p>
+      <p>In plain terms: token i's Query is dot-producted with every token's Key. High dot product
+      means "token j has what token i is looking for." The softmax normalizes these similarity
+      scores into a probability distribution that sums to 1.</p>
+
+      <h3>Spatial Attention Map (left)</h3>
+      <p>The attention weights for <b>${focusName}</b> are projected back onto the
+      ${GRID_SIZE}&times;${GRID_SIZE} patch grid and overlaid on the input image. Each patch shows
+      the percentage of attention it receives. Brighter (yellow) patches are attended to more
+      strongly. This directly visualizes <em>where in the image</em> ${focusName} is pulling
+      information from. The CLS token's self-attention percentage is shown below.</p>
+
+      <h3>Attention Flow Graph (center)</h3>
+      <p>Tokens are drawn as circles in their spatial positions (CLS at top). Arrows from
+      <b>${focusName}</b> (blue node) to other tokens show the attention weights &mdash;
+      thicker and more opaque arrows mean stronger attention. Self-attention (a token attending
+      to itself) is shown as an arc above the node. Percentage labels are shown for weights
+      above 5%.</p>
+
+      <h3>Embedding Change (right)</h3>
+      <p>The input and output embedding vectors for <b>${focusName}</b> are shown as colored bars
+      (${EMBED_DIM} dimensions, Viridis colormap). The "Change" row shows the difference
+      (output &minus; input) with a blue-red diverging colormap: blue means the dimension
+      decreased, red means it increased. Hover any cell for the exact value.</p>
+      <p>Note: this difference is the <em>raw MHA output</em>. In a full transformer, a
+      <b>residual connection</b> adds this back to the input
+      (<span class="math">x + MHA(x)</span>), so the original representation is always
+      preserved and MHA only contributes a refinement.</p>
+
+      <h3>MHA in the full transformer</h3>
+      <p>In practice, MHA is never used alone. A standard transformer block combines it with
+      several other components:</p>
+      <p><span class="math">x&prime; = x + MHA(LayerNorm(x))</span><br>
+      <span class="math">x&prime;&prime; = x&prime; + FFN(LayerNorm(x&prime;))</span></p>
+      <p><b>Layer Normalization</b> is applied <em>before</em> each sub-layer (pre-norm style).
+      It normalizes each token's embedding to have zero mean and unit variance, then applies
+      learned scale and shift parameters. This stabilizes training by preventing activations from
+      growing or shrinking across layers.</p>
+      <p><b>Residual connections</b> (<span class="math">x + f(x)</span>) let the model preserve
+      information from earlier layers. Without them, the original token representations could be
+      destroyed by the attention mechanism. With them, MHA only needs to learn the <em>useful
+      update</em> to add.</p>
+      <p><b>Feed-Forward Network (FFN)</b> is a two-layer MLP
+      (<span class="math">Linear &rarr; GELU &rarr; Linear</span>) applied independently to each
+      token. While MHA lets tokens communicate with each other, the FFN processes each token
+      in isolation &mdash; it's where the model does per-token computation like feature
+      transformation. The hidden dimension is typically 2&ndash;4&times; the embedding dimension.</p>
+      <p>A full transformer stacks multiple such blocks in series. Each layer's MHA can attend
+      to the output of the previous layer, enabling progressively more abstract representations:
+      early layers tend to learn local/spatial patterns, while later layers learn more global,
+      semantic relationships.</p>`;
+  }
+
 
   // ============================================================
   // KEYBOARD SHORTCUTS
@@ -1795,24 +2688,13 @@
   // ============================================================
   // AUTO-RUN first sample on load
   // ============================================================
+  // Auto-run first sample on load
   (function() {
-    dctx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+    generateSamples();
+    buildSampleButtons();
+    updateCfgStatus();
     const firstSample = SAMPLES[0];
-    const tmpC = document.createElement('canvas');
-    tmpC.width = IMG_SIZE; tmpC.height = IMG_SIZE;
-    const tmpCtx = tmpC.getContext('2d');
-    const tmpId = tmpCtx.createImageData(IMG_SIZE, IMG_SIZE);
-    for (let r = 0; r < IMG_SIZE; r++) {
-      for (let c = 0; c < IMG_SIZE; c++) {
-        const v = Math.round(firstSample.data[r][c] * 255);
-        const pi = (r * IMG_SIZE + c) * 4;
-        tmpId.data[pi] = v; tmpId.data[pi+1] = v; tmpId.data[pi+2] = v; tmpId.data[pi+3] = 255;
-      }
-    }
-    tmpCtx.putImageData(tmpId, 0, 0);
-    dctx.imageSmoothingEnabled = false;
-    dctx.drawImage(tmpC, 0, 0, drawCanvas.width, drawCanvas.height);
-    dctx.imageSmoothingEnabled = true;
+    drawSampleOnCanvas(firstSample.data);
     runAndShow(firstSample.data);
   })();
 
