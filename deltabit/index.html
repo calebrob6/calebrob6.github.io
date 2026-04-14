@@ -1033,7 +1033,7 @@
 <script>
 // ── Configuration ───────────────────────────────────────────────────
 var urlParams = new URLSearchParams(window.location.search);
-var EMBEDDING_TILE_URL = urlParams.get('tiles') || 'https://geospatialvisualizer.z13.web.core.windows.net/tiles/aef_seattle_2024-2020_diff_tiles/{z}/{x}/{y}.tif';
+var EMBEDDING_TILE_URL = urlParams.get('tiles') || 'https://geospatialml.z5.web.core.windows.net/tiles/aef_seattle_2024-2020_diff_tiles/{z}/{x}/{y}.tif';
 var EMB_MIN_ZOOM = parseInt(urlParams.get('minZoom')) || 8;
 var EMB_MAX_NATIVE_ZOOM = parseInt(urlParams.get('maxZoom')) || 14;
 
@@ -1499,30 +1499,25 @@ var osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© OpenStreetMap', minZoom: 6, maxZoom: 18
 });
 
-var imagery2020 = L.tileLayer('https://geospatialvisualizer.z13.web.core.windows.net/tiles/s2_20200828_seattle_tiles/{z}/{x}/{y}.png', {
+var imagery2020 = L.tileLayer('https://geospatialml.z5.web.core.windows.net/tiles/s2_20200828_seattle_tiles/{z}/{x}/{y}.png', {
     tms: false, minZoom: 8, maxNativeZoom: 14, maxZoom: 18,
     bounds: bounds, attribution: 'Sentinel-2 2020-08-28'
 });
 
-var imagery2024 = L.tileLayer('https://geospatialvisualizer.z13.web.core.windows.net/tiles/s2_20240720_seattle_tiles/{z}/{x}/{y}.png', {
+var imagery2024 = L.tileLayer('https://geospatialml.z5.web.core.windows.net/tiles/s2_20240720_seattle_tiles/{z}/{x}/{y}.png', {
     tms: false, minZoom: 8, maxNativeZoom: 14, maxZoom: 18,
     bounds: bounds, attribution: 'Sentinel-2 2024-07-20'
 });
 
-var diffLayer = L.tileLayer('https://geospatialvisualizer.z13.web.core.windows.net/tiles/aef_diff_pca3_seattle_tiles/{z}/{x}/{y}.png', {
+var diffLayer = L.tileLayer('https://geospatialml.z5.web.core.windows.net/tiles/aef_diff_pca3_seattle_tiles/{z}/{x}/{y}.png', {
     tms: false, minZoom: 8, maxNativeZoom: 14, maxZoom: 18,
     bounds: bounds, opacity: 0.85, attribution: 'AEF Diff PCA-3'
-});
-
-var diffUrbanLayer = L.tileLayer('https://geospatialvisualizer.z13.web.core.windows.net/tiles/aef_diff_pca3_seattle_urbandiff_tiles/{z}/{x}/{y}.png', {
-    tms: false, minZoom: 8, maxNativeZoom: 14, maxZoom: 18,
-    bounds: bounds, opacity: 0.85, attribution: 'AEF Diff PCA-3 (urban diff)'
 });
 
 // ── Map ─────────────────────────────────────────────────────────────
 var map = L.map('map', {
     center: [47.355, -122.267], zoom: 10,
-    minZoom: 6, maxZoom: 18, zoomControl: false,
+    minZoom: 8, maxZoom: 18, zoomControl: false,
     layers: [osm, imagery2020, imagery2024]
 });
 
@@ -1982,36 +1977,26 @@ function doTrain() {
 }
 
 // ── Diff overlay controls ───────────────────────────────────────────
-var overlayLayers = { full: diffLayer, urban: diffUrbanLayer };
-var selectedOverlay = 'full';
 var overlayVisible = false;
 
 var diffControl = L.control({ position: 'bottomright' });
 diffControl.onAdd = function () {
     var div = L.DomUtil.create('div', 'diff-control');
-    div.innerHTML = [
-        '<label><input type="checkbox" id="overlay-toggle"> Show diff overlay</label>',
-        '<hr>',
-        '<label><input type="radio" name="overlay" value="full" checked> Full tile</label>',
-        '<label style="margin-top:4px"><input type="radio" name="overlay" value="urban"> Urban diff</label>'
-    ].join('');
+    div.innerHTML = '<label><input type="checkbox" id="overlay-toggle"> Show diff overlay</label>';
     L.DomEvent.disableClickPropagation(div);
     return div;
 };
 diffControl.addTo(map);
 
 var overlayToggle = document.getElementById('overlay-toggle');
-var radioButtons = document.querySelectorAll('input[name="overlay"]');
 
 function showOverlay() {
-    overlayLayers[selectedOverlay].addTo(map);
+    diffLayer.addTo(map);
     overlayVisible = true;
     overlayToggle.checked = true;
 }
 function hideOverlay() {
-    Object.keys(overlayLayers).forEach(function (k) {
-        if (map.hasLayer(overlayLayers[k])) map.removeLayer(overlayLayers[k]);
-    });
+    if (map.hasLayer(diffLayer)) map.removeLayer(diffLayer);
     overlayVisible = false;
     overlayToggle.checked = false;
 }
@@ -2021,14 +2006,6 @@ function toggleDiff() {
 
 overlayToggle.addEventListener('change', function () {
     if (this.checked) showOverlay(); else hideOverlay();
-});
-radioButtons.forEach(function (r) {
-    r.addEventListener('change', function () {
-        var was = overlayVisible;
-        hideOverlay();
-        selectedOverlay = this.value;
-        if (was) showOverlay();
-    });
 });
 
 // ── Keyboard hints ──────────────────────────────────────────────────
@@ -2139,7 +2116,7 @@ if (EMBEDDING_TILE_URL) {
         {
             label: 'Step 2 / 6',
             title: 'See the change signal',
-            body: '<p>Toggle the <strong>PCA diff overlay</strong> to visualize change magnitude and direction across the scene. Similar colors = similar types of change; gray = no change.</p><p>Press <kbd>Space</kbd> to toggle, or switch between the full and urban-masked views.</p>',
+            body: '<p>Toggle the <strong>PCA diff overlay</strong> to visualize change magnitude and direction across the scene. Similar colors = similar types of change; gray = no change.</p><p>Press <kbd>Space</kbd> or use the checkbox to toggle.</p>',
             target: function () { return document.querySelector('.diff-control'); },
             placement: 'left',
             padding: 8
