@@ -1,0 +1,2402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Deltabit — Interactive Change Detection</title>
+
+    <meta name="author" content="Caleb Robinson" />
+    <meta name="description" content="Deltabit — an interactive change detection demo over Seattle (Sentinel-2, 2020 → 2024). Label, train, and predict per-pixel change in the browser over compressed AlphaEarth embedding-difference tiles." />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Deltabit — Interactive Change Detection" />
+    <meta property="og:description" content="Label, train, and predict per-pixel change in the browser over compressed AlphaEarth embedding-difference tiles for Seattle (2020 → 2024)." />
+    <meta property="og:image" content="https://calebrob.com/deltabit/teaser.jpg" />
+    <meta property="og:image:alt" content="Deltabit — horizontal fade from Sentinel-2 2020 imagery into a predicted change-detection map." />
+    <meta property="article:author" content="Caleb Robinson" />
+
+    <!-- Twitter / X -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Deltabit — Interactive Change Detection" />
+    <meta name="twitter:description" content="Label, train, and predict per-pixel change in the browser over compressed AlphaEarth embedding-difference tiles for Seattle (2020 → 2024)." />
+    <meta name="twitter:image" content="https://calebrob.com/deltabit/teaser.jpg" />
+    <meta name="twitter:creator" content="@calebrob6" />
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/geotiff@2.1.3/dist-browser/geotiff.js"></script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+
+    <style>
+        :root {
+            /* Backgrounds */
+            --bg:           #1a1612;
+            --bg-soft:      #221c16;
+            --panel:        rgba(16, 13, 10, 0.92);
+            --panel-strong: rgba(8, 6, 4, 0.96);
+            --ink:          #0e0b08;
+
+            /* Text */
+            --text:         #f3ecd8;
+            --muted:        #9a8f7a;
+            --muted-strong: #d4c9ae;
+
+            /* Accent */
+            --accent:        #d0542c;
+            --accent-strong: #e37148;
+            --accent-dark:   #a33d1a;
+            --aoi:           #e5a853;
+            --positive:      #c74633;
+            --negative:      #3b82f6;
+            --amber:         #f59e0b;
+
+            /* Elevation */
+            --shadow-lg: 0 28px 80px rgba(0,0,0,0.55), 0 2px 0 rgba(255,255,255,0.04) inset;
+            --shadow-md: 0 18px 42px rgba(0,0,0,0.45);
+
+            /* Radii */
+            --radius:    14px;
+            --radius-sm: 8px;
+        }
+
+        /* leaflet-side-by-side CSS */
+        .leaflet-sbs {
+            position: absolute; top: 0; bottom: 0; left: 0; right: 0;
+            z-index: 999; pointer-events: none;
+        }
+        .leaflet-sbs-divider {
+            position: absolute; top: 0; bottom: 0; left: 50%; margin-left: -1px;
+            width: 2px; background-color: rgba(243, 236, 216, 0.85); pointer-events: none;
+            z-index: 999; box-shadow: 0 0 18px rgba(208, 84, 44, 0.45);
+        }
+        .leaflet-sbs-handle {
+            position: absolute; top: 50%; left: 50%;
+            width: 44px; height: 44px; margin-left: -22px; margin-top: -22px;
+            background: var(--panel-strong);
+            backdrop-filter: blur(18px) saturate(140%);
+            -webkit-backdrop-filter: blur(18px) saturate(140%);
+            border: 1px solid rgba(243, 236, 216, 0.18);
+            border-radius: 50%;
+            cursor: ew-resize; pointer-events: auto; z-index: 1000;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.55), 0 0 0 1px rgba(208, 84, 44, 0.25) inset;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .leaflet-sbs-handle::before {
+            content: "⇆"; color: var(--text); font-size: 16px;
+            font-family: "Inter Tight", sans-serif; font-weight: 600;
+        }
+        body.leaflet-sbs-dragging { cursor: ew-resize !important; user-select: none !important; }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { background: var(--bg); }
+        body {
+            font-family: "Inter Tight", sans-serif;
+            font-feature-settings: "ss01", "cv11";
+            -webkit-font-smoothing: antialiased;
+            text-rendering: optimizeLegibility;
+            color: var(--text);
+            letter-spacing: -0.005em;
+        }
+
+        /* Starfield + vignette */
+        body::before {
+            content: "";
+            position: fixed; inset: 0;
+            background-image:
+                radial-gradient(1px 1px at 17% 32%, rgba(255,255,255,0.85), transparent 60%),
+                radial-gradient(1px 1px at 72% 18%, rgba(255,255,255,0.7), transparent 60%),
+                radial-gradient(1px 1px at 41% 71%, rgba(255,255,255,0.6), transparent 60%),
+                radial-gradient(1px 1px at 89% 55%, rgba(255,255,255,0.75), transparent 60%),
+                radial-gradient(1px 1px at 28% 88%, rgba(255,255,255,0.5), transparent 60%),
+                radial-gradient(1px 1px at 63% 42%, rgba(255,255,255,0.65), transparent 60%),
+                radial-gradient(1px 1px at 5% 12%, rgba(255,255,255,0.55), transparent 60%),
+                radial-gradient(1px 1px at 95% 82%, rgba(255,255,255,0.45), transparent 60%);
+            opacity: 0.25;
+            z-index: 1100;
+            pointer-events: none;
+        }
+        body::after {
+            content: "";
+            position: fixed; inset: 0;
+            background: radial-gradient(ellipse at center, transparent 55%, rgba(14, 11, 8, 0.55) 100%);
+            z-index: 1100;
+            pointer-events: none;
+        }
+
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; background: var(--bg); }
+
+        /* ── Title panel (topleft leaflet stack) ── */
+        .title-panel {
+            background: var(--panel-strong);
+            backdrop-filter: blur(18px) saturate(140%);
+            -webkit-backdrop-filter: blur(18px) saturate(140%);
+            border: 1px solid rgba(243, 236, 216, 0.08);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-lg);
+            padding: 14px 18px 12px;
+            pointer-events: auto;
+            min-width: 240px;
+            max-width: 300px;
+        }
+        .title-panel .title-main {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-family: "Fraunces", serif;
+            font-size: 28px;
+            line-height: 1;
+            font-variation-settings: "opsz" 144;
+            letter-spacing: -0.03em;
+        }
+        .title-panel .delta-icon {
+            width: 28px; height: 28px;
+            color: var(--accent-strong);
+            flex-shrink: 0;
+            filter: drop-shadow(0 0 10px rgba(208, 84, 44, 0.55));
+        }
+        .title-panel .delta-icon polygon {
+            fill: rgba(208, 84, 44, 0.12);
+            stroke: currentColor;
+            stroke-width: 1.8;
+            stroke-linejoin: round;
+        }
+        .title-panel .title-word {
+            font-weight: 500;
+            color: var(--text);
+        }
+        .title-panel .title-word-accent {
+            font-weight: 500;
+            font-style: italic;
+            color: var(--accent-strong);
+            font-variation-settings: "opsz" 36;
+        }
+        .title-panel .title-sub {
+            font-family: "JetBrains Mono", monospace;
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.18em;
+            color: var(--muted);
+            margin-top: 8px;
+        }
+        .title-panel .title-meta {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(243, 236, 216, 0.08);
+        }
+        .title-panel .title-author {
+            font-family: "JetBrains Mono", monospace;
+            font-size: 10px;
+            letter-spacing: 0.14em;
+            color: var(--muted);
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+        .title-panel .title-author a {
+            color: var(--accent-strong);
+            text-decoration: none;
+            transition: color 140ms;
+            font-weight: 600;
+        }
+        .title-panel .title-author a:hover { color: var(--text); }
+
+        /* Glass panel base */
+        .panel-label, .kbd-hint, .diff-control, .label-panel {
+            background: var(--panel);
+            backdrop-filter: blur(18px) saturate(140%);
+            -webkit-backdrop-filter: blur(18px) saturate(140%);
+            border: 1px solid rgba(243, 236, 216, 0.06);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-lg);
+            color: var(--text);
+        }
+
+        .panel-label {
+            display: flex; flex-direction: column;
+            padding: 12px 16px;
+            pointer-events: auto; max-width: 240px;
+        }
+        .panel-label .title {
+            font-family: "Fraunces", serif;
+            font-size: 17px; font-weight: 500; color: var(--text);
+            font-variation-settings: "opsz" 36;
+            letter-spacing: -0.02em;
+        }
+        .panel-label .subtitle {
+            font-family: "JetBrains Mono", monospace;
+            font-size: 10px; color: var(--muted);
+            margin-top: 4px; text-transform: uppercase; letter-spacing: 0.14em;
+        }
+
+        .kbd-hint {
+            padding: 12px 16px;
+            font-size: 11px; color: var(--muted-strong); line-height: 1.85; max-width: 360px;
+            font-family: "JetBrains Mono", monospace;
+        }
+        .kbd-hint kbd {
+            display: inline-block; padding: 2px 7px;
+            font-family: "JetBrains Mono", monospace;
+            font-size: 10px; color: var(--text);
+            background: rgba(243, 236, 216, 0.08);
+            border: 1px solid rgba(243, 236, 216, 0.12);
+            border-radius: 4px;
+            box-shadow: 0 1px 0 rgba(255,255,255,0.04) inset;
+        }
+
+        .diff-control {
+            padding: 12px 16px;
+            font-size: 12px;
+            user-select: none;
+        }
+        .diff-control label {
+            display: flex; align-items: center; gap: 10px; cursor: pointer;
+            font-weight: 500; color: var(--muted-strong);
+            transition: color 140ms;
+        }
+        .diff-control label:hover { color: var(--text); }
+        .diff-control input[type="checkbox"],
+        .diff-control input[type="radio"] {
+            width: 14px; height: 14px; cursor: pointer; accent-color: var(--accent);
+        }
+        .diff-control hr {
+            margin: 8px 0 !important;
+            border: 0 !important;
+            border-top: 1px solid rgba(243, 236, 216, 0.08) !important;
+        }
+
+        /* ── Labeling panel ── */
+        .label-panel {
+            padding: 16px 18px;
+            font-size: 12px;
+            pointer-events: auto; min-width: 300px; max-width: 320px;
+        }
+        .label-panel h3 {
+            font-family: "JetBrains Mono", monospace;
+            font-size: 10px; font-weight: 600;
+            text-transform: uppercase; letter-spacing: 0.18em;
+            color: var(--muted-strong);
+            margin: 0 0 14px 0;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .label-panel .section-divider {
+            border: 0; border-top: 1px solid rgba(243, 236, 216, 0.08); margin: 12px 0;
+        }
+        .label-panel .section-label {
+            font-family: "JetBrains Mono", monospace;
+            font-size: 9px; font-weight: 600;
+            text-transform: uppercase; letter-spacing: 0.18em;
+            color: var(--muted);
+            margin-bottom: 8px;
+        }
+
+        .label-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 10px; }
+        .label-btn {
+            padding: 8px 10px;
+            border: 1px solid rgba(243, 236, 216, 0.1);
+            border-radius: var(--radius-sm);
+            background: rgba(243, 236, 216, 0.03);
+            cursor: pointer;
+            font-family: "JetBrains Mono", monospace;
+            font-size: 10px; font-weight: 600;
+            text-transform: uppercase; letter-spacing: 0.1em;
+            text-align: center;
+            color: var(--muted-strong);
+            transition: all 140ms;
+        }
+        .label-btn:hover { background: rgba(243, 236, 216, 0.06); color: var(--text); }
+        .label-btn.change.active {
+            border-color: rgba(229, 168, 83, 0.5);
+            background: rgba(229, 168, 83, 0.12);
+            color: var(--aoi);
+            box-shadow: 0 0 0 1px rgba(229, 168, 83, 0.2) inset;
+        }
+        .label-btn.nochange.active {
+            border-color: rgba(59, 130, 246, 0.5);
+            background: rgba(59, 130, 246, 0.12);
+            color: #93c5fd;
+            box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.2) inset;
+        }
+
+        .sample-counts {
+            display: flex; gap: 18px;
+            font-family: "JetBrains Mono", monospace;
+            font-size: 11px; color: var(--muted); margin-bottom: 10px;
+            font-variant-numeric: tabular-nums;
+        }
+        .sample-counts b { color: var(--text); font-weight: 600; margin-left: 2px; }
+        .sample-counts .dot {
+            display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px;
+            box-shadow: 0 0 8px currentColor;
+        }
+        .train-row { display: flex; align-items: center; gap: 10px; }
+        .train-btn {
+            padding: 7px 16px; border: none; border-radius: var(--radius-sm);
+            background: linear-gradient(180deg, var(--accent) 0%, var(--accent-dark) 100%);
+            color: var(--ink);
+            font-family: "JetBrains Mono", monospace;
+            font-size: 10px; font-weight: 600;
+            text-transform: uppercase; letter-spacing: 0.1em;
+            cursor: pointer;
+            transition: transform 140ms, box-shadow 140ms, opacity 140ms;
+            box-shadow: 0 4px 14px rgba(208, 84, 44, 0.28);
+        }
+        .train-btn:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(208, 84, 44, 0.4);
+        }
+        .train-btn:disabled {
+            background: rgba(243, 236, 216, 0.06);
+            color: var(--muted);
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+        .model-status {
+            font-family: "JetBrains Mono", monospace;
+            font-size: 10px; color: var(--muted);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .slider-row {
+            display: flex; align-items: center; gap: 10px; margin-top: 8px;
+            font-family: "JetBrains Mono", monospace; font-size: 10px;
+        }
+        .slider-row label {
+            min-width: 60px; color: var(--muted);
+            text-transform: uppercase; letter-spacing: 0.1em; font-weight: 600;
+        }
+        .slider-row .slider-val {
+            min-width: 32px; text-align: right;
+            font-variant-numeric: tabular-nums;
+            color: var(--text);
+        }
+
+        /* Custom range slider */
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            flex: 1;
+            height: 4px;
+            border-radius: 2px;
+            background: linear-gradient(90deg,
+                var(--accent) 0%,
+                var(--accent) var(--v, 50%),
+                rgba(243,236,216,0.1) var(--v, 50%),
+                rgba(243,236,216,0.1) 100%
+            );
+            outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px; height: 14px;
+            border-radius: 50%;
+            background: var(--bg);
+            border: 2px solid var(--accent);
+            box-shadow: 0 0 0 3px rgba(208, 84, 44, 0.18);
+            cursor: pointer;
+        }
+        input[type="range"]::-moz-range-thumb {
+            width: 14px; height: 14px;
+            border-radius: 50%;
+            background: var(--bg);
+            border: 2px solid var(--accent);
+            box-shadow: 0 0 0 3px rgba(208, 84, 44, 0.18);
+            cursor: pointer;
+        }
+
+        .display-mode-row {
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px;
+            background: rgba(243, 236, 216, 0.04);
+            border-radius: var(--radius-sm);
+            padding: 2px;
+        }
+        .mode-btn {
+            padding: 6px 0;
+            border: none;
+            border-radius: 6px;
+            background: transparent;
+            cursor: pointer;
+            font-family: "JetBrains Mono", monospace;
+            font-size: 10px; font-weight: 600;
+            text-transform: uppercase; letter-spacing: 0.1em;
+            color: var(--muted);
+            text-align: center;
+            transition: all 140ms;
+        }
+        .mode-btn:hover { color: var(--text); }
+        .mode-btn.active {
+            background: linear-gradient(180deg, var(--accent) 0%, var(--accent-dark) 100%);
+            color: var(--ink);
+            box-shadow: 0 4px 14px rgba(208, 84, 44, 0.28),
+                        0 0 0 1px rgba(208, 84, 44, 0.32) inset;
+        }
+
+        .clear-btn {
+            margin-top: 10px; padding: 7px 12px;
+            border: 1px solid rgba(243, 236, 216, 0.1);
+            border-radius: var(--radius-sm);
+            background: transparent;
+            cursor: pointer;
+            font-family: "JetBrains Mono", monospace;
+            font-size: 10px; font-weight: 600;
+            text-transform: uppercase; letter-spacing: 0.1em;
+            color: var(--muted);
+            width: 100%;
+            transition: all 140ms;
+        }
+        .clear-btn:hover {
+            background: rgba(243, 236, 216, 0.04);
+            border-color: rgba(243, 236, 216, 0.18);
+            color: var(--text);
+        }
+
+        .tile-url-row { margin-bottom: 10px; }
+        .tile-url-row label {
+            font-family: "JetBrains Mono", monospace;
+            font-size: 9px; color: var(--muted);
+            text-transform: uppercase; letter-spacing: 0.16em; font-weight: 600;
+        }
+        .tile-url-row input[type="text"] {
+            width: 100%; padding: 7px 10px;
+            border: 1px solid rgba(243, 236, 216, 0.1);
+            border-radius: var(--radius-sm);
+            background: rgba(14, 11, 8, 0.4);
+            color: var(--text);
+            font-family: "JetBrains Mono", monospace;
+            font-size: 10px;
+            margin-top: 6px;
+            outline: none;
+        }
+        .tile-url-row input[type="text"]:focus { border-color: var(--accent); }
+        .tile-url-row .load-btn {
+            margin-top: 6px; padding: 6px 14px;
+            border: none; border-radius: var(--radius-sm);
+            background: linear-gradient(180deg, var(--accent) 0%, var(--accent-dark) 100%);
+            color: var(--ink);
+            font-family: "JetBrains Mono", monospace;
+            font-size: 10px; font-weight: 600;
+            text-transform: uppercase; letter-spacing: 0.1em;
+            cursor: pointer;
+            box-shadow: 0 4px 14px rgba(208, 84, 44, 0.28);
+        }
+
+        .gpu-badge {
+            display: inline-flex; align-items: center; gap: 5px;
+            padding: 2px 8px; border-radius: 4px;
+            font-family: "JetBrains Mono", monospace;
+            font-size: 9px; font-weight: 600;
+            text-transform: uppercase; letter-spacing: 0.12em;
+            margin-left: auto;
+        }
+        .gpu-badge::before {
+            content: ""; width: 6px; height: 6px; border-radius: 50%;
+            animation: pulse-idle 2.8s ease-in-out infinite;
+        }
+        .gpu-badge.available {
+            background: rgba(229, 168, 83, 0.12); color: var(--aoi);
+        }
+        .gpu-badge.available::before { background: var(--aoi); box-shadow: 0 0 8px var(--aoi); }
+        .gpu-badge.unavailable {
+            background: rgba(243, 236, 216, 0.06); color: var(--muted);
+        }
+        .gpu-badge.unavailable::before { background: var(--muted); }
+
+        @keyframes pulse-idle {
+            0%, 100% { opacity: 0.5; }
+            50%      { opacity: 1; }
+        }
+
+        .toast {
+            position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
+            padding: 12px 22px; border-radius: var(--radius-sm);
+            background: var(--panel-strong);
+            backdrop-filter: blur(18px) saturate(140%);
+            -webkit-backdrop-filter: blur(18px) saturate(140%);
+            border: 1px solid rgba(243, 236, 216, 0.08);
+            color: var(--text);
+            font-family: "JetBrains Mono", monospace;
+            font-size: 11px;
+            text-transform: uppercase; letter-spacing: 0.1em;
+            z-index: 2000;
+            opacity: 0; transition: opacity 0.3s;
+            pointer-events: none;
+            box-shadow: var(--shadow-md);
+        }
+        .toast.visible { opacity: 1; }
+
+        /* Leaflet overrides for dark theme */
+        .leaflet-control-zoom a {
+            background: var(--panel) !important;
+            backdrop-filter: blur(18px) saturate(140%);
+            -webkit-backdrop-filter: blur(18px) saturate(140%);
+            color: var(--text) !important;
+            border: 1px solid rgba(243, 236, 216, 0.08) !important;
+            border-radius: var(--radius-sm) !important;
+            font-family: "Inter Tight", sans-serif !important;
+            font-weight: 500 !important;
+        }
+        .leaflet-control-zoom a:hover {
+            background: var(--panel-strong) !important;
+            color: var(--accent-strong) !important;
+        }
+        .leaflet-control.download-control { border: none; }
+        .download-control-btn {
+            display: flex; align-items: center; justify-content: center;
+            width: 30px; height: 30px;
+            background: var(--panel);
+            backdrop-filter: blur(18px) saturate(140%);
+            -webkit-backdrop-filter: blur(18px) saturate(140%);
+            color: var(--text);
+            border: 1px solid rgba(243, 236, 216, 0.08);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: background 140ms, color 140ms, transform 140ms, box-shadow 140ms;
+            padding: 0;
+        }
+        .download-control-btn:hover:not(:disabled) {
+            background: var(--panel-strong);
+            color: var(--accent-strong);
+        }
+        .download-control-btn:disabled {
+            cursor: not-allowed;
+            opacity: 0.45;
+        }
+        .download-control-btn svg {
+            width: 16px; height: 16px;
+            stroke: currentColor; fill: none;
+            stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+        }
+        .download-control-count {
+            position: absolute; top: -5px; right: -5px;
+            min-width: 16px; height: 16px; padding: 0 4px;
+            border-radius: 999px;
+            background: var(--accent);
+            color: var(--ink);
+            font-family: "JetBrains Mono", monospace;
+            font-size: 9px; font-weight: 600;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 0 0 2px var(--bg), 0 0 8px rgba(208, 84, 44, 0.5);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .leaflet-control-attribution {
+            background: rgba(20, 16, 13, 0.7) !important;
+            color: var(--muted) !important;
+            font-family: "JetBrains Mono", monospace !important;
+            font-size: 9px !important;
+            backdrop-filter: blur(8px);
+        }
+        .leaflet-control-attribution a { color: var(--muted-strong) !important; }
+
+        #tile-count {
+            font-family: "JetBrains Mono", monospace;
+            font-size: 10px; color: var(--muted);
+            margin-bottom: 8px;
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* ── Tutorial ─────────────────────────────────────────────── */
+        .tut-overlay {
+            position: fixed; inset: 0;
+            z-index: 1150;
+            pointer-events: none; /* never block the UI — let users interact during the tour */
+            background: rgba(14, 11, 8, 0.62);
+            opacity: 0;
+            transition: opacity 0.3s ease, background 0.3s ease;
+        }
+        .tut-overlay.is-active { opacity: 1; }
+        .tut-overlay.has-spotlight { background: transparent; }
+        .tut-overlay.has-spotlight::after {
+            content: "";
+            position: fixed;
+            left: var(--tut-spot-x, 50%);
+            top: var(--tut-spot-y, 50%);
+            width: var(--tut-spot-w, 0px);
+            height: var(--tut-spot-h, 0px);
+            border-radius: 12px;
+            box-shadow: 0 0 0 9999px rgba(14, 11, 8, 0.62),
+                        inset 0 0 0 1px rgba(208, 84, 44, 0.45);
+            transition: left 0.32s cubic-bezier(.2,.8,.2,1),
+                        top 0.32s cubic-bezier(.2,.8,.2,1),
+                        width 0.32s cubic-bezier(.2,.8,.2,1),
+                        height 0.32s cubic-bezier(.2,.8,.2,1);
+            pointer-events: none;
+        }
+        .tut-overlay.has-spotlight::before {
+            content: "";
+            position: fixed;
+            left: var(--tut-spot-x, 50%);
+            top: var(--tut-spot-y, 50%);
+            width: var(--tut-spot-w, 0px);
+            height: var(--tut-spot-h, 0px);
+            border-radius: 12px;
+            box-shadow: 0 0 0 2px rgba(208, 84, 44, 0.55),
+                        0 0 28px 6px rgba(208, 84, 44, 0.35);
+            transition: left 0.32s cubic-bezier(.2,.8,.2,1),
+                        top 0.32s cubic-bezier(.2,.8,.2,1),
+                        width 0.32s cubic-bezier(.2,.8,.2,1),
+                        height 0.32s cubic-bezier(.2,.8,.2,1);
+            pointer-events: none;
+            animation: tut-pulse 2.6s ease-in-out infinite;
+        }
+        @keyframes tut-pulse {
+            0%, 100% { opacity: 0.75; }
+            50%      { opacity: 1; }
+        }
+
+        .tut-card {
+            position: fixed;
+            z-index: 1300;
+            width: 340px;
+            padding: 20px 22px 16px;
+            background: var(--panel-strong);
+            backdrop-filter: blur(20px) saturate(150%);
+            -webkit-backdrop-filter: blur(20px) saturate(150%);
+            border: 1px solid rgba(243, 236, 216, 0.1);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-lg);
+            color: var(--text);
+            opacity: 0;
+            transform: translateY(6px);
+            transition: opacity 0.28s ease,
+                        transform 0.28s ease,
+                        left 0.3s cubic-bezier(.2,.8,.2,1),
+                        top 0.3s cubic-bezier(.2,.8,.2,1);
+            pointer-events: none;
+        }
+        .tut-card.is-active {
+            opacity: 1; transform: translateY(0); pointer-events: auto;
+        }
+        .tut-step-label {
+            font-family: "JetBrains Mono", monospace;
+            font-size: 10px; font-weight: 600;
+            letter-spacing: 0.18em; text-transform: uppercase;
+            color: var(--accent-strong);
+            margin-bottom: 8px;
+            font-variant-numeric: tabular-nums;
+        }
+        .tut-title {
+            font-family: "Fraunces", serif;
+            font-size: 19px; font-weight: 500;
+            color: var(--text);
+            letter-spacing: -0.015em;
+            margin-bottom: 10px;
+            font-variation-settings: "opsz" 36;
+            line-height: 1.2;
+        }
+        .tut-body {
+            font-size: 13px; line-height: 1.55;
+            color: var(--muted-strong);
+            margin-bottom: 18px;
+        }
+        .tut-body p { margin-bottom: 8px; }
+        .tut-body p:last-child { margin-bottom: 0; }
+        .tut-body kbd {
+            display: inline-block; padding: 1px 6px;
+            font-family: "JetBrains Mono", monospace;
+            font-size: 10px; color: var(--text);
+            background: rgba(243, 236, 216, 0.08);
+            border: 1px solid rgba(243, 236, 216, 0.14);
+            border-radius: 4px;
+            vertical-align: 1px;
+        }
+        .tut-body strong { color: var(--text); font-weight: 600; }
+        .tut-body em { color: var(--aoi); font-style: normal; }
+
+        .tut-nav { display: flex; align-items: center; gap: 8px; }
+        .tut-dots { display: flex; gap: 5px; margin-right: auto; }
+        .tut-dot {
+            width: 6px; height: 6px; border-radius: 50%;
+            background: rgba(243, 236, 216, 0.18);
+            transition: background 180ms, box-shadow 180ms;
+        }
+        .tut-dot.is-active {
+            background: var(--accent);
+            box-shadow: 0 0 8px rgba(208, 84, 44, 0.6);
+        }
+        .tut-btn {
+            border: none; cursor: pointer;
+            font-family: "JetBrains Mono", monospace;
+            font-size: 10px; font-weight: 600;
+            text-transform: uppercase; letter-spacing: 0.12em;
+            border-radius: var(--radius-sm);
+            padding: 7px 14px;
+            transition: all 140ms;
+        }
+        .tut-btn.primary {
+            background: linear-gradient(180deg, var(--accent) 0%, var(--accent-dark) 100%);
+            color: var(--ink);
+            box-shadow: 0 4px 14px rgba(208, 84, 44, 0.3);
+        }
+        .tut-btn.primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 18px rgba(208, 84, 44, 0.4);
+        }
+        .tut-btn.ghost {
+            background: transparent;
+            color: var(--muted);
+            padding: 7px 10px;
+        }
+        .tut-btn.ghost:hover { color: var(--text); }
+        .tut-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+        .tut-close {
+            position: absolute; top: 10px; right: 10px;
+            width: 24px; height: 24px;
+            background: transparent; border: none;
+            color: var(--muted); font-size: 16px; cursor: pointer;
+            font-family: "Inter Tight", sans-serif;
+            line-height: 1;
+            display: flex; align-items: center; justify-content: center;
+            border-radius: 4px;
+            transition: all 140ms;
+        }
+        .tut-close:hover {
+            background: rgba(243, 236, 216, 0.06);
+            color: var(--text);
+        }
+
+        #tutorial-trigger {
+            position: fixed;
+            bottom: 16px; left: 16px;
+            z-index: 1250;
+            width: 38px; height: 38px;
+            border-radius: 50%;
+            background: var(--panel-strong);
+            backdrop-filter: blur(18px) saturate(140%);
+            -webkit-backdrop-filter: blur(18px) saturate(140%);
+            border: 1px solid rgba(208, 84, 44, 0.55);
+            color: var(--accent-strong);
+            font-family: "Fraunces", serif;
+            font-size: 18px; font-weight: 600;
+            cursor: pointer;
+            display: inline-flex; align-items: center; justify-content: center;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.55),
+                        0 0 14px rgba(208, 84, 44, 0.28),
+                        0 0 0 3px rgba(208, 84, 44, 0.1);
+            transition: transform 140ms, box-shadow 140ms, color 140ms, border-color 140ms;
+            padding: 0;
+            line-height: 1;
+        }
+        #tutorial-trigger:hover {
+            transform: scale(1.08);
+            color: var(--text);
+            border-color: var(--accent-strong);
+            box-shadow: 0 8px 26px rgba(0,0,0,0.6),
+                        0 0 20px rgba(208, 84, 44, 0.45),
+                        0 0 0 4px rgba(208, 84, 44, 0.2);
+        }
+
+        /* Lift the bottom-left leaflet stack so the ? button sits below it */
+        .leaflet-bottom.leaflet-left { bottom: 64px; }
+
+        /* ── Labeling-mode focus ──────────────────────────────────── */
+        .labeling-dimmable {
+            transition: opacity 220ms ease, filter 220ms ease;
+        }
+        body.is-labeling .panel-label,
+        body.is-labeling .diff-control,
+        body.is-labeling .kbd-hint,
+        body.is-labeling .title-panel,
+        body.is-labeling #tutorial-trigger,
+        body.is-labeling .leaflet-control-zoom,
+        body.is-labeling .leaflet-sbs-handle,
+        body.is-labeling .leaflet-sbs-divider,
+        body.is-labeling .leaflet-control-attribution {
+            opacity: 0.22;
+            filter: saturate(0.4);
+            pointer-events: none !important;
+            transition: opacity 220ms ease, filter 220ms ease;
+        }
+
+        body.is-labeling .label-panel {
+            box-shadow: var(--shadow-lg),
+                        0 0 0 2px rgba(208, 84, 44, 0.4),
+                        0 0 32px rgba(208, 84, 44, 0.25);
+            transition: box-shadow 220ms ease;
+        }
+
+        /* Labeling-mode banner */
+        #labeling-banner {
+            position: fixed;
+            top: 14px; left: 50%;
+            transform: translateX(-50%) translateY(-16px);
+            z-index: 1250;
+            display: flex; align-items: center;
+            gap: 12px;
+            padding: 9px 10px 9px 16px;
+            background: var(--panel-strong);
+            backdrop-filter: blur(18px) saturate(140%);
+            -webkit-backdrop-filter: blur(18px) saturate(140%);
+            border: 1px solid rgba(208, 84, 44, 0.55);
+            border-radius: 999px;
+            box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55),
+                        0 0 24px rgba(208, 84, 44, 0.32);
+            font-family: "JetBrains Mono", monospace;
+            font-size: 11px; font-weight: 600;
+            text-transform: uppercase; letter-spacing: 0.16em;
+            color: var(--text);
+            opacity: 0; pointer-events: none;
+            transition: opacity 220ms ease, transform 220ms ease;
+            white-space: nowrap;
+        }
+        body.is-labeling #labeling-banner {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+            pointer-events: auto;
+        }
+        #labeling-banner .banner-dot {
+            width: 9px; height: 9px; border-radius: 50%;
+            box-shadow: 0 0 10px currentColor;
+            animation: pulse-idle 2.4s ease-in-out infinite;
+        }
+        #labeling-banner.mode-change .banner-dot { background: var(--aoi); color: var(--aoi); }
+        #labeling-banner.mode-nochange .banner-dot { background: var(--negative); color: var(--negative); }
+        #labeling-banner .banner-hint {
+            color: var(--muted);
+            font-weight: 500;
+            letter-spacing: 0.12em;
+        }
+        #labeling-banner .banner-hint kbd {
+            display: inline-block;
+            padding: 1px 6px;
+            font-size: 9px;
+            color: var(--text);
+            background: rgba(243, 236, 216, 0.08);
+            border: 1px solid rgba(243, 236, 216, 0.14);
+            border-radius: 4px;
+            letter-spacing: 0;
+        }
+        #labeling-banner .banner-exit {
+            width: 26px; height: 26px;
+            border: none; border-radius: 50%;
+            background: rgba(243, 236, 216, 0.06);
+            color: var(--muted-strong);
+            font-family: "Inter Tight", sans-serif;
+            font-size: 16px; line-height: 1;
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: background 140ms, color 140ms, transform 140ms;
+        }
+        #labeling-banner .banner-exit:hover {
+            background: rgba(208, 84, 44, 0.3);
+            color: var(--text);
+            transform: scale(1.08);
+        }
+
+        @media (max-width: 640px) {
+            .tut-card {
+                width: auto !important;
+                left: 12px !important;
+                right: 12px !important;
+                top: auto !important;
+                bottom: 14px !important;
+                max-width: none;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div id="map"></div>
+<div id="toast" class="toast"></div>
+
+<div id="labeling-banner" role="status" aria-live="polite">
+    <span class="banner-dot"></span>
+    <span class="banner-text">Labeling</span>
+    <span class="banner-hint">click map · <kbd>Esc</kbd> to exit</span>
+    <button class="banner-exit" type="button" title="Exit labeling" aria-label="Exit labeling">×</button>
+</div>
+
+<script>
+// ── Inline leaflet-side-by-side plugin ──────────────────────────────
+(function () {
+    function asArray(arg) {
+        return (arg === 'undefined') ? [] : Array.isArray(arg) ? arg : [arg];
+    }
+    L.Control.SideBySide = L.Control.extend({
+        options: { thumbSize: 42, padding: 0 },
+        initialize: function (leftLayers, rightLayers, options) {
+            this.setLeftLayers(leftLayers);
+            this.setRightLayers(rightLayers);
+            L.setOptions(this, options);
+        },
+        getPosition: function () { return this._pos; },
+        setPosition: function () {},
+        includes: L.Evented.prototype || L.Mixin.Events,
+        addTo: function (map) {
+            this.remove();
+            this._map = map;
+            this._pos = map.getSize().x / 2;
+            var container = this._container = L.DomUtil.create('div', 'leaflet-sbs', map._controlContainer);
+            this._divider = L.DomUtil.create('div', 'leaflet-sbs-divider', container);
+            this._range = { value: 0.5 };
+            var handle = this._handle = L.DomUtil.create('div', 'leaflet-sbs-handle', container);
+            this._dragging = false;
+            var self = this;
+            function onDown(e) {
+                e.preventDefault(); e.stopPropagation();
+                self._dragging = true;
+                self._mapDragWasEnabled = map.dragging.enabled();
+                map.dragging.disable();
+                L.DomUtil.addClass(document.body, 'leaflet-sbs-dragging');
+                document.addEventListener('mousemove', onMove);
+                document.addEventListener('mouseup', onUp);
+                document.addEventListener('touchmove', onMove, { passive: false });
+                document.addEventListener('touchend', onUp);
+            }
+            function onMove(e) {
+                if (!self._dragging) return;
+                e.preventDefault();
+                var clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                var rect = map.getContainer().getBoundingClientRect();
+                var x = Math.max(0, Math.min(clientX - rect.left, rect.width));
+                self._pos = x;
+                self._range.value = x / rect.width;
+                self._updateClip();
+            }
+            function onUp() {
+                self._dragging = false;
+                self._justDragged = true;
+                setTimeout(function () { self._justDragged = false; }, 0);
+                if (self._mapDragWasEnabled) map.dragging.enable();
+                L.DomUtil.removeClass(document.body, 'leaflet-sbs-dragging');
+                document.removeEventListener('mousemove', onMove);
+                document.removeEventListener('mouseup', onUp);
+                document.removeEventListener('touchmove', onMove);
+                document.removeEventListener('touchend', onUp);
+            }
+            handle.addEventListener('mousedown', onDown);
+            handle.addEventListener('touchstart', onDown, { passive: false });
+            this._onDown = onDown; this._onMove = onMove; this._onUp = onUp;
+            map.on('move', this._updateClip, this);
+            map.on('layeradd layerremove', this._updateLayers, this);
+            map.on('resize', function () {
+                self._pos = map.getSize().x * self._range.value;
+                self._updateClip();
+            });
+            this._updateLayers();
+            return this;
+        },
+        remove: function () {
+            if (!this._map) return this;
+            if (this._leftLayer) this._leftLayer.getContainer().style.clip = '';
+            if (this._rightLayer) this._rightLayer.getContainer().style.clip = '';
+            this._map.off('move', this._updateClip, this);
+            this._map.off('layeradd layerremove', this._updateLayers, this);
+            L.DomUtil.remove(this._container);
+            this._map = null;
+            return this;
+        },
+        setLeftLayers: function (l) { this._leftLayers = asArray(l); this._updateLayers(); return this; },
+        setRightLayers: function (r) { this._rightLayers = asArray(r); this._updateLayers(); return this; },
+        _updateClip: function () {
+            var map = this._map;
+            var nw = map.containerPointToLayerPoint([0, 0]);
+            var se = map.containerPointToLayerPoint(map.getSize());
+            var dividerX = this._pos;
+            var clipX = nw.x + dividerX;
+            this._divider.style.left = dividerX + 'px';
+            this._handle.style.left = dividerX + 'px';
+            this.fire('dividermove', { x: dividerX });
+            var clipLeft = 'rect(' + [nw.y, clipX, se.y, nw.x].join('px,') + 'px)';
+            var clipRight = 'rect(' + [nw.y, se.x, se.y, clipX].join('px,') + 'px)';
+            if (this._leftLayer) this._leftLayer.getContainer().style.clip = clipLeft;
+            if (this._rightLayer) this._rightLayer.getContainer().style.clip = clipRight;
+        },
+        _updateLayers: function () {
+            if (!this._map) return this;
+            var prevLeft = this._leftLayer, prevRight = this._rightLayer;
+            this._leftLayer = this._rightLayer = null;
+            this._leftLayers.forEach(function (l) { if (this._map.hasLayer(l)) this._leftLayer = l; }, this);
+            this._rightLayers.forEach(function (l) { if (this._map.hasLayer(l)) this._rightLayer = l; }, this);
+            if (prevLeft !== this._leftLayer) {
+                if (prevLeft) this.fire('leftlayerremove', { layer: prevLeft });
+                if (this._leftLayer) this.fire('leftlayeradd', { layer: this._leftLayer });
+            }
+            if (prevRight !== this._rightLayer) {
+                if (prevRight) this.fire('rightlayerremove', { layer: prevRight });
+                if (this._rightLayer) this.fire('rightlayeradd', { layer: this._rightLayer });
+            }
+            this._updateClip();
+        }
+    });
+    L.control.sideBySide = function (l, r, o) { return new L.Control.SideBySide(l, r, o); };
+})();
+</script>
+
+<script>
+// ── Configuration ───────────────────────────────────────────────────
+var urlParams = new URLSearchParams(window.location.search);
+var EMBEDDING_TILE_URL = urlParams.get('tiles') || 'https://geospatialvisualizer.z13.web.core.windows.net/tiles/aef_seattle_2024-2020_diff_tiles/{z}/{x}/{y}.tif';
+var EMB_MIN_ZOOM = parseInt(urlParams.get('minZoom')) || 8;
+var EMB_MAX_NATIVE_ZOOM = parseInt(urlParams.get('maxZoom')) || 14;
+
+// ── Utilities ───────────────────────────────────────────────────────
+function showToast(msg, duration) {
+    var el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.add('visible');
+    clearTimeout(el._timer);
+    el._timer = setTimeout(function () { el.classList.remove('visible'); }, duration || 2500);
+}
+
+function sigmoid(x) {
+    if (x > 500) return 1;
+    if (x < -500) return 0;
+    return 1.0 / (1.0 + Math.exp(-x));
+}
+
+function heatmapColor(t) {
+    // Diverging blue → white → red
+    var r, g, b;
+    if (t < 0.5) {
+        var s = t * 2;
+        r = Math.round(s * 255);
+        g = Math.round(s * 255);
+        b = 255;
+    } else {
+        var s = (t - 0.5) * 2;
+        r = 255;
+        g = Math.round((1 - s) * 255);
+        b = Math.round((1 - s) * 255);
+    }
+    return [r, g, b];
+}
+
+// ── Linear model training ───────────────────────────────────────────
+function trainLogisticRegression(samples, epochs, lr, lambda) {
+    epochs = epochs || 300;
+    lr = lr || 0.5;
+    lambda = lambda || 0.01;
+
+    var n = samples.length;
+    var d = samples[0].embedding.length;
+
+    // Z-score normalization stats
+    var mean = new Float32Array(d);
+    var std = new Float32Array(d);
+    for (var j = 0; j < d; j++) {
+        var sum = 0, sum2 = 0;
+        for (var i = 0; i < n; i++) {
+            var v = samples[i].embedding[j];
+            sum += v;
+            sum2 += v * v;
+        }
+        mean[j] = sum / n;
+        var variance = sum2 / n - mean[j] * mean[j];
+        std[j] = variance > 1e-12 ? Math.sqrt(variance) : 1.0;
+    }
+
+    // SGD logistic regression on normalized features
+    var w = new Float32Array(d);
+    var bias = 0;
+    for (var epoch = 0; epoch < epochs; epoch++) {
+        for (var i = 0; i < n; i++) {
+            var x = samples[i].embedding;
+            var y = samples[i].label;
+            var z = bias;
+            for (var j = 0; j < d; j++) {
+                z += w[j] * (x[j] - mean[j]) / std[j];
+            }
+            var p = sigmoid(z);
+            var err = p - y;
+            for (var j = 0; j < d; j++) {
+                w[j] -= lr * (err * (x[j] - mean[j]) / std[j] + lambda * w[j]);
+            }
+            bias -= lr * err;
+        }
+        lr *= 0.995;
+    }
+
+    // Pre-compute absorbed normalization for fast inference:
+    // score = sigmoid(normW · raw_embedding + normBias)
+    var normW = new Float32Array(d);
+    var normBias = bias;
+    for (var j = 0; j < d; j++) {
+        normW[j] = w[j] / std[j];
+        normBias -= w[j] * mean[j] / std[j];
+    }
+
+    return { weights: w, bias: bias, mean: mean, std: std, normW: normW, normBias: normBias };
+}
+
+// ── WebGPU inference engine ─────────────────────────────────────────
+var gpuEngine = null;
+
+async function initWebGPU() {
+    if (!navigator.gpu) return null;
+    try {
+        var adapter = await navigator.gpu.requestAdapter();
+        if (!adapter) return null;
+        var device = await adapter.requestDevice();
+
+        var shaderModule = device.createShaderModule({ code: `
+            struct Params {
+                total_pixels: u32,
+                bands: u32,
+                bias: f32,
+                _pad: f32,
+            }
+            @group(0) @binding(0) var<storage, read> embeddings: array<f32>;
+            @group(0) @binding(1) var<storage, read> weights: array<f32>;
+            @group(0) @binding(2) var<uniform> params: Params;
+            @group(0) @binding(3) var<storage, read_write> output: array<f32>;
+
+            @compute @workgroup_size(256)
+            fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
+                let idx = gid.x;
+                if (idx >= params.total_pixels) { return; }
+                var z: f32 = params.bias;
+                for (var b: u32 = 0u; b < params.bands; b = b + 1u) {
+                    z = z + weights[b] * embeddings[b * params.total_pixels + idx];
+                }
+                output[idx] = 1.0 / (1.0 + exp(-z));
+            }
+        ` });
+
+        var pipeline = device.createComputePipeline({
+            layout: 'auto',
+            compute: { module: shaderModule, entryPoint: 'main' }
+        });
+
+        return { device: device, pipeline: pipeline };
+    } catch (e) {
+        console.warn('WebGPU init failed:', e);
+        return null;
+    }
+}
+
+async function gpuInference(engine, embeddingData, totalPixels, bands, normW, normBias) {
+    var device = engine.device;
+
+    var embBuf = device.createBuffer({
+        size: embeddingData.byteLength,
+        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST
+    });
+    device.queue.writeBuffer(embBuf, 0, embeddingData);
+
+    var wBuf = device.createBuffer({
+        size: normW.byteLength,
+        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST
+    });
+    device.queue.writeBuffer(wBuf, 0, normW);
+
+    var paramData = new ArrayBuffer(16);
+    new Uint32Array(paramData, 0, 2).set([totalPixels, bands]);
+    new Float32Array(paramData, 8, 2).set([normBias, 0]);
+    var paramBuf = device.createBuffer({
+        size: 16,
+        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+    });
+    device.queue.writeBuffer(paramBuf, 0, paramData);
+
+    var outBuf = device.createBuffer({
+        size: totalPixels * 4,
+        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC
+    });
+    var readBuf = device.createBuffer({
+        size: totalPixels * 4,
+        usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST
+    });
+
+    var bindGroup = device.createBindGroup({
+        layout: engine.pipeline.getBindGroupLayout(0),
+        entries: [
+            { binding: 0, resource: { buffer: embBuf } },
+            { binding: 1, resource: { buffer: wBuf } },
+            { binding: 2, resource: { buffer: paramBuf } },
+            { binding: 3, resource: { buffer: outBuf } }
+        ]
+    });
+
+    var enc = device.createCommandEncoder();
+    var pass = enc.beginComputePass();
+    pass.setPipeline(engine.pipeline);
+    pass.setBindGroup(0, bindGroup);
+    pass.dispatchWorkgroups(Math.ceil(totalPixels / 256));
+    pass.end();
+    enc.copyBufferToBuffer(outBuf, 0, readBuf, 0, totalPixels * 4);
+    device.queue.submit([enc.finish()]);
+
+    await readBuf.mapAsync(GPUMapMode.READ);
+    var result = new Float32Array(readBuf.getMappedRange().slice(0));
+    readBuf.unmap();
+
+    embBuf.destroy(); wBuf.destroy(); paramBuf.destroy();
+    outBuf.destroy(); readBuf.destroy();
+    return result;
+}
+
+function cpuInference(embeddingData, totalPixels, bands, normW, normBias) {
+    var scores = new Float32Array(totalPixels);
+    for (var i = 0; i < totalPixels; i++) {
+        var z = normBias;
+        for (var b = 0; b < bands; b++) {
+            z += normW[b] * embeddingData[b * totalPixels + i];
+        }
+        scores[i] = sigmoid(z);
+    }
+    return scores;
+}
+
+// ── GeoTIFF Embedding Layer ─────────────────────────────────────────
+L.GridLayer.Embedding = L.GridLayer.extend({
+    initialize: function (urlTemplate, options) {
+        this._urlTemplate = urlTemplate;
+        this._embCache = new Map();
+        this._bandCount = null;
+        this._model = null;
+        this._displayMode = 'off';
+        this._threshold = 0.5;
+        this._overlayOpacity = 0.7;
+        this._tileCanvases = new Map();
+        L.setOptions(this, options);
+    },
+
+    onAdd: function (map) {
+        L.GridLayer.prototype.onAdd.call(this, map);
+        if (this.getContainer()) {
+            this.getContainer().style.pointerEvents = 'none';
+        }
+    },
+
+    setModel: function (model) {
+        this._model = model;
+        this._rerenderAll();
+    },
+
+    setDisplayMode: function (mode) {
+        this._displayMode = mode;
+        this._rerenderAll();
+    },
+
+    setThreshold: function (t) {
+        this._threshold = t;
+        this._rerenderAll();
+    },
+
+    setOverlayOpacity: function (o) {
+        this._overlayOpacity = o;
+        this._rerenderAll();
+    },
+
+    createTile: function (coords, done) {
+        var canvas = document.createElement('canvas');
+        var tileSize = this.getTileSize();
+        canvas.width = tileSize.x;
+        canvas.height = tileSize.y;
+
+        var key = coords.z + '/' + coords.x + '/' + coords.y;
+        this._tileCanvases.set(key, canvas);
+        var self = this;
+
+        if (!this._urlTemplate) {
+            done(null, canvas);
+            return canvas;
+        }
+
+        var url = this._urlTemplate
+            .replace('{z}', coords.z)
+            .replace('{x}', coords.x)
+            .replace('{y}', coords.y);
+
+        fetch(url)
+            .then(function (r) {
+                if (!r.ok) throw { silent: r.status === 404 };
+                return r.arrayBuffer();
+            })
+            .then(function (buf) { return GeoTIFF.fromArrayBuffer(buf); })
+            .then(function (tiff) { return tiff.getImage(); })
+            .then(function (image) {
+                var w = image.getWidth();
+                var h = image.getHeight();
+                var bands = image.getSamplesPerPixel();
+                if (!self._bandCount) {
+                    self._bandCount = bands;
+                    self.fire('bandcount', { bands: bands });
+                }
+                return image.readRasters().then(function (rasters) {
+                    return { w: w, h: h, bands: bands, rasters: rasters };
+                });
+            })
+            .then(function (result) {
+                // Store as band-sequential: data[band * w * h + y * w + x]
+                var total = result.w * result.h;
+                var data = new Float32Array(result.bands * total);
+                for (var b = 0; b < result.bands; b++) {
+                    var src = result.rasters[b];
+                    var off = b * total;
+                    for (var i = 0; i < total; i++) {
+                        data[off + i] = src[i];
+                    }
+                }
+                self._embCache.set(key, {
+                    data: data, width: result.w, height: result.h, bands: result.bands
+                });
+                self.fire('tileloaded', { key: key });
+                self._renderTile(canvas, key);
+                done(null, canvas);
+            })
+            .catch(function (err) {
+                if (!err || !err.silent) console.warn('Embedding tile load error:', key, err);
+                done(null, canvas);
+            });
+
+        return canvas;
+    },
+
+    _removeTile: function (leafletKey) {
+        var tile = this._tiles[leafletKey];
+        if (tile && tile.coords) {
+            var key = tile.coords.z + '/' + tile.coords.x + '/' + tile.coords.y;
+            this._embCache.delete(key);
+            this._tileCanvases.delete(key);
+        }
+        L.GridLayer.prototype._removeTile.call(this, leafletKey);
+    },
+
+    _renderTile: function (canvas, key) {
+        var ctx = canvas.getContext('2d');
+        var tileSize = this.getTileSize();
+        ctx.clearRect(0, 0, tileSize.x, tileSize.y);
+
+        if (!this._model || this._displayMode === 'off') return;
+
+        var cached = this._embCache.get(key);
+        if (!cached) return;
+
+        var totalPixels = cached.width * cached.height;
+        var scores;
+
+        if (gpuEngine && totalPixels * cached.bands > 10000) {
+            // GPU path handled async in _rerenderAll; for createTile, use CPU
+            scores = cpuInference(cached.data, totalPixels, cached.bands,
+                this._model.normW, this._model.normBias);
+        } else {
+            scores = cpuInference(cached.data, totalPixels, cached.bands,
+                this._model.normW, this._model.normBias);
+        }
+
+        this._drawScores(canvas, cached.width, cached.height, scores);
+    },
+
+    _drawScores: function (canvas, dataW, dataH, scores) {
+        var tileSize = this.getTileSize();
+        var offscreen = document.createElement('canvas');
+        offscreen.width = dataW;
+        offscreen.height = dataH;
+        var octx = offscreen.getContext('2d');
+        var imgData = octx.createImageData(dataW, dataH);
+        var px = imgData.data;
+        var alpha = Math.round(this._overlayOpacity * 255);
+
+        for (var i = 0; i < scores.length; i++) {
+            var s = scores[i];
+            var pi = i * 4;
+
+            if (this._displayMode === 'heatmap') {
+                var rgb = heatmapColor(s);
+                px[pi] = rgb[0]; px[pi + 1] = rgb[1]; px[pi + 2] = rgb[2];
+                px[pi + 3] = alpha;
+            } else if (this._displayMode === 'binary') {
+                if (s >= this._threshold) {
+                    px[pi] = 255; px[pi + 1] = 50; px[pi + 2] = 50; px[pi + 3] = alpha;
+                } else {
+                    px[pi + 3] = 0;
+                }
+            }
+        }
+
+        octx.putImageData(imgData, 0, 0);
+        var ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, tileSize.x, tileSize.y);
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(offscreen, 0, 0, tileSize.x, tileSize.y);
+    },
+
+    _rerenderAll: function () {
+        var self = this;
+        var tileSize = this.getTileSize();
+
+        // If GPU is available and model is set, use GPU for batch inference
+        if (gpuEngine && this._model && this._displayMode !== 'off') {
+            var keys = Array.from(this._embCache.keys());
+            var chain = Promise.resolve();
+            keys.forEach(function (key) {
+                chain = chain.then(function () {
+                    var cached = self._embCache.get(key);
+                    var canvas = self._tileCanvases.get(key);
+                    if (!cached || !canvas) return;
+                    var totalPixels = cached.width * cached.height;
+                    return gpuInference(gpuEngine, cached.data, totalPixels, cached.bands,
+                        self._model.normW, self._model.normBias
+                    ).then(function (scores) {
+                        self._drawScores(canvas, cached.width, cached.height, scores);
+                    });
+                });
+            });
+            chain.catch(function (err) {
+                console.warn('GPU inference failed, falling back to CPU:', err);
+                self._rerenderAllCPU();
+            });
+        } else {
+            this._rerenderAllCPU();
+        }
+    },
+
+    _rerenderAllCPU: function () {
+        for (var key in this._tiles) {
+            var tile = this._tiles[key];
+            if (tile && tile.coords) {
+                var cacheKey = tile.coords.z + '/' + tile.coords.x + '/' + tile.coords.y;
+                this._renderTile(tile.el, cacheKey);
+            }
+        }
+    },
+
+    getEmbeddingAt: function (latlng) {
+        if (!this._map) return null;
+        var mapZoom = Math.floor(this._map.getZoom());
+        var nativeZoom = Math.min(mapZoom, this.options.maxNativeZoom || mapZoom);
+        var tileSize = this.getTileSize();
+        var point = this._map.project(latlng, nativeZoom);
+        var tileX = Math.floor(point.x / tileSize.x);
+        var tileY = Math.floor(point.y / tileSize.y);
+        var key = nativeZoom + '/' + tileX + '/' + tileY;
+        var cached = this._embCache.get(key);
+        if (!cached) return null;
+
+        var px = point.x - tileX * tileSize.x;
+        var py = point.y - tileY * tileSize.y;
+        var sx = Math.floor(px * cached.width / tileSize.x);
+        var sy = Math.floor(py * cached.height / tileSize.y);
+        sx = Math.max(0, Math.min(sx, cached.width - 1));
+        sy = Math.max(0, Math.min(sy, cached.height - 1));
+
+        var embedding = new Float32Array(cached.bands);
+        var idx = sy * cached.width + sx;
+        for (var b = 0; b < cached.bands; b++) {
+            embedding[b] = cached.data[b * cached.width * cached.height + idx];
+        }
+        return embedding;
+    },
+
+    getCacheSize: function () {
+        return this._embCache.size;
+    }
+});
+
+// ── Tile layers ─────────────────────────────────────────────────────
+var bounds = [[46.856640, -123.000267], [47.853702, -121.532723]];
+
+var osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap', minZoom: 6, maxZoom: 18
+});
+
+var imagery2020 = L.tileLayer('https://geospatialvisualizer.z13.web.core.windows.net/tiles/s2_20200828_seattle_tiles/{z}/{x}/{y}.png', {
+    tms: false, minZoom: 8, maxNativeZoom: 14, maxZoom: 18,
+    bounds: bounds, attribution: 'Sentinel-2 2020-08-28'
+});
+
+var imagery2024 = L.tileLayer('https://geospatialvisualizer.z13.web.core.windows.net/tiles/s2_20240720_seattle_tiles/{z}/{x}/{y}.png', {
+    tms: false, minZoom: 8, maxNativeZoom: 14, maxZoom: 18,
+    bounds: bounds, attribution: 'Sentinel-2 2024-07-20'
+});
+
+var diffLayer = L.tileLayer('https://geospatialvisualizer.z13.web.core.windows.net/tiles/aef_diff_pca3_seattle_tiles/{z}/{x}/{y}.png', {
+    tms: false, minZoom: 8, maxNativeZoom: 14, maxZoom: 18,
+    bounds: bounds, opacity: 0.85, attribution: 'AEF Diff PCA-3'
+});
+
+var diffUrbanLayer = L.tileLayer('https://geospatialvisualizer.z13.web.core.windows.net/tiles/aef_diff_pca3_seattle_urbandiff_tiles/{z}/{x}/{y}.png', {
+    tms: false, minZoom: 8, maxNativeZoom: 14, maxZoom: 18,
+    bounds: bounds, opacity: 0.85, attribution: 'AEF Diff PCA-3 (urban diff)'
+});
+
+// ── Map ─────────────────────────────────────────────────────────────
+var map = L.map('map', {
+    center: [47.355, -122.267], zoom: 10,
+    minZoom: 6, maxZoom: 18, zoomControl: false,
+    layers: [osm, imagery2020, imagery2024]
+});
+
+// Inference pane sits above tiles but below markers
+map.createPane('inferencePane');
+map.getPane('inferencePane').style.zIndex = 450;
+
+// ── Embedding layer ─────────────────────────────────────────────────
+var embeddingLayer = null;
+
+function loadEmbeddingTiles(url) {
+    if (embeddingLayer) {
+        map.removeLayer(embeddingLayer);
+    }
+    EMBEDDING_TILE_URL = url;
+    embeddingLayer = new L.GridLayer.Embedding(url, {
+        pane: 'inferencePane',
+        tms: false,
+        minZoom: EMB_MIN_ZOOM,
+        maxNativeZoom: EMB_MAX_NATIVE_ZOOM,
+        maxZoom: 18,
+        bounds: bounds
+    });
+    embeddingLayer.addTo(map);
+    embeddingLayer.on('bandcount', function (e) {
+        showToast('Detected ' + e.bands + '-band embedding tiles');
+    });
+    embeddingLayer.on('tileloaded', updateTileCount);
+    updateUI();
+}
+
+// ── Side-by-side swipe ──────────────────────────────────────────────
+var sideBySide = L.control.sideBySide(imagery2020, imagery2024).addTo(map);
+
+// ── Standard controls ───────────────────────────────────────────────
+
+var leftLabel = L.control({ position: 'topleft' });
+leftLabel.onAdd = function () {
+    var div = L.DomUtil.create('div', 'panel-label');
+    div.innerHTML = '<span class="title">2020-08-28</span><span class="subtitle">Pre · Sentinel-2 TCI</span>';
+    return div;
+};
+leftLabel.addTo(map);
+
+var titleControl = L.control({ position: 'topleft' });
+titleControl.onAdd = function () {
+    var div = L.DomUtil.create('div', 'title-panel');
+    L.DomEvent.disableClickPropagation(div);
+    L.DomEvent.disableScrollPropagation(div);
+    div.innerHTML = [
+        '<div class="title-main">',
+        '  <svg class="delta-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">',
+        '    <polygon points="12,3 22,21 2,21" />',
+        '  </svg>',
+        '  <span><span class="title-word">Delta</span><span class="title-word-accent">bit</span></span>',
+        '</div>',
+        '<div class="title-sub">Interactive change detection</div>',
+        '<div class="title-meta">',
+        '  <span class="title-author">by <a href="https://calebrob.com" target="_blank" rel="noopener">Caleb Robinson</a></span>',
+        '</div>'
+    ].join('');
+    return div;
+};
+titleControl.addTo(map);
+
+var rightLabel = L.control({ position: 'topright' });
+rightLabel.onAdd = function () {
+    var div = L.DomUtil.create('div', 'panel-label');
+    div.innerHTML = '<span class="title">2024-07-20</span><span class="subtitle">Post · Sentinel-2 TCI</span>';
+    return div;
+};
+rightLabel.addTo(map);
+
+L.control.zoom({ position: 'topright' }).addTo(map);
+
+// ── Optional: download-labels control (only with ?collectLabels=true) ──
+var collectLabelsParam = (urlParams.get('collectLabels') || '').toLowerCase();
+var COLLECT_LABELS = collectLabelsParam === 'true' || collectLabelsParam === '1' || collectLabelsParam === 'yes';
+var downloadBtn = null;
+var downloadCountBadge = null;
+
+if (COLLECT_LABELS) {
+    var downloadControl = L.control({ position: 'topright' });
+    downloadControl.onAdd = function () {
+        var wrapper = L.DomUtil.create('div', 'leaflet-control download-control');
+        wrapper.style.position = 'relative';
+        L.DomEvent.disableClickPropagation(wrapper);
+        L.DomEvent.disableScrollPropagation(wrapper);
+
+        var btn = L.DomUtil.create('button', 'download-control-btn', wrapper);
+        btn.type = 'button';
+        btn.title = 'Download labels as GeoJSON';
+        btn.setAttribute('aria-label', 'Download labels as GeoJSON');
+        btn.innerHTML = '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">' +
+                        '<path d="M12 3v13m0 0l-5-5m5 5l5-5M5 21h14" />' +
+                        '</svg>';
+
+        var badge = L.DomUtil.create('span', 'download-control-count', wrapper);
+        badge.textContent = '0';
+        badge.style.display = 'none';
+
+        btn.addEventListener('click', downloadLabelsAsGeoJSON);
+
+        downloadBtn = btn;
+        downloadCountBadge = badge;
+        return wrapper;
+    };
+    downloadControl.addTo(map);
+}
+
+function downloadLabelsAsGeoJSON() {
+    if (!samples.length) {
+        showToast('No labels to download yet');
+        return;
+    }
+    var features = samples.map(function (s) {
+        return {
+            type: 'Feature',
+            geometry: {
+                type: 'Point',
+                coordinates: [s.latlng.lng, s.latlng.lat]
+            },
+            properties: {
+                label: s.label === 1 ? 'change' : 'nochange'
+            }
+        };
+    });
+    var fc = { type: 'FeatureCollection', features: features };
+    var blob = new Blob([JSON.stringify(fc, null, 2)], { type: 'application/geo+json' });
+    var url = URL.createObjectURL(blob);
+    var ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'deltabit-labels-' + ts + '.geojson';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+    showToast('Downloaded ' + features.length + ' label' + (features.length === 1 ? '' : 's'));
+}
+
+function updateDownloadBadge() {
+    if (!downloadCountBadge || !downloadBtn) return;
+    var n = samples.length;
+    downloadBtn.disabled = n === 0;
+    if (n > 0) {
+        downloadCountBadge.textContent = String(n);
+        downloadCountBadge.style.display = 'flex';
+    } else {
+        downloadCountBadge.style.display = 'none';
+    }
+}
+
+// ── Labeling state ──────────────────────────────────────────────────
+var samples = [];
+var activeClass = null; // 'change' | 'nochange' | null
+var currentModel = null;
+var markerGroup = L.layerGroup().addTo(map);
+
+// ── Labeling control panel ──────────────────────────────────────────
+var labelControl = L.control({ position: 'topleft' });
+labelControl.onAdd = function () {
+    var div = L.DomUtil.create('div', 'label-panel');
+    L.DomEvent.disableClickPropagation(div);
+    L.DomEvent.disableScrollPropagation(div);
+
+    div.innerHTML = [
+        '<h3>Labeling <span id="gpu-badge" class="gpu-badge unavailable">CPU</span></h3>',
+
+        '<div class="tile-url-row" id="tile-url-row">',
+        '  <label>Embedding tile URL</label>',
+        '  <input type="text" id="tile-url-input" placeholder="https://.../{z}/{x}/{y}.tif" />',
+        '  <button class="load-btn" id="load-tiles-btn">Load</button>',
+        '</div>',
+
+        '<div id="tile-count"></div>',
+
+        '<div class="label-btns">',
+        '  <div class="label-btn change" id="btn-change">● Change</div>',
+        '  <div class="label-btn nochange" id="btn-nochange">● No Change</div>',
+        '</div>',
+
+        '<div class="sample-counts">',
+        '  <span><span class="dot" style="background:#e5a853;color:#e5a853"></span>Change <b id="count-change">0</b></span>',
+        '  <span><span class="dot" style="background:#3b82f6;color:#3b82f6"></span>No Change <b id="count-nochange">0</b></span>',
+        '</div>',
+
+        '<div class="train-row">',
+        '  <button class="train-btn" id="train-btn" disabled>Train</button>',
+        '  <span class="model-status" id="model-status">Not trained</span>',
+        '</div>',
+
+        '<hr class="section-divider">',
+        '<div class="section-label">Inference Display</div>',
+
+        '<div class="display-mode-row">',
+        '  <div class="mode-btn" id="mode-off" data-mode="off">Off</div>',
+        '  <div class="mode-btn" id="mode-heatmap" data-mode="heatmap">Heatmap</div>',
+        '  <div class="mode-btn" id="mode-binary" data-mode="binary">Binary</div>',
+        '</div>',
+
+        '<div class="slider-row" id="threshold-row" style="display:none">',
+        '  <label>Threshold</label>',
+        '  <input type="range" id="threshold-slider" min="0" max="100" value="50" />',
+        '  <span class="slider-val" id="threshold-val">0.50</span>',
+        '</div>',
+
+        '<div class="slider-row">',
+        '  <label>Opacity</label>',
+        '  <input type="range" id="opacity-slider" min="0" max="100" value="70" />',
+        '  <span class="slider-val" id="opacity-val">0.70</span>',
+        '</div>',
+
+        '<button class="clear-btn" id="clear-btn">Clear All Labels</button>'
+    ].join('\n');
+
+    return div;
+};
+labelControl.addTo(map);
+
+// ── Wire up UI elements ─────────────────────────────────────────────
+var btnChange = document.getElementById('btn-change');
+var btnNochange = document.getElementById('btn-nochange');
+var trainBtn = document.getElementById('train-btn');
+var clearBtn = document.getElementById('clear-btn');
+var countChange = document.getElementById('count-change');
+var countNochange = document.getElementById('count-nochange');
+var modelStatusEl = document.getElementById('model-status');
+var thresholdSlider = document.getElementById('threshold-slider');
+var thresholdVal = document.getElementById('threshold-val');
+var thresholdRow = document.getElementById('threshold-row');
+var opacitySlider = document.getElementById('opacity-slider');
+var opacityVal = document.getElementById('opacity-val');
+var tileUrlInput = document.getElementById('tile-url-input');
+var loadTilesBtn = document.getElementById('load-tiles-btn');
+var tileUrlRow = document.getElementById('tile-url-row');
+var tileCountEl = document.getElementById('tile-count');
+var gpuBadge = document.getElementById('gpu-badge');
+
+// Class selection buttons
+btnChange.addEventListener('click', function () {
+    activeClass = (activeClass === 'change') ? null : 'change';
+    updateUI();
+});
+btnNochange.addEventListener('click', function () {
+    activeClass = (activeClass === 'nochange') ? null : 'nochange';
+    updateUI();
+});
+
+// Mode buttons
+document.querySelectorAll('.mode-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+        var mode = this.getAttribute('data-mode');
+        if (embeddingLayer) {
+            embeddingLayer.setDisplayMode(mode);
+        }
+        thresholdRow.style.display = (mode === 'binary') ? 'flex' : 'none';
+        updateModeButtons(mode);
+    });
+});
+
+function updateModeButtons(active) {
+    document.querySelectorAll('.mode-btn').forEach(function (btn) {
+        btn.classList.toggle('active', btn.getAttribute('data-mode') === active);
+    });
+}
+updateModeButtons('off');
+
+// Sync slider fill with thumb position
+function syncSliderFill(slider) {
+    slider.style.setProperty('--v', slider.value + '%');
+}
+
+// Threshold slider
+thresholdSlider.addEventListener('input', function () {
+    var t = this.value / 100;
+    thresholdVal.textContent = t.toFixed(2);
+    syncSliderFill(this);
+    if (embeddingLayer) embeddingLayer.setThreshold(t);
+});
+syncSliderFill(thresholdSlider);
+
+// Opacity slider
+opacitySlider.addEventListener('input', function () {
+    var o = this.value / 100;
+    opacityVal.textContent = o.toFixed(2);
+    syncSliderFill(this);
+    if (embeddingLayer) embeddingLayer.setOverlayOpacity(o);
+});
+syncSliderFill(opacitySlider);
+
+// Tile URL loader
+if (EMBEDDING_TILE_URL) {
+    tileUrlInput.value = EMBEDDING_TILE_URL;
+    tileUrlRow.style.display = 'none';
+}
+loadTilesBtn.addEventListener('click', function () {
+    var url = tileUrlInput.value.trim();
+    if (!url) { showToast('Please enter a tile URL'); return; }
+    loadEmbeddingTiles(url);
+    tileUrlRow.style.display = 'none';
+    showToast('Loading embedding tiles…');
+});
+
+// Train button
+trainBtn.addEventListener('click', doTrain);
+
+// Clear button
+clearBtn.addEventListener('click', function () {
+    samples = [];
+    markerGroup.clearLayers();
+    currentModel = null;
+    if (embeddingLayer) {
+        embeddingLayer.setModel(null);
+        embeddingLayer.setDisplayMode('off');
+    }
+    updateModeButtons('off');
+    thresholdRow.style.display = 'none';
+    updateUI();
+    showToast('Labels cleared');
+});
+
+var labelingBanner = document.getElementById('labeling-banner');
+var labelingBannerText = labelingBanner.querySelector('.banner-text');
+var labelingBannerExit = labelingBanner.querySelector('.banner-exit');
+labelingBannerExit.addEventListener('click', function () {
+    activeClass = null;
+    updateUI();
+});
+
+function updateUI() {
+    // Button states
+    btnChange.classList.toggle('active', activeClass === 'change');
+    btnNochange.classList.toggle('active', activeClass === 'nochange');
+
+    // Body-level labeling-mode flag (scrim + highlight label panel + show banner)
+    document.body.classList.toggle('is-labeling', !!activeClass);
+    labelingBanner.classList.toggle('mode-change', activeClass === 'change');
+    labelingBanner.classList.toggle('mode-nochange', activeClass === 'nochange');
+    if (activeClass === 'change') labelingBannerText.textContent = 'Labeling change';
+    else if (activeClass === 'nochange') labelingBannerText.textContent = 'Labeling no-change';
+
+    // Cursor
+    map.getContainer().style.cursor = activeClass ? 'crosshair' : '';
+
+    // Counts
+    var nChange = samples.filter(function (s) { return s.label === 1; }).length;
+    var nNochange = samples.filter(function (s) { return s.label === 0; }).length;
+    countChange.textContent = nChange;
+    countNochange.textContent = nNochange;
+
+    // Train button
+    trainBtn.disabled = (nChange < 1 || nNochange < 1);
+
+    // Model status
+    if (currentModel) {
+        modelStatusEl.textContent = 'Trained · ' + samples.length + ' samples';
+        modelStatusEl.style.color = '#e5a853';
+    } else {
+        modelStatusEl.textContent = 'Not trained';
+        modelStatusEl.style.color = '#9a8f7a';
+    }
+
+    updateDownloadBadge();
+}
+
+function updateTileCount() {
+    if (embeddingLayer) {
+        tileCountEl.textContent = 'Embedding tiles cached: ' + embeddingLayer.getCacheSize();
+    }
+}
+
+// ── Click-to-label ──────────────────────────────────────────────────
+map.on('click', function (e) {
+    if (!activeClass) return;
+    if (sideBySide && sideBySide._justDragged) return;
+    if (!embeddingLayer) {
+        showToast('Load embedding tiles first');
+        return;
+    }
+
+    var embedding = embeddingLayer.getEmbeddingAt(e.latlng);
+    if (!embedding) {
+        showToast('No embedding data at this location');
+        return;
+    }
+
+    // Check for all-zero embedding (likely nodata)
+    var allZero = true;
+    for (var i = 0; i < embedding.length; i++) {
+        if (embedding[i] !== 0) { allZero = false; break; }
+    }
+    if (allZero) {
+        showToast('No embedding data at this location (all zeros)');
+        return;
+    }
+
+    var label = activeClass === 'change' ? 1 : 0;
+    var color = label === 1 ? '#e5a853' : '#3b82f6';
+
+    var marker = L.circleMarker(e.latlng, {
+        radius: 7, fillColor: color, color: '#f3ecd8',
+        weight: 2, fillOpacity: 0.9
+    });
+    marker.addTo(markerGroup);
+
+    var sample = { latlng: e.latlng, embedding: embedding, label: label, marker: marker };
+    samples.push(sample);
+
+    // Right-click to remove
+    marker.on('contextmenu', function (ev) {
+        L.DomEvent.stopPropagation(ev);
+        var idx = samples.indexOf(sample);
+        if (idx >= 0) samples.splice(idx, 1);
+        markerGroup.removeLayer(marker);
+        updateUI();
+    });
+
+    updateUI();
+});
+
+// Prevent map context menu
+map.on('contextmenu', function (e) { L.DomEvent.stopPropagation(e); });
+
+// ── Training ────────────────────────────────────────────────────────
+function doTrain() {
+    if (samples.length < 2) return;
+    var nChange = samples.filter(function (s) { return s.label === 1; }).length;
+    var nNochange = samples.filter(function (s) { return s.label === 0; }).length;
+    if (nChange < 1 || nNochange < 1) {
+        showToast('Need at least 1 sample of each class');
+        return;
+    }
+
+    modelStatusEl.textContent = 'Training…';
+    modelStatusEl.style.color = '#f59e0b';
+    trainBtn.disabled = true;
+
+    // Yield to UI, then train
+    setTimeout(function () {
+        var t0 = performance.now();
+        currentModel = trainLogisticRegression(samples);
+        var elapsed = (performance.now() - t0).toFixed(0);
+
+        if (embeddingLayer) {
+            embeddingLayer.setModel(currentModel);
+            // Auto-show heatmap if not already showing
+            if (embeddingLayer._displayMode === 'off') {
+                embeddingLayer.setDisplayMode('heatmap');
+                updateModeButtons('heatmap');
+            }
+        }
+
+        updateUI();
+        showToast('Model trained in ' + elapsed + 'ms (' + samples.length + ' samples)');
+    }, 10);
+}
+
+// ── Diff overlay controls ───────────────────────────────────────────
+var overlayLayers = { full: diffLayer, urban: diffUrbanLayer };
+var selectedOverlay = 'full';
+var overlayVisible = false;
+
+var diffControl = L.control({ position: 'bottomright' });
+diffControl.onAdd = function () {
+    var div = L.DomUtil.create('div', 'diff-control');
+    div.innerHTML = [
+        '<label><input type="checkbox" id="overlay-toggle"> Show diff overlay</label>',
+        '<hr>',
+        '<label><input type="radio" name="overlay" value="full" checked> Full tile</label>',
+        '<label style="margin-top:4px"><input type="radio" name="overlay" value="urban"> Urban diff</label>'
+    ].join('');
+    L.DomEvent.disableClickPropagation(div);
+    return div;
+};
+diffControl.addTo(map);
+
+var overlayToggle = document.getElementById('overlay-toggle');
+var radioButtons = document.querySelectorAll('input[name="overlay"]');
+
+function showOverlay() {
+    overlayLayers[selectedOverlay].addTo(map);
+    overlayVisible = true;
+    overlayToggle.checked = true;
+}
+function hideOverlay() {
+    Object.keys(overlayLayers).forEach(function (k) {
+        if (map.hasLayer(overlayLayers[k])) map.removeLayer(overlayLayers[k]);
+    });
+    overlayVisible = false;
+    overlayToggle.checked = false;
+}
+function toggleDiff() {
+    if (overlayVisible) hideOverlay(); else showOverlay();
+}
+
+overlayToggle.addEventListener('change', function () {
+    if (this.checked) showOverlay(); else hideOverlay();
+});
+radioButtons.forEach(function (r) {
+    r.addEventListener('change', function () {
+        var was = overlayVisible;
+        hideOverlay();
+        selectedOverlay = this.value;
+        if (was) showOverlay();
+    });
+});
+
+// ── Keyboard hints ──────────────────────────────────────────────────
+var hintCtl = L.control({ position: 'bottomleft' });
+hintCtl.onAdd = function () {
+    var div = L.DomUtil.create('div', 'kbd-hint');
+    div.innerHTML = [
+        '<kbd>Space</kbd> Toggle diff overlay<br>',
+        '<kbd>A</kbd> Swipe → show 2020 &nbsp;',
+        '<kbd>D</kbd> Swipe → show 2024 &nbsp;',
+        '<kbd>S</kbd> Swipe → center<br>',
+        '<kbd>Esc</kbd> Stop labeling &nbsp;',
+        '<kbd>T</kbd> Toggle binary &nbsp;',
+        '<kbd>H</kbd> Toggle heatmap &nbsp;',
+        '<kbd>G</kbd> Train model'
+    ].join('');
+    return div;
+};
+hintCtl.addTo(map);
+
+// ── Keyboard shortcuts ──────────────────────────────────────────────
+document.addEventListener('keydown', function (e) {
+    // Don't trigger when typing in inputs
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+    var w = map.getSize().x;
+    var key = e.key.toLowerCase();
+
+    if (key === ' ') {
+        e.preventDefault();
+        toggleDiff();
+    } else if (key === 'a') {
+        sideBySide._range.value = 0.02;
+        sideBySide._pos = w * 0.02;
+        sideBySide._updateClip();
+    } else if (key === 'd') {
+        sideBySide._range.value = 0.98;
+        sideBySide._pos = w * 0.98;
+        sideBySide._updateClip();
+    } else if (key === 's') {
+        sideBySide._range.value = 0.5;
+        sideBySide._pos = w * 0.5;
+        sideBySide._updateClip();
+    } else if (key === 'escape') {
+        activeClass = null;
+        updateUI();
+    } else if (key === 't') {
+        if (embeddingLayer) {
+            var cur = embeddingLayer._displayMode;
+            var next = cur === 'binary' ? 'off' : 'binary';
+            embeddingLayer.setDisplayMode(next);
+            updateModeButtons(next);
+            thresholdRow.style.display = (next === 'binary') ? 'flex' : 'none';
+        }
+    } else if (key === 'h') {
+        if (embeddingLayer) {
+            var cur = embeddingLayer._displayMode;
+            var next = cur === 'heatmap' ? 'off' : 'heatmap';
+            embeddingLayer.setDisplayMode(next);
+            updateModeButtons(next);
+            thresholdRow.style.display = 'none';
+        }
+    } else if (key === 'g') {
+        doTrain();
+    }
+});
+
+// ── Init WebGPU ─────────────────────────────────────────────────────
+(async function () {
+    gpuEngine = await initWebGPU();
+    if (gpuEngine) {
+        gpuBadge.textContent = 'GPU';
+        gpuBadge.className = 'gpu-badge available';
+        console.log('WebGPU inference enabled');
+    } else {
+        gpuBadge.textContent = 'CPU';
+        gpuBadge.className = 'gpu-badge unavailable';
+        console.log('WebGPU not available, using CPU inference');
+    }
+})();
+
+// ── Load embedding tiles (after all UI is ready) ────────────────────
+if (EMBEDDING_TILE_URL) {
+    loadEmbeddingTiles(EMBEDDING_TILE_URL);
+}
+</script>
+
+<script>
+// ── Interactive tutorial ────────────────────────────────────────────
+(function () {
+    var STORAGE_KEY = 'cd_interactive_tutorial_seen_v1';
+
+    var steps = [
+        {
+            label: 'Intro',
+            title: 'Interactive change detection',
+            body: '<p>This demo labels, trains, and runs a change-detection model over <strong>Seattle (2020 vs 2024)</strong> entirely in your browser — powered by compressed AlphaEarth embedding-difference tiles.</p><p>Use <kbd>→</kbd> or <kbd>Enter</kbd> to step through the tour. Press <kbd>Esc</kbd> to close it any time.</p>',
+            placement: 'center'
+        },
+        {
+            label: 'Step 1 / 6',
+            title: 'Compare the two scenes',
+            body: '<p>Drag the <strong>swipe handle</strong> to compare the 2020 and 2024 Sentinel-2 imagery side by side.</p><p>Shortcuts: <kbd>A</kbd> shows 2020, <kbd>D</kbd> shows 2024, <kbd>S</kbd> re-centers the handle.</p>',
+            target: function () { return document.querySelector('.leaflet-sbs-handle'); },
+            placement: 'top',
+            padding: 10
+        },
+        {
+            label: 'Step 2 / 6',
+            title: 'See the change signal',
+            body: '<p>Toggle the <strong>PCA diff overlay</strong> to visualize change magnitude and direction across the scene. Similar colors = similar types of change; gray = no change.</p><p>Press <kbd>Space</kbd> to toggle, or switch between the full and urban-masked views.</p>',
+            target: function () { return document.querySelector('.diff-control'); },
+            placement: 'left',
+            padding: 8
+        },
+        {
+            label: 'Step 3 / 6',
+            title: 'Label a few pixels',
+            body: '<p>Pick a class — <em>Change</em> for pixels where something changed (new construction, clearings), <em>No Change</em> for stable areas — then <strong>click anywhere on the map</strong> to place a label.</p><p>Right-click a marker to remove it. Press <kbd>Esc</kbd> to stop labeling.</p>',
+            target: function () { return document.querySelector('.label-btns'); },
+            placement: 'right',
+            padding: 8
+        },
+        {
+            label: 'Step 4 / 6',
+            title: 'Train the model',
+            body: '<p>With at least one example of each class, click <strong>Train</strong> (or press <kbd>G</kbd>) to fit a logistic regression on the 8-dimensional compressed difference embeddings.</p><p>Training a few dozen samples takes under 100ms — no server round-trip.</p>',
+            target: function () { return document.querySelector('.train-row'); },
+            placement: 'right',
+            padding: 8
+        },
+        {
+            label: 'Step 5 / 6',
+            title: 'View predictions',
+            body: '<p>Switch between <strong>Heatmap</strong> (continuous blue→white→red) and <strong>Binary</strong> (thresholded mask) to see the model\'s predictions across every cached tile — rendered on the GPU via WebGPU when available.</p><p>Shortcuts: <kbd>H</kbd> toggles heatmap, <kbd>T</kbd> toggles binary.</p>',
+            target: function () { return document.querySelector('.display-mode-row'); },
+            placement: 'right',
+            padding: 8
+        },
+        {
+            label: 'Step 6 / 6',
+            title: 'Relabel to change what you detect',
+            body: '<p>The same tool detects different phenomena depending on what you label. Label <strong>construction</strong> → you get a construction detector. Relabel with <strong>vegetation loss</strong> → a deforestation map.</p><p>Use <kbd>Clear All Labels</kbd> to start over, or just add more labels and retrain.</p>',
+            target: function () { return document.querySelector('#clear-btn'); },
+            placement: 'right',
+            padding: 8
+        },
+        {
+            label: 'Ready',
+            title: 'You\'re ready',
+            body: '<p>That\'s it. Label, train, predict — all over static GeoTIFF tiles served from a CDN.</p><p>You can reopen this tour any time with the <strong>?</strong> button in the top-right of the header.</p>',
+            placement: 'center'
+        }
+    ];
+
+    var state = { active: false, step: 0 };
+    var overlay, card, trigger;
+    var resizeHandler = null;
+
+    function build() {
+        overlay = document.createElement('div');
+        overlay.className = 'tut-overlay';
+
+        card = document.createElement('div');
+        card.className = 'tut-card';
+        card.innerHTML =
+            '<button class="tut-close" aria-label="Close">×</button>' +
+            '<div class="tut-step-label"></div>' +
+            '<div class="tut-title"></div>' +
+            '<div class="tut-body"></div>' +
+            '<div class="tut-nav">' +
+            '  <div class="tut-dots"></div>' +
+            '  <button class="tut-btn ghost" data-action="back">Back</button>' +
+            '  <button class="tut-btn primary" data-action="next">Next →</button>' +
+            '</div>';
+
+        document.body.appendChild(overlay);
+        document.body.appendChild(card);
+
+        card.querySelector('.tut-close').addEventListener('click', stop);
+        card.querySelector('[data-action="back"]').addEventListener('click', function () { go(state.step - 1); });
+        card.querySelector('[data-action="next"]').addEventListener('click', function () {
+            if (state.step >= steps.length - 1) stop();
+            else go(state.step + 1);
+        });
+        // Trigger button — floating fixed at bottom-left corner
+        trigger = document.createElement('button');
+        trigger.id = 'tutorial-trigger';
+        trigger.setAttribute('title', 'Show tutorial');
+        trigger.setAttribute('aria-label', 'Show tutorial');
+        trigger.textContent = '?';
+        document.body.appendChild(trigger);
+        trigger.addEventListener('click', function () {
+            if (state.active) stop();
+            else start();
+        });
+    }
+
+    function positionCard(step) {
+        var placement = step.placement || 'center';
+        var target = step.target ? step.target() : null;
+        var cardRect = card.getBoundingClientRect();
+        var vw = window.innerWidth;
+        var vh = window.innerHeight;
+        var margin = 14;
+
+        var left, top;
+
+        if (!target || placement === 'center') {
+            left = (vw - cardRect.width) / 2;
+            top = (vh - cardRect.height) / 2;
+        } else {
+            var r = target.getBoundingClientRect();
+            var gap = 16;
+            switch (placement) {
+                case 'right':
+                    left = r.right + gap;
+                    top = r.top + (r.height - cardRect.height) / 2;
+                    break;
+                case 'left':
+                    left = r.left - cardRect.width - gap;
+                    top = r.top + (r.height - cardRect.height) / 2;
+                    break;
+                case 'top':
+                    left = r.left + (r.width - cardRect.width) / 2;
+                    top = r.top - cardRect.height - gap;
+                    break;
+                case 'bottom':
+                default:
+                    left = r.left + (r.width - cardRect.width) / 2;
+                    top = r.bottom + gap;
+            }
+            // If it would spill off-screen, fall back to center.
+            if (left < margin || left + cardRect.width > vw - margin ||
+                top < margin || top + cardRect.height > vh - margin) {
+                // Try opposite side quickly
+                if (placement === 'right' && r.left - cardRect.width - gap > margin) {
+                    left = r.left - cardRect.width - gap;
+                    top = r.top + (r.height - cardRect.height) / 2;
+                } else if (placement === 'left' && r.right + gap + cardRect.width < vw - margin) {
+                    left = r.right + gap;
+                    top = r.top + (r.height - cardRect.height) / 2;
+                } else if (placement === 'top' && r.bottom + gap + cardRect.height < vh - margin) {
+                    left = r.left + (r.width - cardRect.width) / 2;
+                    top = r.bottom + gap;
+                }
+            }
+        }
+
+        // Clamp to viewport.
+        left = Math.max(margin, Math.min(left, vw - cardRect.width - margin));
+        top = Math.max(margin, Math.min(top, vh - cardRect.height - margin));
+
+        card.style.left = left + 'px';
+        card.style.top = top + 'px';
+    }
+
+    function positionSpotlight(step) {
+        var target = step.target ? step.target() : null;
+        if (!target) {
+            overlay.classList.remove('has-spotlight');
+            return;
+        }
+        var r = target.getBoundingClientRect();
+        if (r.width === 0 && r.height === 0) {
+            overlay.classList.remove('has-spotlight');
+            return;
+        }
+        var pad = step.padding != null ? step.padding : 8;
+        overlay.classList.add('has-spotlight');
+        overlay.style.setProperty('--tut-spot-x', (r.left - pad) + 'px');
+        overlay.style.setProperty('--tut-spot-y', (r.top - pad) + 'px');
+        overlay.style.setProperty('--tut-spot-w', (r.width + pad * 2) + 'px');
+        overlay.style.setProperty('--tut-spot-h', (r.height + pad * 2) + 'px');
+    }
+
+    function renderDots() {
+        var dotsEl = card.querySelector('.tut-dots');
+        dotsEl.innerHTML = '';
+        for (var i = 0; i < steps.length; i++) {
+            var d = document.createElement('span');
+            d.className = 'tut-dot' + (i === state.step ? ' is-active' : '');
+            dotsEl.appendChild(d);
+        }
+    }
+
+    function render() {
+        var step = steps[state.step];
+        card.querySelector('.tut-step-label').textContent = step.label || '';
+        card.querySelector('.tut-title').textContent = step.title || '';
+        card.querySelector('.tut-body').innerHTML = step.body || '';
+        var backBtn = card.querySelector('[data-action="back"]');
+        var nextBtn = card.querySelector('[data-action="next"]');
+        backBtn.disabled = state.step === 0;
+        nextBtn.textContent = state.step === steps.length - 1 ? 'Get started' : 'Next →';
+        renderDots();
+        // Position after render (so measurements are accurate).
+        // Wait one frame for layout/transition to settle.
+        requestAnimationFrame(function () {
+            positionSpotlight(step);
+            positionCard(step);
+        });
+    }
+
+    function go(i) {
+        if (i < 0 || i >= steps.length) return;
+        state.step = i;
+        render();
+    }
+
+    function start() {
+        if (state.active) return;
+        state.active = true;
+        state.step = 0;
+        overlay.classList.add('is-active');
+        card.classList.add('is-active');
+        render();
+        try { localStorage.setItem(STORAGE_KEY, '1'); } catch (e) {}
+        resizeHandler = function () {
+            positionSpotlight(steps[state.step]);
+            positionCard(steps[state.step]);
+        };
+        window.addEventListener('resize', resizeHandler);
+        window.addEventListener('scroll', resizeHandler, true);
+    }
+
+    function stop() {
+        if (!state.active) return;
+        state.active = false;
+        overlay.classList.remove('is-active');
+        overlay.classList.remove('has-spotlight');
+        card.classList.remove('is-active');
+        if (resizeHandler) {
+            window.removeEventListener('resize', resizeHandler);
+            window.removeEventListener('scroll', resizeHandler, true);
+            resizeHandler = null;
+        }
+    }
+
+    document.addEventListener('keydown', function (e) {
+        if (!state.active) return;
+        if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
+        if (e.key === 'Escape') { e.preventDefault(); stop(); }
+        else if (e.key === 'ArrowRight' || e.key === 'Enter') {
+            e.preventDefault();
+            if (state.step >= steps.length - 1) stop();
+            else go(state.step + 1);
+        } else if (e.key === 'ArrowLeft') {
+            e.preventDefault();
+            go(state.step - 1);
+        }
+    });
+
+    function init() {
+        build();
+        var seen = false;
+        try { seen = localStorage.getItem(STORAGE_KEY) === '1'; } catch (e) {}
+        if (!seen) {
+            setTimeout(start, 900);
+        }
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
+})();
+</script>
+</body>
+</html>
