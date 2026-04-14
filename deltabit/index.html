@@ -1036,7 +1036,7 @@
 <div id="labeling-banner" role="status" aria-live="polite">
     <span class="banner-dot"></span>
     <span class="banner-text">Labeling</span>
-    <span class="banner-hint">click map · <kbd>Esc</kbd> to exit</span>
+    <span class="banner-hint">click to drop point · <kbd>Esc</kbd> to exit</span>
     <button class="banner-exit" type="button" title="Exit labeling" aria-label="Exit labeling">×</button>
 </div>
 
@@ -1870,6 +1870,8 @@ labelControl.onAdd = function () {
 
         '<div id="tile-count"></div>',
 
+        '<div class="section-label">Point labels · click the map to place</div>',
+
         '<div class="label-btns">',
         '  <div class="label-btn change" id="btn-change">● Change</div>',
         '  <div class="label-btn nochange" id="btn-nochange">● No Change</div>',
@@ -2032,8 +2034,8 @@ function updateUI() {
     document.body.classList.toggle('is-labeling', !!activeClass);
     labelingBanner.classList.toggle('mode-change', activeClass === 'change');
     labelingBanner.classList.toggle('mode-nochange', activeClass === 'nochange');
-    if (activeClass === 'change') labelingBannerText.textContent = 'Labeling change';
-    else if (activeClass === 'nochange') labelingBannerText.textContent = 'Labeling no-change';
+    if (activeClass === 'change') labelingBannerText.textContent = 'Placing change points';
+    else if (activeClass === 'nochange') labelingBannerText.textContent = 'Placing no-change points';
 
     // Cursor
     map.getContainer().style.cursor = activeClass ? 'crosshair' : '';
@@ -2291,8 +2293,8 @@ if (EMBEDDING_TILE_URL) {
         },
         {
             label: 'Step 3 / 6',
-            title: 'Label a few pixels',
-            body: '<p>Pick a class — <em>Change</em> for pixels where something changed (new construction, clearings), <em>No Change</em> for stable areas — then <strong>click anywhere on the map</strong> to place a label.</p><p>Right-click a marker to remove it. Press <kbd>Esc</kbd> or the <kbd>×</kbd> on the labeling banner to exit labeling mode.</p>',
+            title: 'Drop a few point labels',
+            body: '<p>Labels in DeltaBit are <strong>single points</strong>, not polygons — one click = one labeled pixel. Pick a class (<em>Change</em> for new construction or clearings, <em>No Change</em> for stable areas) and <strong>click the map</strong> to drop a point.</p><p>Right-click a marker to remove it. Press <kbd>Esc</kbd> or the <kbd>×</kbd> on the labeling banner to exit labeling mode.</p>',
             target: function () { return document.querySelector('.label-btns'); },
             placement: 'right',
             padding: 8
