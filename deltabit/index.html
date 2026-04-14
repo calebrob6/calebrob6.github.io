@@ -208,7 +208,7 @@
         .title-panel .title-author a:hover { color: var(--text); }
 
         /* Glass panel base */
-        .panel-label, .kbd-hint, .diff-control, .label-panel {
+        .panel-label, .kbd-hint, .label-panel {
             background: var(--panel);
             backdrop-filter: blur(18px) saturate(140%);
             -webkit-backdrop-filter: blur(18px) saturate(140%);
@@ -250,25 +250,83 @@
             box-shadow: 0 1px 0 rgba(255,255,255,0.04) inset;
         }
 
-        .diff-control {
-            padding: 12px 16px;
-            font-size: 12px;
+        /* ── PCA overlay toggle (prominent, inside label panel) ── */
+        .pca-toggle {
+            display: flex; align-items: center; gap: 12px;
+            padding: 10px 12px;
+            margin: 0 0 12px 0;
+            border: 1px solid rgba(208, 84, 44, 0.28);
+            border-radius: var(--radius-sm);
+            background: linear-gradient(180deg,
+                rgba(208, 84, 44, 0.08) 0%,
+                rgba(208, 84, 44, 0.03) 100%);
+            cursor: pointer;
+            transition: background 160ms, border-color 160ms, box-shadow 160ms;
             user-select: none;
         }
-        .diff-control label {
-            display: flex; align-items: center; gap: 10px; cursor: pointer;
-            font-weight: 500; color: var(--muted-strong);
-            transition: color 140ms;
+        .pca-toggle:hover {
+            background: linear-gradient(180deg,
+                rgba(208, 84, 44, 0.14) 0%,
+                rgba(208, 84, 44, 0.06) 100%);
+            border-color: rgba(208, 84, 44, 0.5);
         }
-        .diff-control label:hover { color: var(--text); }
-        .diff-control input[type="checkbox"],
-        .diff-control input[type="radio"] {
-            width: 14px; height: 14px; cursor: pointer; accent-color: var(--accent);
+        .pca-toggle.is-on {
+            border-color: rgba(208, 84, 44, 0.7);
+            background: linear-gradient(180deg,
+                rgba(208, 84, 44, 0.22) 0%,
+                rgba(208, 84, 44, 0.08) 100%);
+            box-shadow: 0 0 0 1px rgba(208, 84, 44, 0.35) inset,
+                        0 0 18px rgba(208, 84, 44, 0.22);
         }
-        .diff-control hr {
-            margin: 8px 0 !important;
-            border: 0 !important;
-            border-top: 1px solid rgba(243, 236, 216, 0.08) !important;
+        .pca-toggle input[type="checkbox"] {
+            position: absolute;
+            opacity: 0; pointer-events: none;
+        }
+        .pca-toggle .pca-switch {
+            flex-shrink: 0;
+            width: 30px; height: 16px;
+            border-radius: 999px;
+            background: rgba(243, 236, 216, 0.12);
+            border: 1px solid rgba(243, 236, 216, 0.14);
+            position: relative;
+            transition: background 180ms, border-color 180ms;
+        }
+        .pca-toggle .pca-switch::after {
+            content: "";
+            position: absolute;
+            top: 1px; left: 1px;
+            width: 12px; height: 12px;
+            border-radius: 50%;
+            background: var(--muted-strong);
+            transition: transform 180ms, background 180ms;
+        }
+        .pca-toggle.is-on .pca-switch {
+            background: rgba(208, 84, 44, 0.55);
+            border-color: rgba(208, 84, 44, 0.7);
+        }
+        .pca-toggle.is-on .pca-switch::after {
+            transform: translateX(14px);
+            background: var(--text);
+        }
+        .pca-toggle .pca-text {
+            display: flex; flex-direction: column;
+            line-height: 1.25;
+            flex: 1;
+            min-width: 0;
+        }
+        .pca-toggle .pca-title {
+            font-family: "JetBrains Mono", monospace;
+            font-size: 10px; font-weight: 600;
+            text-transform: uppercase; letter-spacing: 0.12em;
+            color: var(--accent-strong);
+        }
+        .pca-toggle.is-on .pca-title { color: var(--text); }
+        .pca-toggle .pca-sub {
+            font-family: "JetBrains Mono", monospace;
+            font-size: 9px;
+            color: var(--muted);
+            margin-top: 3px;
+            letter-spacing: 0.04em;
         }
 
         /* ── Labeling panel ── */
@@ -545,6 +603,75 @@
             background: var(--panel-strong) !important;
             color: var(--accent-strong) !important;
         }
+        /* ── Interesting locations panel ── */
+        .locations-panel {
+            background: var(--panel);
+            backdrop-filter: blur(18px) saturate(140%);
+            -webkit-backdrop-filter: blur(18px) saturate(140%);
+            border: 1px solid rgba(243, 236, 216, 0.06);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-lg);
+            padding: 14px 14px 12px;
+            width: 240px;
+            pointer-events: auto;
+        }
+        .locations-panel h3 {
+            font-family: "JetBrains Mono", monospace;
+            font-size: 10px; font-weight: 600;
+            text-transform: uppercase; letter-spacing: 0.18em;
+            color: var(--muted-strong);
+            margin: 0 0 12px 0;
+        }
+        .locations-panel .location-item {
+            display: flex; align-items: center; gap: 10px;
+            width: 100%;
+            padding: 8px 10px;
+            border: 1px solid rgba(243, 236, 216, 0.07);
+            border-radius: var(--radius-sm);
+            background: rgba(243, 236, 216, 0.025);
+            color: var(--text);
+            cursor: pointer;
+            text-align: left;
+            transition: background 140ms, border-color 140ms, transform 140ms;
+            margin-bottom: 6px;
+            font-family: inherit;
+        }
+        .locations-panel .location-item:last-child { margin-bottom: 0; }
+        .locations-panel .location-item:hover {
+            background: rgba(208, 84, 44, 0.14);
+            border-color: rgba(208, 84, 44, 0.38);
+            transform: translateX(-1px);
+        }
+        .locations-panel .location-num {
+            width: 22px; height: 22px;
+            flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center;
+            border-radius: 50%;
+            background: rgba(208, 84, 44, 0.16);
+            color: var(--accent-strong);
+            font-family: "JetBrains Mono", monospace;
+            font-size: 10px; font-weight: 600;
+            font-variant-numeric: tabular-nums;
+        }
+        .locations-panel .location-body {
+            display: flex; flex-direction: column;
+            line-height: 1.2;
+            min-width: 0;
+        }
+        .locations-panel .location-name {
+            font-family: "Fraunces", serif;
+            font-size: 14px; font-weight: 500;
+            color: var(--text);
+            letter-spacing: -0.01em;
+        }
+        .locations-panel .location-desc {
+            font-family: "JetBrains Mono", monospace;
+            font-size: 9px;
+            text-transform: uppercase; letter-spacing: 0.12em;
+            color: var(--muted);
+            margin-top: 3px;
+        }
+
         .leaflet-control.download-control { border: none; }
         .download-control-btn {
             display: flex; align-items: center; justify-content: center;
@@ -800,9 +927,9 @@
             transition: opacity 220ms ease, filter 220ms ease;
         }
         body.is-labeling .panel-label,
-        body.is-labeling .diff-control,
         body.is-labeling .kbd-hint,
         body.is-labeling .title-panel,
+        body.is-labeling .locations-panel,
         body.is-labeling #tutorial-trigger,
         body.is-labeling .leaflet-control-zoom,
         body.is-labeling .leaflet-sbs-handle,
@@ -1593,6 +1720,45 @@ rightLabel.addTo(map);
 
 L.control.zoom({ position: 'topright' }).addTo(map);
 
+// ── Interesting locations (hardcoded) ──────────────────────────────
+var INTERESTING_LOCATIONS = [
+    { name: 'Snoqualmie clearcut',   desc: 'Cascade foothills timber cut', lat: 47.76944, lng: -121.73779, zoom: 14 },
+    { name: 'Alder Lake timber',     desc: 'Nisqually basin forest cut',   lat: 46.89516, lng: -122.08791, zoom: 14 },
+    { name: 'Boeing Field construction', desc: 'Airport / industrial build-out', lat: 47.51062, lng: -122.28752, zoom: 14 },
+    { name: 'I-405 expansion',       desc: 'Highway widening & works',     lat: 47.53289, lng: -122.19745, zoom: 14 },
+    { name: 'Bothell corridor',      desc: 'North-end development',        lat: 47.71424, lng: -122.16284, zoom: 14 }
+];
+
+var locationsControl = L.control({ position: 'topright' });
+locationsControl.onAdd = function () {
+    var div = L.DomUtil.create('div', 'locations-panel');
+    L.DomEvent.disableClickPropagation(div);
+    L.DomEvent.disableScrollPropagation(div);
+
+    var parts = ['<h3>Interesting Locations</h3>'];
+    INTERESTING_LOCATIONS.forEach(function (loc, i) {
+        parts.push(
+            '<button class="location-item" type="button" data-idx="' + i + '">' +
+              '<span class="location-num">' + (i + 1) + '</span>' +
+              '<span class="location-body">' +
+                '<span class="location-name">' + loc.name + '</span>' +
+                '<span class="location-desc">' + loc.desc + '</span>' +
+              '</span>' +
+            '</button>'
+        );
+    });
+    div.innerHTML = parts.join('');
+
+    div.querySelectorAll('.location-item').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var loc = INTERESTING_LOCATIONS[+this.getAttribute('data-idx')];
+            map.flyTo([loc.lat, loc.lng], loc.zoom, { duration: 1.2 });
+        });
+    });
+    return div;
+};
+locationsControl.addTo(map);
+
 // ── Optional: download-labels control (only with ?collectLabels=true) ──
 var collectLabelsParam = (urlParams.get('collectLabels') || '').toLowerCase();
 var COLLECT_LABELS = collectLabelsParam === 'true' || collectLabelsParam === '1' || collectLabelsParam === 'yes';
@@ -1686,6 +1852,15 @@ labelControl.onAdd = function () {
 
     div.innerHTML = [
         '<h3>Labeling <span id="gpu-badge" class="gpu-badge unavailable">CPU</span></h3>',
+
+        '<label class="pca-toggle" id="pca-toggle">',
+        '  <input type="checkbox" id="overlay-toggle" />',
+        '  <span class="pca-switch"></span>',
+        '  <span class="pca-text">',
+        '    <span class="pca-title">AlphaEarth Embedding PCA</span>',
+        '    <span class="pca-sub">Top 3 PCs of diff → RGB · same color = same change</span>',
+        '  </span>',
+        '</label>',
 
         '<div class="tile-url-row" id="tile-url-row">',
         '  <label>Embedding tile URL</label>',
@@ -1976,29 +2151,22 @@ function doTrain() {
     }, 10);
 }
 
-// ── Diff overlay controls ───────────────────────────────────────────
+// ── AlphaEarth PCA overlay toggle (inside label panel) ─────────────
 var overlayVisible = false;
-
-var diffControl = L.control({ position: 'bottomright' });
-diffControl.onAdd = function () {
-    var div = L.DomUtil.create('div', 'diff-control');
-    div.innerHTML = '<label><input type="checkbox" id="overlay-toggle"> Show diff overlay</label>';
-    L.DomEvent.disableClickPropagation(div);
-    return div;
-};
-diffControl.addTo(map);
-
 var overlayToggle = document.getElementById('overlay-toggle');
+var pcaToggle = document.getElementById('pca-toggle');
 
 function showOverlay() {
     diffLayer.addTo(map);
     overlayVisible = true;
     overlayToggle.checked = true;
+    pcaToggle.classList.add('is-on');
 }
 function hideOverlay() {
     if (map.hasLayer(diffLayer)) map.removeLayer(diffLayer);
     overlayVisible = false;
     overlayToggle.checked = false;
+    pcaToggle.classList.remove('is-on');
 }
 function toggleDiff() {
     if (overlayVisible) hideOverlay(); else showOverlay();
@@ -2013,7 +2181,7 @@ var hintCtl = L.control({ position: 'bottomleft' });
 hintCtl.onAdd = function () {
     var div = L.DomUtil.create('div', 'kbd-hint');
     div.innerHTML = [
-        '<kbd>Space</kbd> Toggle diff overlay<br>',
+        '<kbd>Space</kbd> Toggle PCA overlay<br>',
         '<kbd>A</kbd> Swipe → show 2020 &nbsp;',
         '<kbd>D</kbd> Swipe → show 2024 &nbsp;',
         '<kbd>S</kbd> Swipe → center<br>',
@@ -2115,9 +2283,9 @@ if (EMBEDDING_TILE_URL) {
         },
         {
             label: 'Step 2 / 6',
-            title: 'See the change signal',
-            body: '<p>Toggle the <strong>PCA diff overlay</strong> to visualize change magnitude and direction across the scene. Similar colors = similar types of change; gray = no change.</p><p>Press <kbd>Space</kbd> or use the checkbox to toggle.</p>',
-            target: function () { return document.querySelector('.diff-control'); },
+            title: 'See the change signal with PCA',
+            body: '<p>Flip on <strong>AlphaEarth Embedding PCA</strong> — the top 3 principal components of the 2024 − 2020 embedding difference, mapped to RGB. Gray = no change; saturated colors = strong change, and <em>same color = same kind of change</em>.</p><p>That structure is why PCA is a huge help for labeling: pick one example of a change, and the whole region of that color is a candidate for the same class. A linear model over the 8-dim compressed diff picks up on the same directions.</p><p>Press <kbd>Space</kbd> or flip the toggle at the top of the Labeling panel.</p>',
+            target: function () { return document.querySelector('.pca-toggle'); },
             placement: 'left',
             padding: 8
         },
