@@ -672,6 +672,112 @@
             margin-top: 3px;
         }
 
+        /* ── Predictions dialog ── */
+        #predictions-dialog {
+            position: fixed; inset: 0;
+            z-index: 1400;
+            background: rgba(8, 6, 4, 0.78);
+            backdrop-filter: blur(10px) saturate(120%);
+            -webkit-backdrop-filter: blur(10px) saturate(120%);
+            display: none;
+            align-items: center; justify-content: center;
+        }
+        #predictions-dialog.is-active { display: flex; }
+        #predictions-dialog .dbox {
+            width: 460px; max-width: calc(100vw - 32px);
+            padding: 26px 28px 20px;
+            background: var(--panel-strong);
+            border: 1px solid rgba(243, 236, 216, 0.1);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-lg);
+            color: var(--text);
+        }
+        #predictions-dialog .dtitle {
+            font-family: "Fraunces", serif;
+            font-size: 20px; font-weight: 500;
+            letter-spacing: -0.015em;
+            margin-bottom: 10px;
+            font-variation-settings: "opsz" 36;
+        }
+        #predictions-dialog .dbody {
+            font-size: 13px; line-height: 1.55;
+            color: var(--muted-strong);
+            margin-bottom: 18px;
+        }
+        #predictions-dialog .dbody strong { color: var(--text); font-weight: 600; }
+        #predictions-dialog .dslider-row {
+            display: flex; align-items: center; gap: 12px;
+            font-family: "JetBrains Mono", monospace;
+            font-size: 11px;
+            margin-bottom: 12px;
+        }
+        #predictions-dialog .dslider-row > label {
+            min-width: 80px;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.14em;
+            font-weight: 600;
+        }
+        #predictions-dialog .dslider-row .dslider-val {
+            min-width: 28px;
+            text-align: right;
+            color: var(--accent-strong);
+            font-variant-numeric: tabular-nums;
+            font-weight: 600;
+        }
+        #predictions-dialog .dtile-info {
+            font-family: "JetBrains Mono", monospace;
+            font-size: 11px;
+            color: var(--muted-strong);
+            padding: 12px 14px;
+            background: rgba(243, 236, 216, 0.03);
+            border-radius: var(--radius-sm);
+            border: 1px solid rgba(243, 236, 216, 0.06);
+            margin-bottom: 18px;
+            font-variant-numeric: tabular-nums;
+            line-height: 1.5;
+        }
+        #predictions-dialog .dtile-info b {
+            color: var(--text);
+            font-weight: 600;
+        }
+        #predictions-dialog .dtile-info .dwarn {
+            color: var(--amber);
+            margin-top: 6px;
+            display: block;
+        }
+        #predictions-dialog .dactions {
+            display: flex; gap: 10px; justify-content: flex-end;
+        }
+        #predictions-dialog .dbtn {
+            border: none; cursor: pointer;
+            font-family: "JetBrains Mono", monospace;
+            font-size: 10px; font-weight: 600;
+            text-transform: uppercase; letter-spacing: 0.12em;
+            border-radius: var(--radius-sm);
+            padding: 9px 18px;
+            transition: all 140ms;
+        }
+        #predictions-dialog .dbtn.primary {
+            background: linear-gradient(180deg, var(--accent) 0%, var(--accent-dark) 100%);
+            color: var(--ink);
+            box-shadow: 0 4px 14px rgba(208, 84, 44, 0.3);
+        }
+        #predictions-dialog .dbtn.primary:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 18px rgba(208, 84, 44, 0.4);
+        }
+        #predictions-dialog .dbtn.primary:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
+        }
+        #predictions-dialog .dbtn.ghost {
+            background: transparent;
+            color: var(--muted);
+            padding: 9px 14px;
+        }
+        #predictions-dialog .dbtn.ghost:hover { color: var(--text); }
+
         /* ── Predictions progress overlay ── */
         #predictions-progress {
             position: fixed; inset: 0;
@@ -1089,6 +1195,27 @@
 
 <div id="map"></div>
 <div id="toast" class="toast"></div>
+
+<div id="predictions-dialog" role="dialog" aria-modal="true" aria-label="Download predictions">
+    <div class="dbox">
+        <div class="dtitle">Download change polygons</div>
+        <p class="dbody">
+            Run the trained model across every embedding tile intersecting the current map view, threshold the per-pixel score into a binary mask, and extract <strong>polygon rings</strong> around each connected change region. You'll get a GeoJSON <code>FeatureCollection</code>.
+            <br /><br />
+            Pick the zoom level to run at. Higher zoom = finer polygon boundaries but more tiles to fetch and process. Tiles at the chosen zoom that aren't already cached in the browser will be downloaded.
+        </p>
+        <div class="dslider-row">
+            <label>Zoom</label>
+            <input type="range" id="preds-zoom-slider" min="8" max="14" value="14" />
+            <span class="dslider-val" id="preds-zoom-val">14</span>
+        </div>
+        <div class="dtile-info" id="preds-tile-info">—</div>
+        <div class="dactions">
+            <button type="button" class="dbtn ghost" id="preds-cancel">Cancel</button>
+            <button type="button" class="dbtn primary" id="preds-confirm">Download</button>
+        </div>
+    </div>
+</div>
 
 <div id="predictions-progress" role="dialog" aria-live="polite" aria-label="Polygonizing predictions">
     <div class="pbox">
@@ -1816,31 +1943,61 @@ predsDownloadControl.addTo(map);
 function updatePredsButtonState() {
     if (!downloadPredsBtn) return;
     var hasModel = !!currentModel;
-    var hasTiles = embeddingLayer && embeddingLayer._embCache && embeddingLayer._embCache.size > 0;
-    downloadPredsBtn.disabled = !(hasModel && hasTiles);
+    var hasLayer = !!embeddingLayer;
+    downloadPredsBtn.disabled = !(hasModel && hasLayer);
     downloadPredsBtn.title = !hasModel
         ? 'Train a model first to download predictions'
-        : !hasTiles
+        : !hasLayer
             ? 'Load embedding tiles first'
             : 'Download predictions as polygon GeoJSON';
 }
 
-// ── Inline Web Worker for polygonization ──
+// ── Inline Web Worker for polygonization (+ optional tile fetching) ──
 var POLYGONIZE_WORKER_SRC = [
-    'self.onmessage = function(e) {',
+    'importScripts("https://cdn.jsdelivr.net/npm/geotiff@2.1.3/dist-browser/geotiff.js");',
+    'self.onmessage = async function(e) {',
     '  var msg = e.data;',
     '  var tiles = msg.tiles;',
+    '  var urlTemplate = msg.urlTemplate;',
     '  var weights = msg.weights;',
     '  var bias = msg.bias;',
     '  var threshold = msg.threshold;',
-    '  var features = [];',
     '  var nTiles = tiles.length;',
-    '  self.postMessage({ type: "progress", done: 0, total: nTiles, phase: "polygonizing" });',
+    '  var features = [];',
+    '  var failed = 0;',
+    '  self.postMessage({ type: "progress", done: 0, total: nTiles, phase: "starting" });',
     '  for (var ti = 0; ti < nTiles; ti++) {',
     '    var t = tiles[ti];',
-    '    var w = t.width, h = t.height, bands = t.bands;',
+    '    var w, h, bands, data;',
+    '    if (t.cached) {',
+    '      w = t.width; h = t.height; bands = t.bands;',
+    '      data = new Float32Array(t.buffer);',
+    '      self.postMessage({ type: "progress", done: ti, total: nTiles, phase: "processing" });',
+    '    } else {',
+    '      self.postMessage({ type: "progress", done: ti, total: nTiles, phase: "fetching" });',
+    '      try {',
+    '        var url = urlTemplate.replace("{z}", t.z).replace("{x}", t.x).replace("{y}", t.y);',
+    '        var resp = await fetch(url);',
+    '        if (!resp.ok) throw new Error("http " + resp.status);',
+    '        var buf = await resp.arrayBuffer();',
+    '        var tiff = await GeoTIFF.fromArrayBuffer(buf);',
+    '        var img = await tiff.getImage();',
+    '        w = img.getWidth(); h = img.getHeight(); bands = img.getSamplesPerPixel();',
+    '        var rasters = await img.readRasters();',
+    '        var tot0 = w * h;',
+    '        data = new Float32Array(bands * tot0);',
+    '        for (var bb = 0; bb < bands; bb++) {',
+    '          var src = rasters[bb];',
+    '          var off = bb * tot0;',
+    '          for (var ii = 0; ii < tot0; ii++) data[off + ii] = src[ii];',
+    '        }',
+    '      } catch (err) {',
+    '        failed++;',
+    '        self.postMessage({ type: "progress", done: ti + 1, total: nTiles, phase: "fetching" });',
+    '        continue;',
+    '      }',
+    '    }',
     '    var total = w * h;',
-    '    var data = new Float32Array(t.buffer);',
     '    var mask = new Uint8Array(total);',
     '    for (var i = 0; i < total; i++) {',
     '      var z = bias;',
@@ -1864,9 +2021,9 @@ var POLYGONIZE_WORKER_SRC = [
     '        properties: { tile: t.z + "/" + t.x + "/" + t.y, threshold: threshold }',
     '      });',
     '    }',
-    '    self.postMessage({ type: "progress", done: ti + 1, total: nTiles, phase: "polygonizing" });',
+    '    self.postMessage({ type: "progress", done: ti + 1, total: nTiles, phase: "processing" });',
     '  }',
-    '  self.postMessage({ type: "done", features: features });',
+    '  self.postMessage({ type: "done", features: features, failed: failed });',
     '};',
     'function pxToLngLat(z, tx, ty, px, py, w, h) {',
     '  var n = Math.pow(2, z);',
@@ -1955,39 +2112,141 @@ function unfreezeMapInteractions() {
 
 function downloadPredictionsAsGeoJSON() {
     if (!currentModel) { showToast('Train a model first'); return; }
-    if (!embeddingLayer || embeddingLayer._embCache.size === 0) {
-        showToast('Load embedding tiles first'); return;
+    if (!embeddingLayer) { showToast('Load embedding tiles first'); return; }
+    openPredictionsDialog();
+}
+
+// ── Dialog: pick a zoom, preview tile counts, confirm/cancel ──
+function openPredictionsDialog() {
+    var dialog     = document.getElementById('predictions-dialog');
+    var slider     = document.getElementById('preds-zoom-slider');
+    var sliderVal  = document.getElementById('preds-zoom-val');
+    var info       = document.getElementById('preds-tile-info');
+    var cancelBtn  = document.getElementById('preds-cancel');
+    var confirmBtn = document.getElementById('preds-confirm');
+
+    // Default to current map zoom clamped into [8, 14]
+    var curZ = Math.max(8, Math.min(14, Math.round(map.getZoom())));
+    slider.value = curZ;
+    sliderVal.textContent = curZ;
+    syncSliderFill(slider);
+
+    function refreshInfo() {
+        var z = parseInt(slider.value, 10);
+        sliderVal.textContent = z;
+        syncSliderFill(slider);
+        var tiles = computeTilesForZoom(z);
+        var cached = 0;
+        for (var i = 0; i < tiles.length; i++) {
+            var k = tiles[i].z + '/' + tiles[i].x + '/' + tiles[i].y;
+            if (embeddingLayer._embCache.has(k)) cached++;
+        }
+        var toFetch = tiles.length - cached;
+        var warn = '';
+        if (tiles.length === 0) {
+            warn = '<span class="dwarn">No tiles intersect the view at z' + z + '. Pan or pick another zoom.</span>';
+        } else if (tiles.length > 500) {
+            warn = '<span class="dwarn">Large job: ' + tiles.length + ' tiles may take a while.</span>';
+        }
+        info.innerHTML =
+            'At zoom <b>' + z + '</b>: <b>' + tiles.length + '</b> tile' + (tiles.length === 1 ? '' : 's') +
+            ' in view · <b>' + cached + '</b> cached, <b>' + toFetch + '</b> to fetch' + warn;
+        confirmBtn.disabled = tiles.length === 0;
     }
+    slider.oninput = refreshInfo;
+    refreshInfo();
 
-    // Collect all currently cached embedding tiles across every zoom.
-    // Geometry is exact per-tile because (z, x, y) drives the pixel→lng/lat math.
-    var tileMsgs = [];
-    var transferables = [];
-    embeddingLayer._embCache.forEach(function (cached, key) {
-        var parts = key.split('/');
-        var z = +parts[0], x = +parts[1], y = +parts[2];
-        var copy = cached.data.slice();  // copy so we don't steal the layer's buffer
-        tileMsgs.push({
-            z: z, x: x, y: y,
-            width: cached.width, height: cached.height, bands: cached.bands,
-            buffer: copy.buffer
-        });
-        transferables.push(copy.buffer);
-    });
+    function close() {
+        dialog.classList.remove('is-active');
+        slider.oninput = null;
+        cancelBtn.onclick = null;
+        confirmBtn.onclick = null;
+        document.removeEventListener('keydown', onKey);
+    }
+    function onKey(e) {
+        if (e.key === 'Escape') close();
+        else if (e.key === 'Enter' && !confirmBtn.disabled) {
+            e.preventDefault();
+            var z = parseInt(slider.value, 10);
+            close();
+            runPredictionsAtZoom(z);
+        }
+    }
+    cancelBtn.onclick = close;
+    confirmBtn.onclick = function () {
+        var z = parseInt(slider.value, 10);
+        close();
+        runPredictionsAtZoom(z);
+    };
+    document.addEventListener('keydown', onKey);
+    dialog.classList.add('is-active');
+}
 
-    if (tileMsgs.length === 0) {
-        showToast('No embedding tiles cached yet — pan/zoom to load some first');
+// Compute (z, x, y) tile list that intersects the current viewport AND the dataset bounds.
+function computeTilesForZoom(z) {
+    var n = Math.pow(2, z);
+    function toTile(lat, lng) {
+        var x = Math.floor(((lng + 180) / 360) * n);
+        var latRad = lat * Math.PI / 180;
+        var y = Math.floor((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2 * n);
+        return { x: x, y: y };
+    }
+    var mb = map.getBounds();
+    var nw = mb.getNorthWest(), se = mb.getSouthEast();
+    var t1 = toTile(nw.lat, nw.lng), t2 = toTile(se.lat, se.lng);
+    var vxMin = Math.min(t1.x, t2.x), vxMax = Math.max(t1.x, t2.x);
+    var vyMin = Math.min(t1.y, t2.y), vyMax = Math.max(t1.y, t2.y);
+
+    // Clip to dataset bounds so we don't request tiles that definitely 404
+    var dNwLat = bounds[1][0], dNwLng = bounds[0][1];
+    var dSeLat = bounds[0][0], dSeLng = bounds[1][1];
+    var d1 = toTile(dNwLat, dNwLng), d2 = toTile(dSeLat, dSeLng);
+    var dxMin = Math.min(d1.x, d2.x), dxMax = Math.max(d1.x, d2.x);
+    var dyMin = Math.min(d1.y, d2.y), dyMax = Math.max(d1.y, d2.y);
+
+    var xMin = Math.max(vxMin, dxMin), xMax = Math.min(vxMax, dxMax);
+    var yMin = Math.max(vyMin, dyMin), yMax = Math.min(vyMax, dyMax);
+
+    var tiles = [];
+    if (xMin <= xMax && yMin <= yMax) {
+        for (var x = xMin; x <= xMax; x++) {
+            for (var y = yMin; y <= yMax; y++) {
+                tiles.push({ z: z, x: x, y: y });
+            }
+        }
+    }
+    return tiles;
+}
+
+function runPredictionsAtZoom(z) {
+    var tiles = computeTilesForZoom(z);
+    if (tiles.length === 0) {
+        showToast('No tiles intersect the current view at z' + z);
         return;
     }
 
-    // Threshold: use slider's current value if binary mode active, otherwise 0.5
+    var transferables = [];
+    var tileMsgs = tiles.map(function (t) {
+        var cached = embeddingLayer._embCache.get(t.z + '/' + t.x + '/' + t.y);
+        if (cached) {
+            var copy = cached.data.slice();
+            transferables.push(copy.buffer);
+            return {
+                z: t.z, x: t.x, y: t.y,
+                cached: true,
+                width: cached.width, height: cached.height, bands: cached.bands,
+                buffer: copy.buffer
+            };
+        }
+        return { z: t.z, x: t.x, y: t.y, cached: false };
+    });
+
     var threshold = parseFloat(thresholdSlider.value) / 100 || 0.5;
 
-    // Show progress overlay + freeze map
     var overlay = document.getElementById('predictions-progress');
     overlay.classList.add('is-active');
     freezeMapInteractions();
-    setPredsProgress(0, tileMsgs.length, 'preparing ' + tileMsgs.length + ' tiles…');
+    setPredsProgress(0, tileMsgs.length, 'preparing ' + tileMsgs.length + ' tile' + (tileMsgs.length === 1 ? '' : 's') + '…');
 
     var blob = new Blob([POLYGONIZE_WORKER_SRC], { type: 'application/javascript' });
     var workerURL = URL.createObjectURL(blob);
@@ -2001,10 +2260,20 @@ function downloadPredictionsAsGeoJSON() {
         return;
     }
 
+    var finished = false;
+    function cleanup() {
+        if (finished) return;
+        finished = true;
+        worker.terminate();
+        URL.revokeObjectURL(workerURL);
+        overlay.classList.remove('is-active');
+        unfreezeMapInteractions();
+    }
+
     worker.onmessage = function (ev) {
         var m = ev.data;
         if (m.type === 'progress') {
-            setPredsProgress(m.done, m.total);
+            setPredsProgress(m.done, m.total, (m.phase || 'processing') + ' · ' + m.done + ' / ' + m.total + ' tiles');
         } else if (m.type === 'done') {
             var fc = { type: 'FeatureCollection', features: m.features };
             var out = new Blob([JSON.stringify(fc)], { type: 'application/geo+json' });
@@ -2012,31 +2281,26 @@ function downloadPredictionsAsGeoJSON() {
             var ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
             var a = document.createElement('a');
             a.href = url;
-            a.download = 'deltabit-predictions-' + ts + '.geojson';
+            a.download = 'deltabit-predictions-z' + z + '-' + ts + '.geojson';
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
             setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
-
-            worker.terminate();
-            URL.revokeObjectURL(workerURL);
-            overlay.classList.remove('is-active');
-            unfreezeMapInteractions();
+            cleanup();
+            var suffix = m.failed ? ' (' + m.failed + ' tile' + (m.failed === 1 ? '' : 's') + ' failed to load)' : '';
             showToast('Downloaded ' + m.features.length + ' polygon' +
-                     (m.features.length === 1 ? '' : 's'));
+                     (m.features.length === 1 ? '' : 's') + suffix);
         }
     };
     worker.onerror = function (err) {
         console.error('Polygonize worker error:', err);
-        worker.terminate();
-        URL.revokeObjectURL(workerURL);
-        overlay.classList.remove('is-active');
-        unfreezeMapInteractions();
+        cleanup();
         showToast('Polygonization failed');
     };
 
     worker.postMessage({
         tiles: tileMsgs,
+        urlTemplate: EMBEDDING_TILE_URL,
         weights: Array.from(currentModel.normW),
         bias: currentModel.normBias,
         threshold: threshold
@@ -2651,7 +2915,7 @@ if (EMBEDDING_TILE_URL) {
         {
             label: 'Step 7 / 7',
             title: 'Export predictions as polygons',
-            body: '<p>Hit the <strong>download</strong> icon under the zoom controls to polygonize the trained model\'s binary mask across every cached tile and download a <strong>GeoJSON</strong> of change polygons.</p><p>The threshold you set in Binary mode is used as the cutoff. Polygonization runs in a Web Worker so the app stays responsive — a progress bar tracks per-tile work, and the map is briefly frozen while it runs.</p>',
+            body: '<p>Hit the <strong>download</strong> icon under the zoom controls to open the export dialog. Pick a <strong>zoom level</strong> (8–14) — the dialog shows how many tiles intersect the current view and how many are already cached.</p><p>On confirm, a Web Worker runs the trained model over every tile (fetching any that aren\'t cached), thresholds with your Binary-mode cutoff, extracts polygon rings, and hands back a GeoJSON. A progress bar tracks fetching and processing; the map is frozen until it\'s done.</p>',
             target: function () { return document.querySelector('#download-preds-btn'); },
             placement: 'left',
             padding: 8
