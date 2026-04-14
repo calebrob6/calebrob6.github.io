@@ -672,6 +672,63 @@
             margin-top: 3px;
         }
 
+        /* ── Predictions progress overlay ── */
+        #predictions-progress {
+            position: fixed; inset: 0;
+            z-index: 1400;
+            background: rgba(8, 6, 4, 0.78);
+            backdrop-filter: blur(10px) saturate(120%);
+            -webkit-backdrop-filter: blur(10px) saturate(120%);
+            display: none;
+            align-items: center; justify-content: center;
+            pointer-events: auto;
+        }
+        #predictions-progress.is-active { display: flex; }
+        #predictions-progress .pbox {
+            width: 340px;
+            padding: 22px 26px 20px;
+            background: var(--panel-strong);
+            border: 1px solid rgba(243, 236, 216, 0.1);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-lg);
+        }
+        #predictions-progress .ptitle {
+            font-family: "Fraunces", serif;
+            font-size: 19px; font-weight: 500;
+            color: var(--text);
+            letter-spacing: -0.015em;
+            margin-bottom: 6px;
+            line-height: 1.15;
+        }
+        #predictions-progress .psub {
+            font-family: "JetBrains Mono", monospace;
+            font-size: 10px; color: var(--muted);
+            text-transform: uppercase; letter-spacing: 0.16em;
+            margin-bottom: 16px;
+            font-variant-numeric: tabular-nums;
+        }
+        #predictions-progress .pbar {
+            height: 6px;
+            background: rgba(243, 236, 216, 0.08);
+            border-radius: 999px;
+            overflow: hidden;
+            margin-bottom: 6px;
+        }
+        #predictions-progress .pfill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, var(--accent) 0%, var(--accent-strong) 100%);
+            box-shadow: 0 0 10px rgba(208, 84, 44, 0.45);
+            transition: width 140ms ease;
+        }
+        #predictions-progress .ppct {
+            font-family: "JetBrains Mono", monospace;
+            font-size: 10px; color: var(--muted-strong);
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+            letter-spacing: 0.06em;
+        }
+
         .leaflet-control.download-control { border: none; }
         .download-control-btn {
             display: flex; align-items: center; justify-content: center;
@@ -1032,6 +1089,15 @@
 
 <div id="map"></div>
 <div id="toast" class="toast"></div>
+
+<div id="predictions-progress" role="dialog" aria-live="polite" aria-label="Polygonizing predictions">
+    <div class="pbox">
+        <div class="ptitle">Polygonizing predictions</div>
+        <div class="psub" id="predictions-progress-sub">preparing tiles…</div>
+        <div class="pbar"><div class="pfill" id="predictions-progress-fill"></div></div>
+        <div class="ppct" id="predictions-progress-pct">0%</div>
+    </div>
+</div>
 
 <div id="labeling-banner" role="status" aria-live="polite">
     <span class="banner-dot"></span>
@@ -1720,6 +1786,263 @@ rightLabel.addTo(map);
 
 L.control.zoom({ position: 'topright' }).addTo(map);
 
+// ── Download predictions as polygon GeoJSON ────────────────────────
+var downloadPredsBtn = null;
+
+var predsDownloadControl = L.control({ position: 'topright' });
+predsDownloadControl.onAdd = function () {
+    var wrapper = L.DomUtil.create('div', 'leaflet-control download-control');
+    wrapper.id = 'download-preds-control';
+    wrapper.style.position = 'relative';
+    L.DomEvent.disableClickPropagation(wrapper);
+    L.DomEvent.disableScrollPropagation(wrapper);
+
+    var btn = L.DomUtil.create('button', 'download-control-btn', wrapper);
+    btn.id = 'download-preds-btn';
+    btn.type = 'button';
+    btn.title = 'Download predictions as polygon GeoJSON';
+    btn.setAttribute('aria-label', 'Download predictions as polygon GeoJSON');
+    btn.innerHTML = '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">' +
+                    '<path d="M12 3v13m0 0l-5-5m5 5l5-5M5 21h14" />' +
+                    '</svg>';
+    btn.disabled = true;
+
+    btn.addEventListener('click', downloadPredictionsAsGeoJSON);
+    downloadPredsBtn = btn;
+    return wrapper;
+};
+predsDownloadControl.addTo(map);
+
+function updatePredsButtonState() {
+    if (!downloadPredsBtn) return;
+    var hasModel = !!currentModel;
+    var hasTiles = embeddingLayer && embeddingLayer._embCache && embeddingLayer._embCache.size > 0;
+    downloadPredsBtn.disabled = !(hasModel && hasTiles);
+    downloadPredsBtn.title = !hasModel
+        ? 'Train a model first to download predictions'
+        : !hasTiles
+            ? 'Load embedding tiles first'
+            : 'Download predictions as polygon GeoJSON';
+}
+
+// ── Inline Web Worker for polygonization ──
+var POLYGONIZE_WORKER_SRC = [
+    'self.onmessage = function(e) {',
+    '  var msg = e.data;',
+    '  var tiles = msg.tiles;',
+    '  var weights = msg.weights;',
+    '  var bias = msg.bias;',
+    '  var threshold = msg.threshold;',
+    '  var features = [];',
+    '  var nTiles = tiles.length;',
+    '  self.postMessage({ type: "progress", done: 0, total: nTiles, phase: "polygonizing" });',
+    '  for (var ti = 0; ti < nTiles; ti++) {',
+    '    var t = tiles[ti];',
+    '    var w = t.width, h = t.height, bands = t.bands;',
+    '    var total = w * h;',
+    '    var data = new Float32Array(t.buffer);',
+    '    var mask = new Uint8Array(total);',
+    '    for (var i = 0; i < total; i++) {',
+    '      var z = bias;',
+    '      for (var b = 0; b < bands; b++) {',
+    '        z += weights[b] * data[b * total + i];',
+    '      }',
+    '      var s = z > 500 ? 1 : (z < -500 ? 0 : 1 / (1 + Math.exp(-z)));',
+    '      mask[i] = s > threshold ? 1 : 0;',
+    '    }',
+    '    var rings = extractRings(mask, w, h);',
+    '    for (var r = 0; r < rings.length; r++) {',
+    '      var ring = rings[r];',
+    '      if (ring.length < 4) continue;',
+    '      var coords = new Array(ring.length);',
+    '      for (var p = 0; p < ring.length; p++) {',
+    '        coords[p] = pxToLngLat(t.z, t.x, t.y, ring[p][0], ring[p][1], w, h);',
+    '      }',
+    '      features.push({',
+    '        type: "Feature",',
+    '        geometry: { type: "Polygon", coordinates: [coords] },',
+    '        properties: { tile: t.z + "/" + t.x + "/" + t.y, threshold: threshold }',
+    '      });',
+    '    }',
+    '    self.postMessage({ type: "progress", done: ti + 1, total: nTiles, phase: "polygonizing" });',
+    '  }',
+    '  self.postMessage({ type: "done", features: features });',
+    '};',
+    'function pxToLngLat(z, tx, ty, px, py, w, h) {',
+    '  var n = Math.pow(2, z);',
+    '  var gx = tx + px / w;',
+    '  var gy = ty + py / h;',
+    '  var lng = (gx / n) * 360 - 180;',
+    '  var latRad = Math.atan((Math.exp(Math.PI * (1 - 2 * gy / n)) - Math.exp(-Math.PI * (1 - 2 * gy / n))) / 2);',
+    '  return [lng, latRad * 180 / Math.PI];',
+    '}',
+    'function extractRings(mask, w, h) {',
+    '  var adj = new Map();',
+    '  function addEdge(x1, y1, x2, y2) {',
+    '    var k = x1 + "," + y1;',
+    '    var l = adj.get(k);',
+    '    if (!l) { l = []; adj.set(k, l); }',
+    '    l.push([x2, y2]);',
+    '  }',
+    '  for (var y = 0; y < h; y++) {',
+    '    for (var x = 0; x < w; x++) {',
+    '      if (!mask[y * w + x]) continue;',
+    '      var top = y === 0 ? 0 : mask[(y - 1) * w + x];',
+    '      var bot = y === h - 1 ? 0 : mask[(y + 1) * w + x];',
+    '      var left = x === 0 ? 0 : mask[y * w + (x - 1)];',
+    '      var right = x === w - 1 ? 0 : mask[y * w + (x + 1)];',
+    '      if (!top) addEdge(x, y, x + 1, y);',
+    '      if (!right) addEdge(x + 1, y, x + 1, y + 1);',
+    '      if (!bot) addEdge(x + 1, y + 1, x, y + 1);',
+    '      if (!left) addEdge(x, y + 1, x, y);',
+    '    }',
+    '  }',
+    '  var rings = [];',
+    '  var keys = Array.from(adj.keys());',
+    '  for (var ki = 0; ki < keys.length; ki++) {',
+    '    var k = keys[ki];',
+    '    var list = adj.get(k);',
+    '    while (list && list.length > 0) {',
+    '      var parts = k.split(",");',
+    '      var sx = +parts[0], sy = +parts[1];',
+    '      var ring = [[sx, sy]];',
+    '      var cur = list.shift();',
+    '      var guard = 0;',
+    '      while ((cur[0] !== sx || cur[1] !== sy) && guard < 1000000) {',
+    '        ring.push(cur);',
+    '        var nk = cur[0] + "," + cur[1];',
+    '        var nlist = adj.get(nk);',
+    '        if (!nlist || nlist.length === 0) break;',
+    '        cur = nlist.shift();',
+    '        guard++;',
+    '      }',
+    '      ring.push([sx, sy]);',
+    '      if (ring.length >= 4) rings.push(ring);',
+    '    }',
+    '  }',
+    '  return rings;',
+    '}'
+].join('\n');
+
+function setPredsProgress(done, total, subText) {
+    var fill = document.getElementById('predictions-progress-fill');
+    var sub  = document.getElementById('predictions-progress-sub');
+    var pct  = document.getElementById('predictions-progress-pct');
+    var frac = total > 0 ? (done / total) : 0;
+    fill.style.width = (frac * 100).toFixed(1) + '%';
+    pct.textContent = Math.round(frac * 100) + '%';
+    sub.textContent = subText || (done + ' / ' + total + ' tiles');
+}
+
+function freezeMapInteractions() {
+    map.dragging.disable();
+    map.scrollWheelZoom.disable();
+    map.doubleClickZoom.disable();
+    map.boxZoom.disable();
+    map.keyboard.disable();
+    map.touchZoom.disable();
+    if (map.tap) map.tap.disable();
+}
+function unfreezeMapInteractions() {
+    map.dragging.enable();
+    map.scrollWheelZoom.enable();
+    map.doubleClickZoom.enable();
+    map.boxZoom.enable();
+    map.keyboard.enable();
+    map.touchZoom.enable();
+    if (map.tap) map.tap.enable();
+}
+
+function downloadPredictionsAsGeoJSON() {
+    if (!currentModel) { showToast('Train a model first'); return; }
+    if (!embeddingLayer || embeddingLayer._embCache.size === 0) {
+        showToast('Load embedding tiles first'); return;
+    }
+
+    // Collect all currently cached embedding tiles across every zoom.
+    // Geometry is exact per-tile because (z, x, y) drives the pixel→lng/lat math.
+    var tileMsgs = [];
+    var transferables = [];
+    embeddingLayer._embCache.forEach(function (cached, key) {
+        var parts = key.split('/');
+        var z = +parts[0], x = +parts[1], y = +parts[2];
+        var copy = cached.data.slice();  // copy so we don't steal the layer's buffer
+        tileMsgs.push({
+            z: z, x: x, y: y,
+            width: cached.width, height: cached.height, bands: cached.bands,
+            buffer: copy.buffer
+        });
+        transferables.push(copy.buffer);
+    });
+
+    if (tileMsgs.length === 0) {
+        showToast('No embedding tiles cached yet — pan/zoom to load some first');
+        return;
+    }
+
+    // Threshold: use slider's current value if binary mode active, otherwise 0.5
+    var threshold = parseFloat(thresholdSlider.value) / 100 || 0.5;
+
+    // Show progress overlay + freeze map
+    var overlay = document.getElementById('predictions-progress');
+    overlay.classList.add('is-active');
+    freezeMapInteractions();
+    setPredsProgress(0, tileMsgs.length, 'preparing ' + tileMsgs.length + ' tiles…');
+
+    var blob = new Blob([POLYGONIZE_WORKER_SRC], { type: 'application/javascript' });
+    var workerURL = URL.createObjectURL(blob);
+    var worker;
+    try { worker = new Worker(workerURL); }
+    catch (err) {
+        URL.revokeObjectURL(workerURL);
+        overlay.classList.remove('is-active');
+        unfreezeMapInteractions();
+        showToast('Web Worker unavailable');
+        return;
+    }
+
+    worker.onmessage = function (ev) {
+        var m = ev.data;
+        if (m.type === 'progress') {
+            setPredsProgress(m.done, m.total);
+        } else if (m.type === 'done') {
+            var fc = { type: 'FeatureCollection', features: m.features };
+            var out = new Blob([JSON.stringify(fc)], { type: 'application/geo+json' });
+            var url = URL.createObjectURL(out);
+            var ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+            var a = document.createElement('a');
+            a.href = url;
+            a.download = 'deltabit-predictions-' + ts + '.geojson';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+
+            worker.terminate();
+            URL.revokeObjectURL(workerURL);
+            overlay.classList.remove('is-active');
+            unfreezeMapInteractions();
+            showToast('Downloaded ' + m.features.length + ' polygon' +
+                     (m.features.length === 1 ? '' : 's'));
+        }
+    };
+    worker.onerror = function (err) {
+        console.error('Polygonize worker error:', err);
+        worker.terminate();
+        URL.revokeObjectURL(workerURL);
+        overlay.classList.remove('is-active');
+        unfreezeMapInteractions();
+        showToast('Polygonization failed');
+    };
+
+    worker.postMessage({
+        tiles: tileMsgs,
+        weights: Array.from(currentModel.normW),
+        bias: currentModel.normBias,
+        threshold: threshold
+    }, transferables);
+}
+
 // ── Interesting locations (hardcoded) ──────────────────────────────
 var INTERESTING_LOCATIONS = [
     { name: 'Snoqualmie clearcut',   desc: 'Cascade foothills timber cut', lat: 47.76944, lng: -121.73779, zoom: 14 },
@@ -2059,12 +2382,14 @@ function updateUI() {
     }
 
     updateDownloadBadge();
+    updatePredsButtonState();
 }
 
 function updateTileCount() {
     if (embeddingLayer) {
         tileCountEl.textContent = 'Embedding tiles cached: ' + embeddingLayer.getCacheSize();
     }
+    updatePredsButtonState();
 }
 
 // ── Click-to-label ──────────────────────────────────────────────────
@@ -2276,7 +2601,7 @@ if (EMBEDDING_TILE_URL) {
             placement: 'center'
         },
         {
-            label: 'Step 1 / 6',
+            label: 'Step 1 / 7',
             title: 'Compare the two scenes',
             body: '<p>Drag the <strong>swipe handle</strong> to compare the 2020 and 2024 Sentinel-2 imagery side by side.</p><p>Shortcuts: <kbd>A</kbd> shows 2020, <kbd>D</kbd> shows 2024, <kbd>S</kbd> re-centers the handle.</p>',
             target: function () { return document.querySelector('.leaflet-sbs-handle'); },
@@ -2284,7 +2609,7 @@ if (EMBEDDING_TILE_URL) {
             padding: 10
         },
         {
-            label: 'Step 2 / 6',
+            label: 'Step 2 / 7',
             title: 'See the change signal with PCA',
             body: '<p>Flip on <strong>AlphaEarth Embedding PCA</strong> — the top 3 principal components of the 2024 − 2020 embedding difference, mapped to RGB. Gray = no change; saturated colors = strong change, and <em>same color = same kind of change</em>.</p><p>That structure is why PCA is a huge help for labeling: pick one example of a change, and the whole region of that color is a candidate for the same class. A linear model over the 8-dim compressed diff picks up on the same directions.</p><p>Press <kbd>Space</kbd> or flip the toggle at the top of the Labeling panel.</p>',
             target: function () { return document.querySelector('.pca-toggle'); },
@@ -2292,7 +2617,7 @@ if (EMBEDDING_TILE_URL) {
             padding: 8
         },
         {
-            label: 'Step 3 / 6',
+            label: 'Step 3 / 7',
             title: 'Drop a few point labels',
             body: '<p>Labels in DeltaBit are <strong>single points</strong>, not polygons — one click = one labeled pixel. Pick a class (<em>Change</em> for new construction or clearings, <em>No Change</em> for stable areas) and <strong>click the map</strong> to drop a point.</p><p>Right-click a marker to remove it. Press <kbd>Esc</kbd> or the <kbd>×</kbd> on the labeling banner to exit labeling mode.</p>',
             target: function () { return document.querySelector('.label-btns'); },
@@ -2300,7 +2625,7 @@ if (EMBEDDING_TILE_URL) {
             padding: 8
         },
         {
-            label: 'Step 4 / 6',
+            label: 'Step 4 / 7',
             title: 'Train the model',
             body: '<p>With at least one example of each class, click <strong>Train</strong> (or press <kbd>G</kbd>) to fit a logistic regression on the 8-dimensional compressed difference embeddings.</p><p>Training a few dozen samples takes under 100ms — no server round-trip.</p>',
             target: function () { return document.querySelector('.train-row'); },
@@ -2308,7 +2633,7 @@ if (EMBEDDING_TILE_URL) {
             padding: 8
         },
         {
-            label: 'Step 5 / 6',
+            label: 'Step 5 / 7',
             title: 'View predictions',
             body: '<p>Switch between <strong>Heatmap</strong> (continuous blue→white→red) and <strong>Binary</strong> (thresholded mask) to see the model\'s predictions across every cached tile — rendered on the GPU via WebGPU when available.</p><p>Shortcuts: <kbd>H</kbd> toggles heatmap, <kbd>T</kbd> toggles binary.</p>',
             target: function () { return document.querySelector('.display-mode-row'); },
@@ -2316,11 +2641,19 @@ if (EMBEDDING_TILE_URL) {
             padding: 8
         },
         {
-            label: 'Step 6 / 6',
+            label: 'Step 6 / 7',
             title: 'Relabel to change what you detect',
             body: '<p>The same tool detects different phenomena depending on what you label. Label <strong>construction</strong> → you get a construction detector. Relabel with <strong>vegetation loss</strong> → a deforestation map.</p><p>Use <kbd>Clear All Labels</kbd> to start over, or just add more labels and retrain.</p>',
             target: function () { return document.querySelector('#clear-btn'); },
             placement: 'right',
+            padding: 8
+        },
+        {
+            label: 'Step 7 / 7',
+            title: 'Export predictions as polygons',
+            body: '<p>Hit the <strong>download</strong> icon under the zoom controls to polygonize the trained model\'s binary mask across every cached tile and download a <strong>GeoJSON</strong> of change polygons.</p><p>The threshold you set in Binary mode is used as the cutoff. Polygonization runs in a Web Worker so the app stays responsive — a progress bar tracks per-tile work, and the map is briefly frozen while it runs.</p>',
+            target: function () { return document.querySelector('#download-preds-btn'); },
+            placement: 'left',
             padding: 8
         },
         {
