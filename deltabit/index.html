@@ -3,22 +3,22 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Deltabit — Interactive Change Detection</title>
+    <title>DeltaBit — Interactive Change Detection</title>
 
     <meta name="author" content="Caleb Robinson" />
-    <meta name="description" content="Deltabit — an interactive change detection demo over Seattle (Sentinel-2, 2020 → 2024). Label, train, and predict per-pixel change in the browser over compressed AlphaEarth embedding-difference tiles." />
+    <meta name="description" content="DeltaBit — an interactive change detection demo over Seattle (Sentinel-2, 2020 → 2024). Label, train, and predict per-pixel change in the browser over compressed AlphaEarth embedding-difference tiles." />
 
     <!-- Open Graph -->
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="Deltabit — Interactive Change Detection" />
+    <meta property="og:title" content="DeltaBit — Interactive Change Detection" />
     <meta property="og:description" content="Label, train, and predict per-pixel change in the browser over compressed AlphaEarth embedding-difference tiles for Seattle (2020 → 2024)." />
     <meta property="og:image" content="https://calebrob.com/deltabit/teaser.jpg" />
-    <meta property="og:image:alt" content="Deltabit — horizontal fade from Sentinel-2 2020 imagery into a predicted change-detection map." />
+    <meta property="og:image:alt" content="DeltaBit — horizontal fade from Sentinel-2 2020 imagery into a predicted change-detection map." />
     <meta property="article:author" content="Caleb Robinson" />
 
     <!-- Twitter / X -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Deltabit — Interactive Change Detection" />
+    <meta name="twitter:title" content="DeltaBit — Interactive Change Detection" />
     <meta name="twitter:description" content="Label, train, and predict per-pixel change in the browser over compressed AlphaEarth embedding-difference tiles for Seattle (2020 → 2024)." />
     <meta name="twitter:image" content="https://calebrob.com/deltabit/teaser.jpg" />
     <meta name="twitter:creator" content="@calebrob6" />
@@ -1572,7 +1572,7 @@ titleControl.onAdd = function () {
         '  <svg class="delta-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">',
         '    <polygon points="12,3 22,21 2,21" />',
         '  </svg>',
-        '  <span><span class="title-word">Delta</span><span class="title-word-accent">bit</span></span>',
+        '  <span><span class="title-word">Delta</span><span class="title-word-accent">Bit</span></span>',
         '</div>',
         '<div class="title-sub">Interactive change detection</div>',
         '<div class="title-meta">',
@@ -2101,8 +2101,8 @@ if (EMBEDDING_TILE_URL) {
     var steps = [
         {
             label: 'Intro',
-            title: 'Interactive change detection',
-            body: '<p>This demo labels, trains, and runs a change-detection model over <strong>Seattle (2020 vs 2024)</strong> entirely in your browser — powered by compressed AlphaEarth embedding-difference tiles.</p><p>Use <kbd>→</kbd> or <kbd>Enter</kbd> to step through the tour. Press <kbd>Esc</kbd> to close it any time.</p>',
+            title: 'Welcome to DeltaBit',
+            body: '<p>Label, train, and run a change-detection model over <strong>Seattle (2020 vs 2024)</strong> entirely in your browser — powered by compressed AlphaEarth embedding-difference tiles.</p><p>Use <kbd>→</kbd> or <kbd>Enter</kbd> to step through the tour. Press <kbd>Esc</kbd> to close it any time.</p>',
             placement: 'center'
         },
         {
@@ -2124,7 +2124,7 @@ if (EMBEDDING_TILE_URL) {
         {
             label: 'Step 3 / 6',
             title: 'Label a few pixels',
-            body: '<p>Pick a class — <em>Change</em> for pixels where something changed (new construction, clearings), <em>No Change</em> for stable areas — then <strong>click anywhere on the map</strong> to place a label.</p><p>Right-click a marker to remove it. Press <kbd>Esc</kbd> to stop labeling.</p>',
+            body: '<p>Pick a class — <em>Change</em> for pixels where something changed (new construction, clearings), <em>No Change</em> for stable areas — then <strong>click anywhere on the map</strong> to place a label.</p><p>Right-click a marker to remove it. Press <kbd>Esc</kbd> or the <kbd>×</kbd> on the labeling banner to exit labeling mode.</p>',
             target: function () { return document.querySelector('.label-btns'); },
             placement: 'right',
             padding: 8
@@ -2156,7 +2156,7 @@ if (EMBEDDING_TILE_URL) {
         {
             label: 'Ready',
             title: 'You\'re ready',
-            body: '<p>That\'s it. Label, train, predict — all over static GeoTIFF tiles served from a CDN.</p><p>You can reopen this tour any time with the <strong>?</strong> button in the top-right of the header.</p>',
+            body: '<p>That\'s it. Label, train, predict — all over static GeoTIFF tiles served from a CDN.</p><p>You can reopen this tour any time with the <strong>?</strong> button in the bottom-left corner.</p>',
             placement: 'center'
         }
     ];
