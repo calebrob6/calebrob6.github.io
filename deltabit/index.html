@@ -42,7 +42,7 @@
 
             /* Text */
             --text:         #f3ecd8;
-            --muted:        #9a8f7a;
+            --muted:        #c4b9a2;
             --muted-strong: #d4c9ae;
 
             /* Accent */
@@ -493,6 +493,49 @@
             color: var(--ink);
             box-shadow: 0 4px 14px rgba(208, 84, 44, 0.28),
                         0 0 0 1px rgba(208, 84, 44, 0.32) inset;
+        }
+
+        /* ── Inference mode legend ── */
+        .mode-legend {
+            display: none;
+            flex-direction: column;
+            gap: 6px;
+            padding: 9px 11px 10px;
+            margin-top: 8px;
+            border-radius: var(--radius-sm);
+            background: rgba(243, 236, 216, 0.03);
+            border: 1px solid rgba(243, 236, 216, 0.07);
+            font-family: "JetBrains Mono", monospace;
+            font-size: 10px;
+            color: var(--muted-strong);
+            letter-spacing: 0.04em;
+        }
+        .mode-legend.is-active { display: flex; }
+        .mode-legend .legend-row {
+            display: flex; align-items: center; gap: 8px;
+        }
+        .mode-legend .legend-swatch {
+            display: inline-block;
+            width: 22px; height: 10px;
+            border-radius: 2px;
+            flex-shrink: 0;
+            box-shadow: 0 0 0 1px rgba(243, 236, 216, 0.08) inset;
+        }
+        .mode-legend .legend-bar {
+            height: 10px;
+            border-radius: 2px;
+            background: linear-gradient(90deg,
+                rgb(0, 0, 255) 0%,
+                rgb(255, 255, 255) 50%,
+                rgb(255, 0, 0) 100%);
+            box-shadow: 0 0 0 1px rgba(243, 236, 216, 0.08) inset;
+        }
+        .mode-legend .legend-labels {
+            display: flex; justify-content: space-between;
+            font-size: 9px;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
         }
 
         .clear-btn {
@@ -2483,6 +2526,8 @@ labelControl.onAdd = function () {
         '  <div class="mode-btn" id="mode-binary" data-mode="binary">Binary</div>',
         '</div>',
 
+        '<div class="mode-legend" id="mode-legend"></div>',
+
         '<div class="slider-row" id="threshold-row" style="display:none">',
         '  <label>Threshold</label>',
         '  <input type="range" id="threshold-slider" min="0" max="100" value="50" />',
@@ -2547,7 +2592,37 @@ function updateModeButtons(active) {
     document.querySelectorAll('.mode-btn').forEach(function (btn) {
         btn.classList.toggle('active', btn.getAttribute('data-mode') === active);
     });
+    updateModeLegend(active);
 }
+
+function updateModeLegend(mode) {
+    var el = document.getElementById('mode-legend');
+    if (!el) return;
+    if (mode === 'heatmap') {
+        el.innerHTML =
+            '<div class="legend-bar"></div>' +
+            '<div class="legend-labels">' +
+            '  <span>No change</span>' +
+            '  <span>Change</span>' +
+            '</div>';
+        el.classList.add('is-active');
+    } else if (mode === 'binary') {
+        el.innerHTML =
+            '<div class="legend-row">' +
+            '  <span class="legend-swatch" style="background: rgb(255, 50, 50); box-shadow: 0 0 6px rgba(255,50,50,0.4), 0 0 0 1px rgba(255,255,255,0.1) inset;"></span>' +
+            '  Change (p ≥ threshold)' +
+            '</div>' +
+            '<div class="legend-row">' +
+            '  <span class="legend-swatch" style="background: transparent; box-shadow: 0 0 0 1px rgba(243, 236, 216, 0.18) inset;"></span>' +
+            '  No change (transparent)' +
+            '</div>';
+        el.classList.add('is-active');
+    } else {
+        el.classList.remove('is-active');
+        el.innerHTML = '';
+    }
+}
+
 updateModeButtons('off');
 
 // Sync slider fill with thumb position
@@ -2642,7 +2717,7 @@ function updateUI() {
         modelStatusEl.style.color = '#e5a853';
     } else {
         modelStatusEl.textContent = 'Not trained';
-        modelStatusEl.style.color = '#9a8f7a';
+        modelStatusEl.style.color = '#c4b9a2';
     }
 
     updateDownloadBadge();
@@ -2883,7 +2958,7 @@ if (EMBEDDING_TILE_URL) {
         {
             label: 'Step 3 / 7',
             title: 'Drop a few point labels',
-            body: '<p>Labels in DeltaBit are <strong>single points</strong>, not polygons — one click = one labeled pixel. Pick a class (<em>Change</em> for new construction or clearings, <em>No Change</em> for stable areas) and <strong>click the map</strong> to drop a point.</p><p>Right-click a marker to remove it. Press <kbd>Esc</kbd> or the <kbd>×</kbd> on the labeling banner to exit labeling mode.</p>',
+            body: '<p><strong>Why label at all if the PCA overlay already shows change?</strong> Because PCA lumps everything together — construction, clear-cuts, seasonal vegetation, water — all light up at once. Labeling lets you pick one <em>type</em> of change: click a few construction sites and the model learns which direction in the 8-dim diff space means "construction", and ignores the rest.</p><p>Labels are <strong>single points</strong>, not polygons — one click = one labeled pixel. Pick a class (<em>Change</em> / <em>No Change</em>) and click the map to drop a point. Right-click a marker to remove it. Press <kbd>Esc</kbd> or <kbd>×</kbd> on the banner to exit.</p>',
             target: function () { return document.querySelector('.label-btns'); },
             placement: 'right',
             padding: 8
