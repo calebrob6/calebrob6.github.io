@@ -46,8 +46,10 @@ author:
   kaggle           : # Username  
   stackoverflow    : # User number or user number and name (i.e., use "1" or "1/jeff-atwood")    
 
+  # Blog
+  blog             : "https://geospatialml.com"
+
   # Social media
-  bluesky          : # Replace this with you Bluesky username
   facebook         : # Username
   flickr           : # Username
   foursquare       : # Username
