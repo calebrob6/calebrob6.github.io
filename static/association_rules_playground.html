@@ -1,0 +1,1090 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Association Rule Learning — Interactive Explainer</title>
+
+  <meta property="og:title" content="Association Rule Learning — Interactive Explainer" />
+  <meta property="og:description" content="Interactive walkthrough of association rule learning and the Apriori algorithm, illustrated with the classic beer-and-diapers shopping basket example." />
+  <meta property="og:author" content="Caleb Robinson" />
+  <meta property="og:image" content="https://calebrob.com/images/face.jpg" />
+  <meta property="og:type" content="website" />
+
+  <script>
+    window.MathJax = { tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] } };
+  </script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+
+  <style>
+    :root{
+      --bg:#f6f7fb;
+      --text:#0f172a;
+      --muted:#475569;
+      --muted2:#6b7280;
+      --border:#e5e7eb;
+      --card:#ffffff;
+      --shadow:0 10px 30px rgba(15,23,42,0.07);
+      --radius:14px;
+      --blue:#2563eb;
+      --blue-soft:#dbeafe;
+      --sky:#0ea5e9;
+      --violet:#7c3aed;
+      --violet-soft:#ede9fe;
+      --amber:#f59e0b;
+      --amber-soft:#fef3c7;
+      --green:#16a34a;
+      --green-soft:#dcfce7;
+      --red:#dc2626;
+      --red-soft:#fee2e2;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;font-family:var(--sans);background:var(--bg);color:var(--text);line-height:1.45}
+
+    .wrap{max-width:1400px;margin:26px auto 56px;padding:0 18px}
+
+    header{display:flex;flex-direction:column;gap:8px;margin-bottom:20px}
+    h1{font-size:26px;letter-spacing:-0.02em;margin:0}
+    .subtitle{color:var(--muted);max-width:900px;font-size:14px}
+    .subtitle a{color:var(--blue);text-decoration:none}
+    .subtitle a:hover{text-decoration:underline}
+
+    .section{margin-bottom:22px}
+    .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+    .card .hd{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px;background:linear-gradient(180deg, rgba(255,255,255,0.95), rgba(249,250,251,0.9))}
+    .card .hd h2{margin:0;font-size:16px;letter-spacing:-0.01em}
+    .card .hd .tag{font-size:11px;color:var(--muted);font-family:var(--mono);background:rgba(17,24,39,0.04);border:1px solid var(--border);padding:2px 8px;border-radius:999px}
+    .card .bd{padding:16px}
+
+    .prose{color:#0f172a;font-size:14px}
+    .prose p{margin:0 0 10px 0}
+    .prose p:last-child{margin-bottom:0}
+    .prose .mini-title{font-weight:650;color:#111827;font-size:14px;margin-top:6px;margin-bottom:4px}
+    .prose code{background:rgba(17,24,39,0.05);padding:1px 6px;border-radius:6px;font-family:var(--mono);font-size:12px}
+    .prose strong{color:#111827}
+
+    .twocol{display:grid;grid-template-columns:1.1fr 0.9fr;gap:16px}
+    @media(max-width:1100px){.twocol{grid-template-columns:1fr}}
+
+    /* Dataset / transactions */
+    .txn-table{width:100%;border-collapse:collapse;font-size:13px}
+    .txn-table th, .txn-table td{padding:6px 8px;border-bottom:1px solid var(--border);text-align:left;vertical-align:middle}
+    .txn-table th{font-size:11px;color:#0f172a;background:rgba(17,24,39,0.03);text-transform:uppercase;letter-spacing:0.04em}
+    .txn-table tr.dim{opacity:0.38}
+    .txn-table tr.hit td{background:rgba(37,99,235,0.05)}
+    .tid{font-family:var(--mono);color:var(--muted);width:44px}
+
+    .chip{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;font-size:12px;border:1px solid var(--border);background:#fff;margin:1px;cursor:pointer;user-select:none;font-family:var(--sans);transition:all 0.15s ease}
+    .chip:hover{border-color:var(--blue);color:var(--blue)}
+    .chip.active{background:var(--blue);color:#fff;border-color:var(--blue)}
+    .chip.in-selection{background:var(--blue-soft);color:#1e40af;border-color:#bfdbfe}
+    .chip.consequent{background:var(--violet-soft);color:#5b21b6;border-color:#ddd6fe}
+
+    /* Items palette */
+    .palette{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+    .palette .chip{font-size:13px;padding:5px 12px}
+
+    .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:12px}
+    @media(max-width:700px){.kpis{grid-template-columns:repeat(2,1fr)}}
+    .kpi{border:1px solid var(--border);border-radius:12px;padding:10px 12px;background:#fff}
+    .kpi .k{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:0.04em}
+    .kpi .v{font-family:var(--mono);font-size:18px;margin-top:3px;color:#0f172a;font-weight:600}
+    .kpi .sub{font-size:11px;color:var(--muted);margin-top:2px;font-family:var(--mono)}
+    .kpi.accent{background:#eef2ff;border-color:#c7d2fe}
+    .kpi.accent .v{color:#4338ca}
+    .kpi.good{background:#ecfdf5;border-color:#a7f3d0}
+    .kpi.good .v{color:#047857}
+    .kpi.bad{background:#fef2f2;border-color:#fecaca}
+    .kpi.bad .v{color:#b91c1c}
+
+    .formula{
+      border:1px dashed rgba(37,99,235,0.35);
+      border-radius:12px;
+      background:rgba(37,99,235,0.06);
+      padding:10px 14px;
+      font-family:var(--mono);
+      font-size:13px;
+      color:#0f172a;
+      margin:8px 0;
+    }
+    .formula .note{
+      font-family:var(--sans);
+      color:var(--muted);
+      font-size:12px;
+      margin-top:6px;
+    }
+
+    .controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+    .controls label{color:var(--muted);font-size:13px}
+    .controls input[type="range"]{width:140px}
+    .controls .val{font-family:var(--mono);font-size:13px;color:#0f172a;min-width:42px;display:inline-block;text-align:right}
+
+    button{font-family:var(--sans);font-size:13px;border-radius:8px;border:1px solid var(--border);background:#fff;padding:8px 14px;cursor:pointer;transition:all 0.15s ease;color:#0f172a}
+    button:hover{border-color:var(--blue);color:var(--blue)}
+    button:active{transform:translateY(1px)}
+    button.primary{background:var(--blue);color:#fff;border-color:var(--blue);font-weight:500}
+    button.primary:hover{background:#1d4ed8;color:#fff;border-color:#1d4ed8}
+    button.ghost{background:transparent}
+    button:disabled{opacity:0.45;cursor:not-allowed;transform:none !important}
+
+    .badge{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;background:#fff;border:1px solid var(--border);font-size:11px;color:var(--muted);font-family:var(--mono)}
+    .badge strong{color:#0f172a;font-weight:600}
+    .badge.ok{background:var(--green-soft);border-color:#86efac;color:#14532d}
+    .badge.no{background:var(--red-soft);border-color:#fca5a5;color:#7f1d1d}
+
+    /* Apriori walkthrough */
+    .apriori{display:grid;grid-template-columns:260px 1fr;gap:16px}
+    @media(max-width:900px){.apriori{grid-template-columns:1fr}}
+    .step-list{display:flex;flex-direction:column;gap:4px;list-style:none;padding:0;margin:0}
+    .step-list li{padding:8px 10px;border:1px solid var(--border);border-radius:10px;font-size:13px;cursor:pointer;background:#fff;display:flex;justify-content:space-between;gap:6px;align-items:center;color:#0f172a}
+    .step-list li:hover{border-color:var(--blue)}
+    .step-list li.active{background:var(--blue);color:#fff;border-color:var(--blue);font-weight:500}
+    .step-list li.active .step-tag{background:rgba(255,255,255,0.2);color:#fff;border-color:rgba(255,255,255,0.2)}
+    .step-tag{font-family:var(--mono);font-size:10px;color:var(--muted);background:rgba(17,24,39,0.04);padding:1px 6px;border-radius:999px;border:1px solid var(--border)}
+
+    .step-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:8px}
+    .step-head h3{margin:0;font-size:15px;letter-spacing:-0.01em}
+    .step-head .stepnum{font-family:var(--mono);font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em}
+
+    .itemset-table{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:10px}
+    .itemset-table th, .itemset-table td{padding:6px 8px;border-bottom:1px solid var(--border);text-align:left;vertical-align:middle}
+    .itemset-table th{font-size:11px;color:#0f172a;background:rgba(17,24,39,0.03);text-transform:uppercase;letter-spacing:0.04em;cursor:pointer;user-select:none}
+    .itemset-table th.sortable:hover{background:rgba(17,24,39,0.06)}
+    .itemset-table th .dir{color:var(--muted);font-size:10px;margin-left:4px}
+    .itemset-table tr.pruned{background:rgba(220,38,38,0.04);color:var(--muted)}
+    .itemset-table tr.kept{background:rgba(22,163,74,0.04)}
+    .itemset-table td.itemcell{font-family:var(--mono);font-size:12px}
+    .itemset-table td.num{font-family:var(--mono);text-align:right;font-size:12px}
+    .itemset-table .status{font-size:10.5px;padding:1px 7px;border-radius:999px;border:1px solid var(--border);display:inline-block;font-family:var(--mono)}
+    .itemset-table .status.keep{background:var(--green-soft);color:#14532d;border-color:#86efac}
+    .itemset-table .status.prune{background:var(--red-soft);color:#7f1d1d;border-color:#fca5a5}
+
+    .itemset-wrap{max-height:320px;overflow:auto;border:1px solid var(--border);border-radius:10px}
+
+    .pill-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+    .pill{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:999px;border:1px solid var(--border);background:#fff;font-size:11.5px;font-family:var(--mono);color:#0f172a}
+    .pill.good{background:var(--green-soft);border-color:#86efac;color:#14532d}
+    .pill.bad{background:var(--red-soft);border-color:#fca5a5;color:#7f1d1d}
+
+    .rule-row{font-family:var(--mono);font-size:12.5px}
+    .rule-row .ante{color:#0f172a}
+    .rule-row .arrow{color:var(--muted);margin:0 6px}
+    .rule-row .cons{color:var(--violet);font-weight:600}
+
+    .legend-row{display:flex;flex-wrap:wrap;gap:12px;color:var(--muted);font-size:12px;margin-top:8px}
+    .legend-row .sw{width:12px;height:12px;border-radius:3px;display:inline-block;margin-right:4px;vertical-align:middle;border:1px solid var(--border)}
+
+    .quote{border-left:3px solid var(--amber);background:var(--amber-soft);padding:10px 14px;border-radius:0 10px 10px 0;color:#78350f;font-size:13px;margin:10px 0}
+    .quote .src{color:#92400e;font-size:11px;margin-top:4px;font-style:italic}
+
+    details{border:1px solid var(--border);border-radius:10px;background:#fafbfc;padding:0;margin-top:10px}
+    details summary{padding:8px 12px;cursor:pointer;font-size:13px;font-weight:500;color:#0f172a;user-select:none}
+    details[open] summary{border-bottom:1px solid var(--border)}
+    details .inner{padding:10px 14px;font-size:13px;color:#0f172a}
+
+    .key-terms{display:grid;grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));gap:10px;margin-top:10px}
+    .key-terms .term{border:1px solid var(--border);border-radius:12px;padding:10px 12px;background:#fff}
+    .key-terms .term .t{font-weight:650;font-size:13px;color:#0f172a;margin-bottom:3px}
+    .key-terms .term .d{font-size:12.5px;color:var(--muted)}
+
+    .hr{height:1px;background:var(--border);margin:14px 0}
+
+    .muted{color:var(--muted)}
+    .mono{font-family:var(--mono)}
+
+    .rule-filters{display:flex;flex-wrap:wrap;gap:16px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--border);background:#fafbfc}
+    .rule-filters .f{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
+
+    code.inline{background:rgba(17,24,39,0.05);padding:1px 5px;border-radius:4px;font-family:var(--mono);font-size:12px;color:#0f172a}
+
+    .footer-tiny{color:var(--muted);font-size:12px;margin-top:16px;text-align:center}
+    .footer-tiny a{color:var(--blue)}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+
+    <header>
+      <h1>Association Rule Learning — An Interactive Explainer</h1>
+      <div class="subtitle">
+        A step-by-step walkthrough of <a href="https://en.wikipedia.org/wiki/Association_rule_learning" target="_blank">association rule learning</a>, illustrated with a synthetic shopping basket dataset inspired by the classic "beer and diapers" story. Click through the Apriori algorithm below to see how frequent itemsets and rules are discovered.
+      </div>
+    </header>
+
+    <!-- ============== 1. Intro & motivation ============== -->
+    <section class="section">
+      <div class="card">
+        <div class="hd">
+          <h2>1. The beer-and-diapers story</h2>
+          <span class="tag">motivation</span>
+        </div>
+        <div class="bd prose">
+          <p>One of the most repeated pieces of retail folklore is the claim that a grocery chain discovered, via data mining, that customers who bought diapers on Thursday evenings were also likely to buy beer. The widely told version is that young fathers, sent out for diapers after work, would grab beer for themselves while they were at it — leading the store to place the two products near each other.</p>
+
+          <div class="quote">
+            "The infamous beer-and-diapers story appears in slightly different forms. [...] The most-quoted story is that a grocery chain found young fathers were buying beer when they bought diapers in the evening, and the chain exploited this insight."
+            <div class="src">— paraphrased from the Wikipedia article on association rule learning</div>
+          </div>
+
+          <p>Whether or not the anecdote is literally true (<span class="muted">it is probably embellished</span>), it's a tidy illustration of the problem: <strong>given a log of transactions, which items tend to co-occur, and can we turn those co-occurrences into useful <em>if-then</em> rules?</strong></p>
+
+          <p>Association rule learning tackles exactly that problem. It is an <strong>unsupervised</strong> method — there are no labels — and the output is a set of rules of the form:</p>
+
+          <div class="formula">
+            {diapers} ⇒ {beer}
+            <div class="note">read as: "if a basket contains diapers, it often also contains beer"</div>
+          </div>
+
+          <p>The key questions are (a) which rules show up often enough to matter, and (b) which of them reflect a <em>real</em> association rather than the fact that both items are simply popular.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============== 2. Key terms ============== -->
+    <section class="section">
+      <div class="card">
+        <div class="hd">
+          <h2>2. Key terms</h2>
+          <span class="tag">definitions</span>
+        </div>
+        <div class="bd prose">
+          <p>Before running any algorithm, here is the vocabulary we will use. Everything is defined over a collection $\mathcal{D}$ of <em>transactions</em>, where each transaction $T \subseteq \mathcal{I}$ is a set of items drawn from a universe $\mathcal{I}$.</p>
+          <div class="key-terms">
+            <div class="term"><div class="t">Item</div><div class="d">An individual product, e.g. <code class="inline">beer</code>. The full universe of items is $\mathcal{I}$.</div></div>
+            <div class="term"><div class="t">Itemset</div><div class="d">A set of items, e.g. $\{\text{diapers}, \text{beer}\}$. A $k$-itemset has exactly $k$ items.</div></div>
+            <div class="term"><div class="t">Transaction</div><div class="d">A single shopping basket — a subset of $\mathcal{I}$ with a unique transaction id (TID).</div></div>
+            <div class="term"><div class="t">Support</div><div class="d">Fraction of transactions that <em>contain</em> the itemset. Measures how common it is.</div></div>
+            <div class="term"><div class="t">Confidence</div><div class="d">For rule $X \Rightarrow Y$: $P(Y \mid X)$. How reliable the rule is when $X$ is present.</div></div>
+            <div class="term"><div class="t">Lift</div><div class="d">Ratio of observed co-occurrence to what independence would predict. Lift &gt; 1 means positive association.</div></div>
+            <div class="term"><div class="t">Frequent itemset</div><div class="d">An itemset whose support is at least a user-chosen threshold $\text{minsup}$.</div></div>
+            <div class="term"><div class="t">Association rule</div><div class="d">An implication $X \Rightarrow Y$ with $X \cap Y = \emptyset$, filtered by minimum support and confidence.</div></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============== 3. Dataset ============== -->
+    <section class="section">
+      <div class="card">
+        <div class="hd">
+          <h2>3. The dataset — 20 synthetic baskets</h2>
+          <span class="tag" id="dataset-tag">click items / rows to explore</span>
+        </div>
+        <div class="bd">
+          <div class="prose" style="margin-bottom:12px">
+            <p>Below are 20 transactions from a toy grocery store. We have rigged the data so that <code class="inline">diapers</code> and <code class="inline">beer</code> co-occur often enough to tell the classic story — but the dataset also contains a mix of unrelated items (bread, eggs, milk, cheese, wine, chips, baby_food, formula) so we can generate many competing rules.</p>
+            <p><strong>Try this:</strong> click items in the palette below to build an itemset. The table highlights baskets that contain all selected items, and the KPI cards live-update support, confidence, and lift.</p>
+          </div>
+
+          <div class="twocol">
+            <div>
+              <div class="mini-title" style="font-size:12px;color:#0f172a;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px">Items &mdash; click to add to itemset</div>
+              <div class="palette" id="palette"></div>
+
+              <div class="mini-title" style="font-size:12px;color:#0f172a;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;margin-top:14px;margin-bottom:8px">Rule direction (optional)</div>
+              <div class="prose" style="font-size:12.5px;color:var(--muted);margin-bottom:6px">Hold <code class="inline">Shift</code> and click to mark an item as the <span style="color:var(--violet);font-weight:600">consequent</span> (the right-hand side of the rule <em>X</em> ⇒ <em>Y</em>). All other selected items form the antecedent.</div>
+
+              <div style="margin-top:10px">
+                <button id="clear-sel" class="ghost">Clear selection</button>
+                <button id="preset-beer" class="ghost">Preset: {diapers} ⇒ {beer}</button>
+              </div>
+
+              <div class="kpis">
+                <div class="kpi">
+                  <div class="k">Itemset size</div>
+                  <div class="v" id="kpi-size">0</div>
+                  <div class="sub" id="kpi-size-sub">empty</div>
+                </div>
+                <div class="kpi accent">
+                  <div class="k">Support</div>
+                  <div class="v" id="kpi-support">—</div>
+                  <div class="sub" id="kpi-support-sub">count / total</div>
+                </div>
+                <div class="kpi">
+                  <div class="k">Confidence</div>
+                  <div class="v" id="kpi-confidence">—</div>
+                  <div class="sub" id="kpi-confidence-sub">pick a consequent</div>
+                </div>
+                <div class="kpi">
+                  <div class="k">Lift</div>
+                  <div class="v" id="kpi-lift">—</div>
+                  <div class="sub" id="kpi-lift-sub">&gt; 1 ⇒ positive</div>
+                </div>
+              </div>
+
+              <div id="formula-box" style="margin-top:12px"></div>
+            </div>
+
+            <div>
+              <div class="mini-title" style="font-size:12px;color:#0f172a;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px">Transactions</div>
+              <div style="max-height:480px;overflow:auto;border:1px solid var(--border);border-radius:10px">
+                <table class="txn-table" id="txn-table">
+                  <thead>
+                    <tr><th>TID</th><th>Items</th></tr>
+                  </thead>
+                  <tbody id="txn-body"></tbody>
+                </table>
+              </div>
+              <div class="legend-row">
+                <span><span class="sw" style="background:rgba(37,99,235,0.08);border-color:#bfdbfe"></span>Contains itemset</span>
+                <span><span class="sw" style="background:#f3f4f6;opacity:0.4"></span>Does not contain</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- ============== 4. Metrics in detail ============== -->
+    <section class="section">
+      <div class="card">
+        <div class="hd">
+          <h2>4. Support, confidence, lift — and why all three matter</h2>
+          <span class="tag">metrics</span>
+        </div>
+        <div class="bd prose">
+          <p class="mini-title">Support</p>
+          <div class="formula">
+            $\mathrm{support}(X) = \dfrac{|\{ T \in \mathcal{D} : X \subseteq T \}|}{|\mathcal{D}|}$
+            <div class="note">Fraction of baskets containing every item in $X$. High support ⇒ the pattern is common enough to act on.</div>
+          </div>
+
+          <p class="mini-title">Confidence</p>
+          <div class="formula">
+            $\mathrm{confidence}(X \Rightarrow Y) = \dfrac{\mathrm{support}(X \cup Y)}{\mathrm{support}(X)} = P(Y \mid X)$
+            <div class="note">Of all the baskets with $X$, what fraction <em>also</em> contain $Y$? High confidence ⇒ the rule is reliable when triggered.</div>
+          </div>
+
+          <p class="mini-title">Lift</p>
+          <div class="formula">
+            $\mathrm{lift}(X \Rightarrow Y) = \dfrac{\mathrm{support}(X \cup Y)}{\mathrm{support}(X)\,\mathrm{support}(Y)} = \dfrac{P(X,Y)}{P(X)P(Y)}$
+            <div class="note">Compares observed co-occurrence to the independent case. <strong>lift = 1</strong>: independent · <strong>lift &gt; 1</strong>: positively associated · <strong>lift &lt; 1</strong>: negatively associated.</div>
+          </div>
+
+          <details>
+            <summary>Why isn't confidence enough?</summary>
+            <div class="inner">
+              <p>Suppose 95% of baskets contain <code class="inline">milk</code>. Then almost any rule like <code class="inline">{X} ⇒ {milk}</code> will have high confidence — just because milk is ubiquitous, not because of any real association with $X$.</p>
+              <p>Lift normalizes by the baseline popularity of $Y$. If the lift of <code class="inline">{X} ⇒ {milk}</code> is close to 1, we learn that $X$ actually tells us nothing beyond the marginal rate of milk. For the beer-and-diapers story we want <em>both</em> high confidence <strong>and</strong> lift &gt; 1.</p>
+            </div>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============== 5. Apriori ============== -->
+    <section class="section">
+      <div class="card">
+        <div class="hd">
+          <h2>5. The Apriori algorithm — step by step</h2>
+          <span class="tag">algorithm</span>
+        </div>
+        <div class="bd prose">
+          <p>Brute force would evaluate every subset of items — $2^{|\mathcal{I}|}$ itemsets — hopeless for any real dataset. <strong>Apriori</strong> (Agrawal &amp; Srikant, 1994) prunes this space using one beautiful observation:</p>
+
+          <div class="quote" style="border-left-color:var(--blue);background:var(--blue-soft);color:#1e3a8a">
+            <strong>The Apriori property (downward closure):</strong> if an itemset is frequent, then all of its subsets are frequent. Equivalently, if any subset is <em>in</em>frequent, then every superset is also infrequent.
+          </div>
+
+          <p>That means: to find frequent $k$-itemsets, we only need to consider candidates whose $(k{-}1)$-subsets are <em>already</em> known to be frequent. We build up from size 1 upward, pruning aggressively at each level.</p>
+
+          <div class="mini-title" style="margin-top:14px">Pseudocode</div>
+          <div class="formula" style="line-height:1.55">
+            $L_1 \leftarrow$ frequent 1-itemsets (all items with support $\geq \text{minsup}$)<br/>
+            for $k = 2, 3, \ldots$ while $L_{k-1}$ non-empty:<br/>
+            &nbsp;&nbsp;$C_k \leftarrow$ candidates generated by joining pairs in $L_{k-1}$<br/>
+            &nbsp;&nbsp;$C_k \leftarrow$ prune any candidate with an infrequent $(k{-}1)$-subset<br/>
+            &nbsp;&nbsp;$L_k \leftarrow \{\,c \in C_k : \text{support}(c) \geq \text{minsup}\,\}$<br/>
+            return $\bigcup_k L_k$, then generate rules with $\text{confidence} \geq \text{minconf}$
+          </div>
+
+          <p>Below you can run it on our 20-basket dataset. Adjust the thresholds, then step through each phase. Pruned candidates are highlighted so you can see the Apriori property in action.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============== 6. Apriori walkthrough ============== -->
+    <section class="section">
+      <div class="card">
+        <div class="hd">
+          <h2>6. Run Apriori — interactive walkthrough</h2>
+          <span class="tag" id="apriori-tag">click a step</span>
+        </div>
+        <div class="bd">
+          <div class="controls">
+            <label>minsup <span class="val" id="minsup-val">0.20</span></label>
+            <input type="range" id="minsup" min="0.05" max="0.50" step="0.05" value="0.20">
+            <label style="margin-left:14px">minconf <span class="val" id="minconf-val">0.60</span></label>
+            <input type="range" id="minconf" min="0.30" max="1.00" step="0.05" value="0.60">
+            <button id="run-apriori" class="primary" style="margin-left:auto">Rerun Apriori</button>
+          </div>
+          <div class="prose" style="font-size:12.5px;color:var(--muted);margin-bottom:12px">
+            minsup is expressed as a fraction of all transactions ($|\mathcal{D}| = 20$). At minsup = 0.20, an itemset must appear in at least $\lceil 0.20 \times 20 \rceil = 4$ baskets to survive.
+          </div>
+
+          <div class="apriori">
+            <ul class="step-list" id="step-list"></ul>
+            <div id="step-panel"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============== 7. Rules output ============== -->
+    <section class="section">
+      <div class="card">
+        <div class="hd">
+          <h2>7. Discovered rules</h2>
+          <span class="tag">output</span>
+        </div>
+        <div class="rule-filters">
+          <div class="f">sort by
+            <select id="rule-sort">
+              <option value="lift">lift (desc)</option>
+              <option value="confidence">confidence (desc)</option>
+              <option value="support">support (desc)</option>
+            </select>
+          </div>
+          <div class="f">min lift
+            <input type="number" id="rule-min-lift" step="0.05" min="0" value="1.00" style="width:70px;padding:3px 6px;border:1px solid var(--border);border-radius:6px">
+          </div>
+          <div class="f muted" id="rule-count">—</div>
+        </div>
+        <div class="bd" style="padding:0">
+          <div style="max-height:520px;overflow:auto">
+            <table class="itemset-table" id="rules-table">
+              <thead>
+                <tr>
+                  <th>Rule (antecedent ⇒ consequent)</th>
+                  <th class="num">support</th>
+                  <th class="num">confidence</th>
+                  <th class="num">lift</th>
+                </tr>
+              </thead>
+              <tbody id="rules-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============== 8. Caveats ============== -->
+    <section class="section">
+      <div class="card">
+        <div class="hd">
+          <h2>8. Practical caveats</h2>
+          <span class="tag">gotchas</span>
+        </div>
+        <div class="bd prose">
+          <p class="mini-title">Rare items are invisible</p>
+          <p>A hard support threshold hides any rule involving an uncommon item, no matter how strong the association. Domain-specific fixes include multi-level support, targeted item selection, or alternative metrics (conviction, leverage).</p>
+
+          <p class="mini-title">Many rules aren't causal</p>
+          <p>High lift means co-occurrence beyond chance — not that buying $X$ <em>causes</em> buying $Y$. The famous ice-cream / drowning correlation has high lift but no causal link; the hidden cause is summer.</p>
+
+          <p class="mini-title">Multiple testing</p>
+          <p>Apriori can emit hundreds of thousands of rules on a real dataset. Many will look impressive by chance alone. In practice you filter by lift, apply minimum-length constraints, drop rules whose consequent is too common, and review them with a domain expert.</p>
+
+          <p class="mini-title">Scaling</p>
+          <p>Apriori makes one full data pass per level of $k$. For dense datasets or long baskets, more modern algorithms like <strong>FP-Growth</strong> (frequent-pattern tree) and <strong>ECLAT</strong> (vertical TID-list intersections) can be much faster. The metrics and rule-generation logic are identical.</p>
+        </div>
+      </div>
+    </section>
+
+    <div class="footer-tiny">
+      Built as an interactive teaching aid. See the <a href="https://en.wikipedia.org/wiki/Association_rule_learning" target="_blank">Wikipedia article</a> or the original Agrawal &amp; Srikant paper <em>"Fast Algorithms for Mining Association Rules"</em> (VLDB 1994) for more depth.
+    </div>
+
+  </div>
+
+  <script>
+  // ============================================================
+  // DATASET — synthetic shopping basket, beer & diapers-flavored
+  // ============================================================
+  const TRANSACTIONS = [
+    ['diapers', 'beer', 'chips'],
+    ['diapers', 'beer'],
+    ['diapers', 'formula', 'baby_food', 'milk'],
+    ['bread', 'milk', 'eggs'],
+    ['diapers', 'beer', 'wine'],
+    ['diapers', 'baby_food', 'milk'],
+    ['beer', 'chips', 'wine'],
+    ['bread', 'eggs', 'milk', 'cheese'],
+    ['diapers', 'beer', 'chips'],
+    ['diapers', 'beer'],
+    ['diapers', 'formula', 'milk'],
+    ['bread', 'cheese', 'wine'],
+    ['diapers', 'beer', 'chips'],
+    ['milk', 'bread', 'eggs'],
+    ['diapers', 'beer', 'baby_food'],
+    ['beer', 'wine', 'cheese'],
+    ['diapers', 'formula', 'baby_food'],
+    ['diapers', 'beer'],
+    ['beer', 'chips', 'wine', 'bread'],
+    ['diapers', 'beer', 'chips', 'bread'],
+  ];
+  const N = TRANSACTIONS.length;
+
+  const ALL_ITEMS = Array.from(new Set(TRANSACTIONS.flat())).sort();
+
+  // ============================================================
+  // Utility: itemset key and operations
+  // ============================================================
+  function setKey(items){ return [...items].sort().join('|'); }
+  function displaySet(items){
+    if(!items || items.length === 0) return '∅';
+    return '{' + [...items].sort().join(', ') + '}';
+  }
+  function supportCount(items){
+    const set = new Set(items);
+    let c = 0;
+    for(const t of TRANSACTIONS){
+      let ok = true;
+      for(const x of set){ if(!t.includes(x)){ ok = false; break; } }
+      if(ok) c++;
+    }
+    return c;
+  }
+  function support(items){ return supportCount(items) / N; }
+
+  // ============================================================
+  // Section 3: dataset explorer (palette + kpis + table)
+  // ============================================================
+  const selected = new Set();
+  let consequent = null; // single item string, or null
+
+  const palette = document.getElementById('palette');
+  ALL_ITEMS.forEach(item => {
+    const chip = document.createElement('span');
+    chip.className = 'chip';
+    chip.dataset.item = item;
+    chip.textContent = item;
+    chip.addEventListener('click', (e) => {
+      if(e.shiftKey){
+        if(consequent === item){ consequent = null; selected.delete(item); }
+        else{ consequent = item; selected.add(item); }
+      } else {
+        if(selected.has(item)){
+          selected.delete(item);
+          if(consequent === item) consequent = null;
+        } else {
+          selected.add(item);
+        }
+      }
+      updateExplorer();
+    });
+    palette.appendChild(chip);
+  });
+
+  const txnBody = document.getElementById('txn-body');
+  TRANSACTIONS.forEach((t, i) => {
+    const tr = document.createElement('tr');
+    tr.dataset.tid = i;
+    const tdId = document.createElement('td');
+    tdId.className = 'tid';
+    tdId.textContent = 't' + (i+1);
+    const tdItems = document.createElement('td');
+    tdItems.className = 'items';
+    t.forEach(x => {
+      const c = document.createElement('span');
+      c.className = 'chip txn-chip';
+      c.dataset.item = x;
+      c.textContent = x;
+      c.addEventListener('click', () => {
+        if(selected.has(x)){ selected.delete(x); if(consequent === x) consequent = null; }
+        else selected.add(x);
+        updateExplorer();
+      });
+      tdItems.appendChild(c);
+    });
+    tr.appendChild(tdId); tr.appendChild(tdItems);
+    txnBody.appendChild(tr);
+  });
+
+  document.getElementById('clear-sel').addEventListener('click', () => {
+    selected.clear();
+    consequent = null;
+    updateExplorer();
+  });
+  document.getElementById('preset-beer').addEventListener('click', () => {
+    selected.clear();
+    selected.add('diapers'); selected.add('beer');
+    consequent = 'beer';
+    updateExplorer();
+  });
+
+  function updateExplorer(){
+    // palette chips
+    palette.querySelectorAll('.chip').forEach(c => {
+      const item = c.dataset.item;
+      c.classList.toggle('in-selection', selected.has(item) && consequent !== item);
+      c.classList.toggle('consequent', consequent === item);
+      c.classList.toggle('active', false);
+    });
+
+    // txn table row highlighting
+    const selArr = [...selected];
+    txnBody.querySelectorAll('tr').forEach(tr => {
+      const tid = +tr.dataset.tid;
+      const t = TRANSACTIONS[tid];
+      const hit = selArr.length > 0 && selArr.every(x => t.includes(x));
+      tr.classList.toggle('hit', hit);
+      tr.classList.toggle('dim', selArr.length > 0 && !hit);
+      tr.querySelectorAll('.txn-chip').forEach(c => {
+        const item = c.dataset.item;
+        c.classList.toggle('in-selection', selected.has(item) && consequent !== item);
+        c.classList.toggle('consequent', consequent === item);
+      });
+    });
+
+    // kpis
+    document.getElementById('kpi-size').textContent = selArr.length;
+    document.getElementById('kpi-size-sub').textContent =
+      selArr.length === 0 ? 'empty' : selArr.length + '-itemset';
+
+    if(selArr.length === 0){
+      setKPI('support', '—', 'count / total');
+      setKPI('confidence', '—', 'pick a consequent');
+      setKPI('lift', '—', '> 1 ⇒ positive');
+      renderFormulaBox(null);
+      return;
+    }
+
+    const k = supportCount(selArr);
+    const s = k / N;
+    setKPI('support', s.toFixed(2), `${k}/${N} baskets`);
+
+    // rule metrics (if a consequent is selected and antecedent non-empty)
+    if(consequent && selArr.length >= 2){
+      const ante = selArr.filter(x => x !== consequent);
+      const supAnte = support(ante);
+      const supCons = support([consequent]);
+      const supBoth = support(selArr);
+      const conf = supBoth / supAnte;
+      const lift = supBoth / (supAnte * supCons);
+      setKPI('confidence', conf.toFixed(2), `${Math.round(supBoth*N)}/${Math.round(supAnte*N)}`);
+      setKPI('lift', lift.toFixed(2), lift > 1.05 ? 'positive assoc.' : (lift < 0.95 ? 'negative assoc.' : '≈ independent'));
+      const kpiL = document.getElementById('kpi-lift').parentElement;
+      kpiL.classList.toggle('good', lift > 1.05);
+      kpiL.classList.toggle('bad', lift < 0.95);
+      renderFormulaBox({ ante, cons: consequent, supAnte, supCons, supBoth, conf, lift });
+    } else {
+      setKPI('confidence', '—', selArr.length < 2 ? 'need ≥2 items' : 'pick consequent (shift-click)');
+      setKPI('lift', '—', '> 1 ⇒ positive');
+      document.getElementById('kpi-lift').parentElement.classList.remove('good','bad');
+      renderFormulaBox(null);
+    }
+  }
+  function setKPI(which, v, sub){
+    document.getElementById('kpi-' + which).textContent = v;
+    document.getElementById('kpi-' + which + '-sub').textContent = sub;
+  }
+  function renderFormulaBox(info){
+    const box = document.getElementById('formula-box');
+    if(!info){ box.innerHTML = ''; return; }
+    const { ante, cons, supAnte, supCons, supBoth, conf, lift } = info;
+    box.innerHTML = `
+      <div class="formula">
+        rule: ${displaySet(ante)} &rArr; {${cons}}<br/>
+        support(X ∪ Y) = ${supBoth.toFixed(3)} &nbsp;·&nbsp; support(X) = ${supAnte.toFixed(3)} &nbsp;·&nbsp; support(Y) = ${supCons.toFixed(3)}<br/>
+        confidence = ${supBoth.toFixed(3)} / ${supAnte.toFixed(3)} = <strong>${conf.toFixed(3)}</strong><br/>
+        lift = ${supBoth.toFixed(3)} / (${supAnte.toFixed(3)} × ${supCons.toFixed(3)}) = <strong>${lift.toFixed(3)}</strong>
+      </div>
+    `;
+  }
+
+  updateExplorer();
+
+  // ============================================================
+  // Apriori implementation
+  // ============================================================
+  function runApriori(minsup){
+    const minCount = Math.ceil(minsup * N);
+    const levels = []; // levels[k-1] = { Ck: [{items, count, support, kept, prunedReason}], Lk: [...] }
+
+    // L1
+    const C1 = ALL_ITEMS.map(item => {
+      const c = supportCount([item]);
+      return { items: [item], count: c, support: c/N, kept: c >= minCount, prunedReason: c < minCount ? 'low_support' : null };
+    });
+    const L1 = C1.filter(x => x.kept);
+    levels.push({ k:1, C: C1, L: L1 });
+
+    let prev = L1;
+    for(let k = 2; k <= ALL_ITEMS.length; k++){
+      if(prev.length < 2) break;
+      // candidate generation: join pairs in L_{k-1} that share the first k-2 items
+      const sorted = prev.map(x => [...x.items].sort());
+      const candidates = [];
+      const seen = new Set();
+      for(let i = 0; i < sorted.length; i++){
+        for(let j = i+1; j < sorted.length; j++){
+          const a = sorted[i], b = sorted[j];
+          let shareFirst = true;
+          for(let p = 0; p < k-2; p++){ if(a[p] !== b[p]){ shareFirst = false; break; } }
+          if(!shareFirst) continue;
+          if(a[k-2] >= b[k-2]) continue;
+          const cand = [...a.slice(0, k-2), a[k-2], b[k-2]].sort();
+          const key = cand.join('|');
+          if(seen.has(key)) continue;
+          seen.add(key);
+          candidates.push({ items: cand });
+        }
+      }
+
+      // prune by Apriori property: every (k-1)-subset must be in L_{k-1}
+      const prevKeys = new Set(prev.map(x => [...x.items].sort().join('|')));
+      const Ck = candidates.map(c => {
+        const subsets = [];
+        let infreqSub = null;
+        for(let idx = 0; idx < c.items.length; idx++){
+          const sub = c.items.filter((_, i) => i !== idx);
+          subsets.push(sub);
+          const sk = [...sub].sort().join('|');
+          if(!prevKeys.has(sk) && infreqSub === null){
+            infreqSub = sub;
+          }
+        }
+        if(infreqSub){
+          return { items: c.items, count: null, support: null, kept: false, prunedReason: 'subset_infrequent', infreqSub };
+        }
+        const cnt = supportCount(c.items);
+        return { items: c.items, count: cnt, support: cnt/N, kept: cnt >= minCount, prunedReason: cnt < minCount ? 'low_support' : null };
+      });
+
+      const Lk = Ck.filter(x => x.kept);
+      levels.push({ k, C: Ck, L: Lk });
+      if(Lk.length === 0) break;
+      prev = Lk;
+    }
+
+    return { levels, minsup, minCount };
+  }
+
+  // Generate rules from frequent itemsets
+  function generateRules(levels, minconf){
+    const rules = [];
+    const allFreq = [];
+    for(const lvl of levels){ for(const x of lvl.L) allFreq.push(x); }
+    const freqMap = new Map();
+    for(const f of allFreq) freqMap.set([...f.items].sort().join('|'), f);
+
+    for(const fi of allFreq){
+      if(fi.items.length < 2) continue;
+      // enumerate non-empty proper subsets as antecedent
+      const items = fi.items;
+      const n = items.length;
+      const total = 1 << n;
+      for(let mask = 1; mask < total - 1; mask++){
+        const ante = [], cons = [];
+        for(let i = 0; i < n; i++){
+          if(mask & (1 << i)) ante.push(items[i]); else cons.push(items[i]);
+        }
+        const supAnte = freqMap.get([...ante].sort().join('|'))?.support;
+        const supCons = freqMap.get([...cons].sort().join('|'))?.support;
+        if(supAnte === undefined || supCons === undefined) continue;
+        const supBoth = fi.support;
+        const conf = supBoth / supAnte;
+        if(conf < minconf) continue;
+        const lift = supBoth / (supAnte * supCons);
+        rules.push({ ante, cons, supAnte, supCons, supBoth, conf, lift });
+      }
+    }
+    return rules;
+  }
+
+  // ============================================================
+  // Section 6: step walkthrough renderer
+  // ============================================================
+  let currentResult = null;
+  let currentStepIdx = 0;
+  let currentRules = [];
+
+  const minsupEl = document.getElementById('minsup');
+  const minconfEl = document.getElementById('minconf');
+  const minsupVal = document.getElementById('minsup-val');
+  const minconfVal = document.getElementById('minconf-val');
+
+  minsupEl.addEventListener('input', () => { minsupVal.textContent = (+minsupEl.value).toFixed(2); });
+  minconfEl.addEventListener('input', () => { minconfVal.textContent = (+minconfEl.value).toFixed(2); });
+
+  document.getElementById('run-apriori').addEventListener('click', runAndRender);
+
+  function runAndRender(){
+    const minsup = +minsupEl.value;
+    const minconf = +minconfEl.value;
+    currentResult = runApriori(minsup);
+    currentRules = generateRules(currentResult.levels, minconf);
+    currentStepIdx = 0;
+    renderStepList();
+    renderStep();
+    renderRules();
+  }
+
+  function renderStepList(){
+    const ul = document.getElementById('step-list');
+    ul.innerHTML = '';
+    const steps = buildSteps();
+    steps.forEach((s, i) => {
+      const li = document.createElement('li');
+      li.innerHTML = `<span>${s.title}</span><span class="step-tag">${s.tag}</span>`;
+      li.addEventListener('click', () => { currentStepIdx = i; renderStep(); });
+      if(i === currentStepIdx) li.classList.add('active');
+      ul.appendChild(li);
+    });
+  }
+
+  function buildSteps(){
+    const steps = [{ kind: 'setup', title: 'Setup & thresholds', tag: 'init' }];
+    for(const lvl of currentResult.levels){
+      steps.push({ kind: 'candidates', k: lvl.k, title: `Generate C${lvl.k}`, tag: `k=${lvl.k}` });
+      steps.push({ kind: 'count', k: lvl.k, title: `Count & filter → L${lvl.k}`, tag: `k=${lvl.k}` });
+    }
+    steps.push({ kind: 'rules', title: 'Generate rules', tag: 'rules' });
+    return steps;
+  }
+
+  function renderStep(){
+    const steps = buildSteps();
+    document.querySelectorAll('.step-list li').forEach((li, i) => li.classList.toggle('active', i === currentStepIdx));
+    const s = steps[currentStepIdx];
+    const panel = document.getElementById('step-panel');
+
+    if(s.kind === 'setup'){
+      panel.innerHTML = renderSetupStep();
+    } else if(s.kind === 'candidates'){
+      panel.innerHTML = renderCandidatesStep(s.k);
+    } else if(s.kind === 'count'){
+      panel.innerHTML = renderCountStep(s.k);
+    } else if(s.kind === 'rules'){
+      panel.innerHTML = renderRulesStep();
+    }
+    if(window.MathJax && window.MathJax.typesetPromise){
+      window.MathJax.typesetPromise([panel]).catch(() => {});
+    }
+  }
+
+  function renderSetupStep(){
+    const ms = currentResult.minsup;
+    const mc = +minconfEl.value;
+    const minCount = currentResult.minCount;
+    return `
+      <div class="step-head">
+        <h3>Setup</h3>
+        <span class="stepnum">Step 0</span>
+      </div>
+      <div class="prose">
+        <p>We run Apriori over <strong>${N} transactions</strong> and <strong>${ALL_ITEMS.length} distinct items</strong>.</p>
+        <div class="pill-row">
+          <span class="pill">|𝒟| = ${N}</span>
+          <span class="pill">|ℐ| = ${ALL_ITEMS.length}</span>
+          <span class="pill">minsup = ${ms.toFixed(2)} ⇒ need ≥ ${minCount} baskets</span>
+          <span class="pill">minconf = ${mc.toFixed(2)}</span>
+        </div>
+        <p style="margin-top:12px">Items in the universe (alphabetical):</p>
+        <div class="pill-row">${ALL_ITEMS.map(i => `<span class="pill">${i}</span>`).join('')}</div>
+        <p style="margin-top:12px">Click the next step in the sidebar to generate the level-1 candidates.</p>
+      </div>
+    `;
+  }
+
+  function renderCandidatesStep(k){
+    const lvl = currentResult.levels.find(l => l.k === k);
+    if(!lvl) return '';
+    const prev = k === 1 ? null : currentResult.levels.find(l => l.k === k-1);
+    const Ck = lvl.C;
+    const prevL = prev ? prev.L : null;
+
+    let intro;
+    if(k === 1){
+      intro = `<p>The level-1 candidates $C_1$ are simply every item in the universe — no joining is needed.</p>`;
+    } else {
+      const joined = prevL.length;
+      intro = `
+        <p>To build $C_${k}$ we take pairs of frequent $(k{-}1)$-itemsets from $L_${k-1}$ (which has ${joined} members) whose first $k{-}2$ items match, and join them.</p>
+        <p>Then we apply the <strong>Apriori prune</strong>: any candidate with an infrequent $(k{-}1)$-subset is discarded <em>before</em> we even count its support in the data.</p>
+      `;
+    }
+
+    const rows = Ck.map(c => {
+      let status, cls;
+      if(c.prunedReason === 'subset_infrequent'){
+        status = `<span class="status prune">pruned: subset ${displaySet(c.infreqSub)} ∉ L${k-1}</span>`;
+        cls = 'pruned';
+      } else {
+        status = `<span class="status" style="background:rgba(17,24,39,0.04)">candidate</span>`;
+        cls = '';
+      }
+      return `<tr class="${cls}">
+        <td class="itemcell">${displaySet(c.items)}</td>
+        <td class="num">${c.count === null ? '—' : c.count}</td>
+        <td>${status}</td>
+      </tr>`;
+    }).join('');
+
+    const kept = Ck.filter(c => c.prunedReason !== 'subset_infrequent').length;
+    const pruned = Ck.length - kept;
+
+    return `
+      <div class="step-head">
+        <h3>Generate $C_${k}$ — level-${k} candidates</h3>
+        <span class="stepnum">k = ${k}</span>
+      </div>
+      <div class="prose">${intro}
+        <div class="pill-row">
+          <span class="pill">|C${k}| = ${Ck.length}</span>
+          ${pruned > 0 ? `<span class="pill bad">pruned by Apriori: ${pruned}</span>` : ''}
+          <span class="pill good">to count: ${kept}</span>
+        </div>
+      </div>
+      <div class="itemset-wrap" style="margin-top:10px">
+        <table class="itemset-table">
+          <thead><tr><th>candidate itemset</th><th class="num">count</th><th>status</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  function renderCountStep(k){
+    const lvl = currentResult.levels.find(l => l.k === k);
+    if(!lvl) return '';
+    const Ck = lvl.C;
+    const minsup = currentResult.minsup;
+    const minCount = currentResult.minCount;
+
+    // rows: only the ones that survived Apriori prune (have counts)
+    const counted = Ck.filter(c => c.prunedReason !== 'subset_infrequent');
+    counted.sort((a,b) => b.count - a.count);
+
+    const rows = counted.map(c => {
+      const cls = c.kept ? 'kept' : 'pruned';
+      const status = c.kept
+        ? `<span class="status keep">keep · in L${k}</span>`
+        : `<span class="status prune">drop · count &lt; ${minCount}</span>`;
+      return `<tr class="${cls}">
+        <td class="itemcell">${displaySet(c.items)}</td>
+        <td class="num">${c.count}</td>
+        <td class="num">${c.support.toFixed(3)}</td>
+        <td>${status}</td>
+      </tr>`;
+    }).join('');
+
+    const Lk = lvl.L;
+    return `
+      <div class="step-head">
+        <h3>Count support, filter by minsup → $L_${k}$</h3>
+        <span class="stepnum">k = ${k}</span>
+      </div>
+      <div class="prose">
+        <p>For each surviving candidate we scan the ${N} transactions and count how many contain it. Any candidate with count $&lt; ${minCount}$ (i.e. support $&lt; ${minsup.toFixed(2)}$) is dropped.</p>
+        <div class="pill-row">
+          <span class="pill">counted: ${counted.length}</span>
+          <span class="pill good">kept → L${k}: ${Lk.length}</span>
+          <span class="pill bad">dropped: ${counted.length - Lk.length}</span>
+        </div>
+      </div>
+      <div class="itemset-wrap" style="margin-top:10px">
+        <table class="itemset-table">
+          <thead><tr><th>itemset</th><th class="num">count</th><th class="num">support</th><th>status</th></tr></thead>
+          <tbody>${rows || `<tr><td colspan="4" class="muted" style="padding:16px;text-align:center">(no candidates made it to counting)</td></tr>`}</tbody>
+        </table>
+      </div>
+      ${Lk.length === 0 ? `<div class="prose" style="margin-top:10px;color:var(--muted)">No frequent ${k}-itemsets — Apriori stops here.</div>` : ''}
+    `;
+  }
+
+  function renderRulesStep(){
+    const minconf = +minconfEl.value;
+    const allFreq = [].concat(...currentResult.levels.map(l => l.L));
+    const eligible = allFreq.filter(x => x.items.length >= 2);
+
+    // group rules by source itemset
+    const grouped = {};
+    for(const r of currentRules){
+      const key = [...r.ante, ...r.cons].sort().join('|');
+      (grouped[key] = grouped[key] || []).push(r);
+    }
+
+    const groups = eligible.map(f => {
+      const key = [...f.items].sort().join('|');
+      const rules = grouped[key] || [];
+      const rulesHtml = rules.length === 0
+        ? `<span class="muted" style="font-size:12px">(no rule from this itemset meets minconf = ${minconf.toFixed(2)})</span>`
+        : rules.sort((a,b)=>b.conf-a.conf).map(r => `
+          <div class="rule-row" style="padding:4px 0">
+            <span class="ante">${displaySet(r.ante)}</span>
+            <span class="arrow">⇒</span>
+            <span class="cons">${displaySet(r.cons)}</span>
+            &nbsp;&nbsp;<span class="badge ok">conf ${r.conf.toFixed(2)}</span>
+            <span class="badge">lift ${r.lift.toFixed(2)}</span>
+            <span class="badge">sup ${r.supBoth.toFixed(2)}</span>
+          </div>`).join('');
+      return `
+        <div style="border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:8px;background:#fff">
+          <div style="font-family:var(--mono);font-size:12.5px;color:#0f172a">from ${displaySet(f.items)} &nbsp;<span class="muted">(support ${f.support.toFixed(2)})</span></div>
+          <div style="margin-top:6px">${rulesHtml}</div>
+        </div>
+      `;
+    }).join('');
+
+    return `
+      <div class="step-head">
+        <h3>Generate association rules</h3>
+        <span class="stepnum">output</span>
+      </div>
+      <div class="prose">
+        <p>For every frequent itemset $Z$ with $|Z| \\geq 2$, we enumerate all non-empty proper splits $Z = X \\cup Y$ and compute</p>
+        <div class="formula">$\\mathrm{confidence}(X \\Rightarrow Y) = \\dfrac{\\mathrm{support}(Z)}{\\mathrm{support}(X)}$</div>
+        <p>keeping rules with confidence at least <strong>${minconf.toFixed(2)}</strong>. Lift and support are attached for ranking.</p>
+        <div class="pill-row">
+          <span class="pill">frequent itemsets (|Z| ≥ 2): ${eligible.length}</span>
+          <span class="pill good">rules surviving: ${currentRules.length}</span>
+        </div>
+      </div>
+      <div style="margin-top:12px">${groups || '<div class="muted">No itemsets of size ≥ 2 were frequent.</div>'}</div>
+    `;
+  }
+
+  // ============================================================
+  // Rules table (section 7)
+  // ============================================================
+  function renderRules(){
+    const sortKey = document.getElementById('rule-sort').value;
+    const minLift = +document.getElementById('rule-min-lift').value || 0;
+    const sorted = currentRules
+      .filter(r => r.lift >= minLift)
+      .slice()
+      .sort((a,b) => b[sortKey] - a[sortKey]);
+    const body = document.getElementById('rules-body');
+    if(sorted.length === 0){
+      body.innerHTML = `<tr><td colspan="4" class="muted" style="padding:16px;text-align:center">No rules match the current filters.</td></tr>`;
+    } else {
+      body.innerHTML = sorted.map(r => `
+        <tr>
+          <td class="rule-row"><span class="ante">${displaySet(r.ante)}</span><span class="arrow">⇒</span><span class="cons">${displaySet(r.cons)}</span></td>
+          <td class="num">${r.supBoth.toFixed(2)}</td>
+          <td class="num">${r.conf.toFixed(2)}</td>
+          <td class="num" style="color:${r.lift>1.05?'#047857':(r.lift<0.95?'#b91c1c':'#0f172a')};font-weight:600">${r.lift.toFixed(2)}</td>
+        </tr>
+      `).join('');
+    }
+    document.getElementById('rule-count').textContent =
+      `${sorted.length} rule${sorted.length===1?'':'s'} (of ${currentRules.length} total)`;
+  }
+  document.getElementById('rule-sort').addEventListener('change', renderRules);
+  document.getElementById('rule-min-lift').addEventListener('input', renderRules);
+
+  // ============================================================
+  // initial run
+  // ============================================================
+  runAndRender();
+
+  </script>
+
+</body>
+</html>
