@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ThroughputBencher — Globe Race</title>
+<title>Throughput Bench — Globe Race</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -518,7 +518,7 @@ table.data-table td.missing { color: var(--muted); }
 <div id="map"></div>
 
 <div id="panel" class="glass">
-  <h1 class="brand">ThroughputBencher<span class="sub">Globe Race</span></h1>
+  <h1 class="brand">Throughput Bench<span class="sub">Globe Race</span></h1>
 
   <div>
     <label>GPU</label>
@@ -657,37 +657,51 @@ table.data-table td.missing { color: var(--muted); }
 
 import { HELP_TITLE, HELP_BODY_HTML, HELP_REPO_URL } from './help-content.js';
 
-// ── Model defaults (used when no CSV data is available) ───────────────────
+// ── Model defaults (fallback when no CSV is loaded; refresh from the H100 CSV) ──
+// Best throughput-per-model from results/nvidia_h100_nvl.csv, picking the
+// fastest config (precision × compile_mode) for each model. Includes geo FMs.
 const DEFAULT_MODELS = [
-  { name:"mobilenetv3_small_100", display:"MobileNetV3-S", family:"MobileNet", type:"cnn", throughput:21732 },
-  { name:"resnet18", display:"ResNet-18", family:"ResNet", type:"cnn", throughput:9847 },
-  { name:"regnety_004", display:"RegNetY-400MF", family:"RegNet", type:"cnn", throughput:9573 },
-  { name:"vit_tiny_patch16_224", display:"ViT-Ti/16", family:"ViT", type:"vit", throughput:7101 },
-  { name:"mobilenetv3_large_100", display:"MobileNetV3-L", family:"MobileNet", type:"cnn", throughput:6566 },
-  { name:"efficientnet_b0", display:"EfficientNet-B0", family:"EfficientNet", type:"cnn", throughput:6199 },
-  { name:"vit_small_patch16_224", display:"ViT-S/16", family:"ViT", type:"vit", throughput:4217 },
-  { name:"convnext_tiny", display:"ConvNeXt-T", family:"ConvNeXt", type:"cnn", throughput:3534 },
-  { name:"deit3_small_patch16_224", display:"DeiT3-S/16", family:"DeiT", type:"vit", throughput:3047 },
-  { name:"resnet50", display:"ResNet-50", family:"ResNet", type:"cnn", throughput:2540 },
-  { name:"coatnet_0_224", display:"CoAtNet-0", family:"CoAtNet", type:"hybrid", throughput:2332 },
-  { name:"regnety_040", display:"RegNetY-4GF", family:"RegNet", type:"cnn", throughput:2133 },
-  { name:"swin_tiny_patch4_window7_224", display:"Swin-T", family:"Swin", type:"vit", throughput:2130 },
-  { name:"efficientnet_b4", display:"EfficientNet-B4", family:"EfficientNet", type:"cnn", throughput:1793 },
-  { name:"convnext_small", display:"ConvNeXt-S", family:"ConvNeXt", type:"cnn", throughput:1731 },
-  { name:"resnet101", display:"ResNet-101", family:"ResNet", type:"cnn", throughput:1504 },
-  { name:"vit_base_patch16_224", display:"ViT-B/16", family:"ViT", type:"vit", throughput:1503 },
-  { name:"beit_base_patch16_224", display:"BEiT-B/16", family:"BEiT", type:"vit", throughput:1285 },
-  { name:"convnext_base", display:"ConvNeXt-B", family:"ConvNeXt", type:"cnn", throughput:1230 },
-  { name:"swin_small_patch4_window7_224", display:"Swin-S", family:"Swin", type:"vit", throughput:1210 },
-  { name:"swin_base_patch4_window7_224", display:"Swin-B", family:"Swin", type:"vit", throughput:1134 },
-  { name:"deit3_base_patch16_224", display:"DeiT3-B/16", family:"DeiT", type:"vit", throughput:1100 },
-  { name:"resnet152", display:"ResNet-152", family:"ResNet", type:"cnn", throughput:1062 },
-  { name:"efficientnet_b7", display:"EfficientNet-B7", family:"EfficientNet", type:"cnn", throughput:768 },
-  { name:"convnext_large", display:"ConvNeXt-L", family:"ConvNeXt", type:"cnn", throughput:675 },
-  { name:"coatnet_2_224", display:"CoAtNet-2", family:"CoAtNet", type:"hybrid", throughput:504 },
-  { name:"beit_large_patch16_224", display:"BEiT-L/16", family:"BEiT", type:"vit", throughput:381 },
-  { name:"swin_large_patch4_window7_224", display:"Swin-L", family:"Swin", type:"vit", throughput:372 },
-  { name:"vit_large_patch16_224", display:"ViT-L/16", family:"ViT", type:"vit", throughput:354 },
+  { name:"mobilenetv3_small_100", display:"MobileNetV3-S", family:"MobileNet", type:"cnn", throughput:296969, params_M:1.53, macs_G:0.01 },
+  { name:"resnet18", display:"ResNet-18", family:"ResNet", type:"cnn", throughput:262477, params_M:11.20, macs_G:0.34 },
+  { name:"mobilenetv3_large_100", display:"MobileNetV3-L", family:"MobileNet", type:"cnn", throughput:242960, params_M:4.22, macs_G:0.04 },
+  { name:"vit_tiny_patch16_224", display:"ViT-Ti/16", family:"ViT", type:"vit", throughput:190643, params_M:5.84, macs_G:0.20 },
+  { name:"efficientnet_b0", display:"EfficientNet-B0", family:"EfficientNet", type:"cnn", throughput:162401, params_M:4.02, macs_G:0.07 },
+  { name:"regnety_004", display:"RegNetY-400MF", family:"RegNet", type:"cnn", throughput:158339, params_M:3.91, macs_G:0.07 },
+  { name:"resnet50", display:"ResNet-50", family:"ResNet", type:"cnn", throughput:112915, params_M:23.55, macs_G:0.71 },
+  { name:"vit_small_patch16_224", display:"ViT-S/16", family:"ViT", type:"vit", throughput:97933, params_M:22.29, macs_G:0.75 },
+  { name:"deit3_small_patch16_224", display:"DeiT3-S/16", family:"DeiT", type:"vit", throughput:97226, params_M:22.30, macs_G:0.75 },
+  { name:"convnext_tiny", display:"ConvNeXt-T", family:"ConvNeXt", type:"cnn", throughput:80804, params_M:27.84, macs_G:0.73 },
+  { name:"resnet101", display:"ResNet-101", family:"ResNet", type:"cnn", throughput:73846, params_M:42.54, macs_G:1.32 },
+  { name:"efficientnet_b4", display:"EfficientNet-B4", family:"EfficientNet", type:"cnn", throughput:67087, params_M:17.57, macs_G:0.26 },
+  { name:"regnety_040", display:"RegNetY-4GF", family:"RegNet", type:"cnn", throughput:64772, params_M:19.57, macs_G:0.66 },
+  { name:"swin_tiny_patch4_window7_224", display:"Swin-T", family:"Swin", type:"vit", throughput:56610, params_M:27.52, macs_G:0.85 },
+  { name:"resnet152", display:"ResNet-152", family:"ResNet", type:"cnn", throughput:52652, params_M:58.19, macs_G:1.92 },
+  { name:"coatnet_0_224", display:"CoAtNet-0", family:"CoAtNet", type:"hybrid", throughput:51175, params_M:24.23, macs_G:0.73 },
+  { name:"convnext_small", display:"ConvNeXt-S", family:"ConvNeXt", type:"cnn", throughput:48902, params_M:49.47, macs_G:1.42 },
+  { name:"vit_base_patch16_224", display:"ViT-B/16", family:"ViT", type:"vit", throughput:41367, params_M:87.04, macs_G:2.95 },
+  { name:"deit3_base_patch16_224", display:"DeiT3-B/16", family:"DeiT", type:"vit", throughput:40889, params_M:87.06, macs_G:2.95 },
+  { name:"beit_base_patch16_224", display:"BEiT-B/16", family:"BEiT", type:"vit", throughput:40305, params_M:87.05, macs_G:2.96 },
+  { name:"swin_small_patch4_window7_224", display:"Swin-S", family:"Swin", type:"vit", throughput:38736, params_M:48.82, macs_G:1.54 },
+  { name:"convnext_base", display:"ConvNeXt-B", family:"ConvNeXt", type:"cnn", throughput:35255, params_M:87.59, macs_G:2.51 },
+  { name:"olmoearth_nano", display:"OlmoEarth-Nano/8", family:"OlmoEarth", type:"vit", throughput:29383, params_M:1.36, macs_G:1.26 },
+  { name:"efficientnet_b7", display:"EfficientNet-B7", family:"EfficientNet", type:"cnn", throughput:28961, params_M:63.82, macs_G:0.87 },
+  { name:"swin_base_patch4_window7_224", display:"Swin-B", family:"Swin", type:"vit", throughput:28813, params_M:86.72, macs_G:2.72 },
+  { name:"coatnet_2_224", display:"CoAtNet-2", family:"CoAtNet", type:"hybrid", throughput:23212, params_M:73.52, macs_G:2.62 },
+  { name:"convnext_large", display:"ConvNeXt-L", family:"ConvNeXt", type:"cnn", throughput:19136, params_M:196.27, macs_G:5.62 },
+  { name:"swin_large_patch4_window7_224", display:"Swin-L", family:"Swin", type:"vit", throughput:16742, params_M:194.97, macs_G:6.06 },
+  { name:"vit_large_patch16_224", display:"ViT-L/16", family:"ViT", type:"vit", throughput:14225, params_M:304.96, macs_G:10.35 },
+  { name:"beit_large_patch16_224", display:"BEiT-L/16", family:"BEiT", type:"vit", throughput:13911, params_M:304.99, macs_G:10.38 },
+  { name:"galileo_nano", display:"Galileo-Nano/8", family:"Galileo", type:"vit", throughput:11283, params_M:1.04, macs_G:0.51 },
+  { name:"olmoearth_tiny", display:"OlmoEarth-Tiny/8", family:"OlmoEarth", type:"vit", throughput:10887, params_M:6.20, macs_G:8.23 },
+  { name:"croma_sar", display:"CROMA-SAR", family:"CROMA", type:"vit", throughput:8959, params_M:47.34, macs_G:20.10 },
+  { name:"dofa_base", display:"DOFA-B/16", family:"DOFA", type:"vit", throughput:7276, params_M:111.35, macs_G:34.00 },
+  { name:"senpamae", display:"SenPaMAE-B/16", family:"SenPaMAE", type:"vit", throughput:6630, params_M:95.02, macs_G:41.43 },
+  { name:"croma_optical", display:"CROMA-Optical", family:"CROMA", type:"vit", throughput:4496, params_M:90.34, macs_G:40.36 },
+  { name:"galileo_base", display:"Galileo-Base/8", family:"Galileo", type:"vit", throughput:3010, params_M:86.52, macs_G:54.42 },
+  { name:"dofa_large", display:"DOFA-L/16", family:"DOFA", type:"vit", throughput:2531, params_M:337.15, macs_G:119.65 },
+  { name:"olmoearth_base", display:"OlmoEarth-Base/8", family:"OlmoEarth", type:"vit", throughput:1838, params_M:88.96, macs_G:130.76 },
+  { name:"galileo_large", display:"Galileo-Large/8", family:"Galileo", type:"vit", throughput:843, params_M:474.70, macs_G:302.09 },
+  { name:"olmoearth_large", display:"OlmoEarth-Large/8", family:"OlmoEarth", type:"vit", throughput:604, params_M:307.77, macs_G:464.26 },
 ];
 let MODELS = DEFAULT_MODELS.slice();
 
@@ -822,8 +836,8 @@ function throughputByModelConfig(rows) {
 // Where the *.csv / *_hardware.json / index.json live, relative to this page.
 // Resolved on first use by `resolveResultsBase()` so the same index.html works
 // in two layouts:
-//   - dev:      throughput-bencher-code/webapp/index.html  -> data in ../results/
-//   - deployed: throughput-bench/index.html (flat)         -> data alongside
+//   - dev:      throughput-bench-code/webapp/index.html  -> data in ../results/
+//   - deployed: throughput-bench/index.html (flat)        -> data alongside
 let RESULTS_BASE = null;
 
 async function resolveResultsBase() {
@@ -1293,6 +1307,9 @@ const FAMILY_COLORS = {
   ResNet: '#4f9ad6', EfficientNet: '#5eb572', ConvNeXt: '#a586c9',
   MobileNet: '#b07c63', RegNet: '#d88bb7', ViT: '#e35b4f',
   DeiT: '#f0944a', Swin: '#c9ca4a', BEiT: '#4fb9c9', CoAtNet: '#9a8f7a',
+  // Geospatial foundation model families (mirror models.py FAMILY_COLORS)
+  DOFA: '#e6550d', CROMA: '#117733', SenPaMAE: '#882E72',
+  Galileo: '#C71585', OlmoEarth: '#003F5C',
 };
 
 let plotlyReady = null;
@@ -1702,7 +1719,7 @@ selGSD.addEventListener('change', () => {
 });
 
 // ── Help / about modal ─────────────────────────────────────────────────────
-const HELP_STORAGE_KEY = 'throughputbencher.help.dontshow';
+const HELP_STORAGE_KEY = 'throughputbench.help.dontshow';
 const helpOverlay = $('help-overlay');
 const helpDontShow = $('help-dontshow');
 
