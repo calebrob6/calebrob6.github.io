@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Area adjustment = calibration: a walkthrough</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root{
+    --bg:#0f1117; --panel:#181b24; --ink:#e8eaf0; --muted:#9aa3b5;
+    --crop:#4caf50; --noncrop:#3a3f4d;
+    --accent:#f0a832; --blue:#5b9bd5; --good:#4caf50; --bad:#e05c5c;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font:15px/1.55 "Segoe UI",system-ui,sans-serif;}
+  header{padding:14px 24px 6px;}
+  header h1{margin:0;font-size:20px;font-weight:600}
+  header p{margin:2px 0 0;color:var(--muted);font-size:13px}
+  #app{display:flex;gap:22px;padding:14px 24px;align-items:flex-start;flex-wrap:wrap}
+  #left{flex:0 0 auto}
+  canvas#map{display:block;border-radius:6px;background:#000;
+             box-shadow:0 4px 18px rgba(0,0,0,.5)}
+  #legend{margin-top:8px;font-size:12.5px;color:var(--muted);min-height:40px;
+          display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+  .sw{display:inline-block;width:13px;height:13px;border-radius:3px;
+      margin-right:5px;vertical-align:-2px}
+  #right{flex:1 1 420px;min-width:380px;max-width:640px;
+         background:var(--panel);border-radius:10px;padding:18px 22px 16px;
+         min-height:520px;display:flex;flex-direction:column}
+  #stepTag{font-size:12px;letter-spacing:.08em;text-transform:uppercase;
+           color:var(--accent);font-weight:600}
+  #stepTitle{margin:4px 0 10px;font-size:19px;font-weight:600}
+  #stepBody{flex:1}
+  #stepBody p{margin:0 0 10px}
+  #stepBody .muted{color:var(--muted)}
+  .formula{background:#11141c;border:1px solid #262b38;border-radius:8px;
+           padding:10px 14px;margin:10px 0;font-family:"Cambria Math",Georgia,serif;
+           font-size:16px;text-align:center}
+  .num{font-variant-numeric:tabular-nums;font-weight:600}
+  .hl-strat{color:var(--accent)} .hl-cal{color:var(--blue)}
+  .hl-good{color:var(--good)} .hl-bad{color:var(--bad)}
+  table.mat{border-collapse:collapse;margin:10px auto;font-size:14px}
+  table.mat th,table.mat td{border:1px solid #2c3140;padding:5px 12px;text-align:center}
+  table.mat th{background:#11141c;color:var(--muted);font-weight:600}
+  canvas#viz{display:block;margin:10px auto 4px;background:#11141c;
+             border:1px solid #262b38;border-radius:8px}
+  #nav{display:flex;align-items:center;gap:12px;margin-top:14px;
+       border-top:1px solid #262b38;padding-top:12px}
+  #nav button{background:#262b38;color:var(--ink);border:0;border-radius:6px;
+              padding:7px 16px;font-size:14px;cursor:pointer}
+  #nav button:hover{background:#333a4d}
+  #nav button:disabled{opacity:.35;cursor:default}
+  #dots{display:flex;gap:6px;flex:1;justify-content:center}
+  #dots span{width:9px;height:9px;border-radius:50%;background:#2c3140;cursor:pointer}
+  #dots span.on{background:var(--accent)}
+  #hint{color:var(--muted);font-size:12px}
+  kbd{background:#262b38;border-radius:4px;padding:1px 6px;font-size:12px;
+      border:1px solid #3a4154}
+</style>
+</head>
+<body>
+<header>
+  <h1>How much cropland is there? &nbsp;Two workflows, one estimator</h1>
+  <p>A walkthrough showing that design-based area adjustment (remote sensing) and
+     calibrate-then-integrate (machine learning) are the same computation.
+     Use <kbd>&larr;</kbd> <kbd>&rarr;</kbd> to step.</p>
+</header>
+
+<div id="app">
+  <div id="left">
+    <canvas id="map" width="480" height="480"></canvas>
+    <div id="legend"></div>
+  </div>
+  <div id="right">
+    <div id="stepTag"></div>
+    <div id="stepTitle"></div>
+    <div id="stepBody"></div>
+    <div id="nav">
+      <button id="prev">&larr; Back</button>
+      <div id="dots"></div>
+      <button id="next">Next &rarr;</button>
+      <span id="hint"></span>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ---------------- synthetic world ---------------- */
+const G = 60, M = G * G, CELL = 8;          // 60x60 grid, 8px cells
+const N_PER = 20;                            // sample size per stratum
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;
+  let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;
+  return((t^t>>>14)>>>0)/4294967296}}
+const sig = z => 1/(1+Math.exp(-z));
+const logit = p => Math.log(p/(1-p));
+const clamp = (v,a,b)=>Math.min(b,Math.max(a,v));
+
+// landscape: gaussian "field" bumps; truth and score are noisy views of it
+const bumps=[[15,18,9,1.4],[38,12,7,1.2],[44,40,11,1.5],[20,44,6,1.1],[30,28,5,0.9]];
+const field=new Float64Array(M), y=new Uint8Array(M), s=new Float64Array(M);
+{
+  const rnd=mulberry32(42);
+  for(let i=0;i<M;i++){
+    const x=i%G, yy=(i/G)|0; let v=-0.55;
+    for(const [bx,by,r,amp] of bumps) v+=amp*Math.exp(-(((x-bx)**2+(yy-by)**2)/(r*r)));
+    field[i]=v;
+  }
+  for(let i=0;i<M;i++){
+    const nA=(rnd()-0.5)*2, nB=(rnd()-0.5)*2;
+    y[i]=(field[i]+0.30*nA>0)?1:0;                 // hidden truth
+    s[i]=sig(3.6*(field[i]+0.28*nB)+0.30);          // miscalibrated model score
+  }
+}
+const hard = Array.from(s, v => v>=0.5 ? 1 : 0);    // hard map / strata
+const M1 = hard.reduce((a,b)=>a+b,0), M0 = M-M1;
+const W1 = M1/M, W0 = M0/M;
+const trueP = y.reduce((a,b)=>a+b,0)/M;
+const softP = s.reduce((a,b)=>a+b,0)/M;
+
+// stratified sample (seeded)
+let S1=[], S0=[];
+{
+  const rnd=mulberry32(123);
+  const idx1=[], idx0=[];
+  for(let i=0;i<M;i++) (hard[i]?idx1:idx0).push(i);
+  const pick=(arr,n)=>{const a=arr.slice();
+    for(let i=a.length-1;i>0;i--){const j=(rnd()*(i+1))|0;[a[i],a[j]]=[a[j],a[i]]}
+    return a.slice(0,n)};
+  S1=pick(idx1,N_PER); S0=pick(idx0,N_PER);
+}
+const sum = (arr,f)=>arr.reduce((a,i)=>a+f(i),0);
+const yb1 = sum(S1,i=>y[i])/N_PER;                  // = estimated user's accuracy
+const yb0 = sum(S0,i=>y[i])/N_PER;                  // = estimated omission rate
+const pStrat = W1*yb1 + W0*yb0;
+const pCal = (M1*yb1 + M0*yb0)/M;                   // identical by the theorem
+const meanS1 = sum(Array.from({length:M},(_,i)=>i).filter(i=>hard[i]),i=>s[i])/M1;
+const meanS0 = sum(Array.from({length:M},(_,i)=>i).filter(i=>!hard[i]),i=>s[i])/M0;
+
+// temperature scaling on the same sample (design-weighted), for the failure step
+let Temp=1, pTemp;
+{
+  const Sall=[...S1,...S0];
+  const w=i=>hard[i]?M1/N_PER:M0/N_PER;
+  const f=T=>Sall.reduce((a,i)=>{const z=logit(clamp(s[i],.001,.999));
+    return a+w(i)*(y[i]-sig(z/T))*z},0);
+  let lo=0.03, hi=60;
+  if(f(lo)*f(hi)<0){for(let k=0;k<80;k++){Temp=(lo+hi)/2;
+    (f(lo)*f(Temp)<=0)?hi=Temp:lo=Temp}}
+  else{let best=1e18;for(let t=lo;t<hi;t*=1.04){const v=Math.abs(f(t));
+    if(v<best){best=v;Temp=t}}}
+  pTemp=Array.from(s,v=>sig(logit(clamp(v,.001,.999))/Temp)).reduce((a,b)=>a+b,0)/M;
+}
+const pct = v => (100*v).toFixed(1)+"%";
+const f3 = v => v.toFixed(3);
+
+/* ---------------- drawing ---------------- */
+const cv=document.getElementById("map"), ctx=cv.getContext("2d");
+// simple viridis-ish colormap
+function cmap(t){
+  t=clamp(t,0,1);
+  const stops=[[68,1,84],[59,82,139],[33,145,140],[94,201,98],[253,231,37]];
+  const x=t*(stops.length-1), k=Math.min(stops.length-2, x|0), u=x-k;
+  const c=stops[k].map((v,j)=>Math.round(v+(stops[k+1][j]-v)*u));
+  return `rgb(${c[0]},${c[1]},${c[2]})`;
+}
+function cells(colorFn){
+  for(let i=0;i<M;i++){
+    ctx.fillStyle=colorFn(i);
+    ctx.fillRect((i%G)*CELL, ((i/G)|0)*CELL, CELL, CELL);
+  }
+}
+function drawSamples(){
+  for(const [pts,stratum] of [[S1,1],[S0,0]]){
+    for(const i of pts){
+      const x=(i%G)*CELL+CELL/2, yy=((i/G)|0)*CELL+CELL/2;
+      ctx.beginPath(); ctx.arc(x,yy,4.4,0,7);
+      ctx.fillStyle = y[i] ? "#7CFC00" : "#ff5252";
+      ctx.fill();
+      ctx.lineWidth=1.6;
+      ctx.strokeStyle = stratum ? "#fff" : "#111";
+      ctx.stroke();
+    }
+  }
+}
+const MODES={
+  score:   ()=>cells(i=>cmap(s[i])),
+  truth:   ()=>cells(i=>y[i]?"#4caf50":"#2b2f3a"),
+  hard:    ()=>cells(i=>hard[i]?"#e8c468":"#39404f"),
+  errors:  ()=>cells(i=>{
+              if(hard[i]&&y[i])  return "#3f7d44";      // hit
+              if(hard[i]&&!y[i]) return "#e05c5c";      // commission
+              if(!hard[i]&&y[i]) return "#2d6cdf";      // omission
+              return "#262b35";}),                      // correct rejection
+  strata:  ()=>cells(i=>hard[i]?"#7a6428":"#28303f"),
+  calib:   ()=>cells(i=>cmap(hard[i]?yb1:yb0)),
+};
+function draw(mode, withSamples){
+  MODES[mode]();
+  if(withSamples) drawSamples();
+}
+
+/* ---------------- secondary charts (drawn into #viz canvas per step) ----- */
+function vizCanvas(w,h){
+  return `<canvas id="viz" width="${w}" height="${h}"></canvas>`;
+}
+function drawCalibChart(){
+  const c=document.getElementById("viz"); if(!c)return;
+  const g=c.getContext("2d"), W=c.width, H=c.height, pad=42;
+  g.clearRect(0,0,W,H);
+  g.strokeStyle="#3a4154"; g.lineWidth=1;
+  g.strokeRect(pad,12,W-pad-14,H-pad-12+ (pad-30));
+  const x0=pad, y0=H-30, x1=W-14, y1=12;
+  const X=v=>x0+v*(x1-x0), Y=v=>y0-v*(y0-y1);
+  // diagonal (perfect calibration)
+  g.strokeStyle="#3a4154"; g.setLineDash([4,4]);
+  g.beginPath(); g.moveTo(X(0),Y(0)); g.lineTo(X(1),Y(1)); g.stroke(); g.setLineDash([]);
+  // axes labels
+  g.fillStyle="#9aa3b5"; g.font="11px sans-serif"; g.textAlign="center";
+  g.fillText("model score s (mean per stratum)", (x0+x1)/2, H-8);
+  g.save(); g.translate(13,(y0+y1)/2); g.rotate(-Math.PI/2);
+  g.fillText("observed crop fraction in sample", 0,0); g.restore();
+  for(const v of [0,0.5,1]){
+    g.fillText(v.toFixed(1), X(v), y0+14);
+    g.textAlign="right"; g.fillText(v.toFixed(1), x0-6, Y(v)+4); g.textAlign="center";
+  }
+  // arrows from (mean score, mean score) down/up to (mean score, ybar)
+  for(const [ms,yb,col] of [[meanS1,yb1,"#e8c468"],[meanS0,yb0,"#5b9bd5"]]){
+    g.strokeStyle=col; g.lineWidth=2;
+    g.beginPath(); g.moveTo(X(ms),Y(ms)); g.lineTo(X(ms),Y(yb)); g.stroke();
+    g.beginPath(); g.arc(X(ms),Y(ms),4,0,7); g.fillStyle="#666"; g.fill();
+    g.beginPath(); g.arc(X(ms),Y(yb),5.5,0,7); g.fillStyle=col; g.fill();
+    g.fillStyle=col; g.font="bold 12px sans-serif";
+    g.fillText(`g = ${f3(yb)}`, X(ms), Y(yb)-10);
+  }
+  g.fillStyle="#9aa3b5"; g.font="11px sans-serif";
+  g.textAlign="left";
+  g.fillText("● raw score   ", x0+8, y1+14);
+  g.fillStyle="#e8c468"; g.fillText("● mapped-crop bin", x0+8, y1+28);
+  g.fillStyle="#5b9bd5"; g.fillText("● mapped-noncrop bin", x0+8, y1+42);
+}
+function drawBarChart(){
+  const c=document.getElementById("viz"); if(!c)return;
+  const g=c.getContext("2d"), W=c.width, H=c.height;
+  g.clearRect(0,0,W,H);
+  const data=[
+    ["truth", trueP, "#9aa3b5"],
+    ["stratified = calibrated", pStrat, "#f0a832"],
+    ["hard pixel count", W1, "#e05c5c"],
+    ["soft pixel count (Σs/M)", softP, "#e05c5c"],
+    [`temperature scaling (T=${Temp.toFixed(2)})`, pTemp, "#e05c5c"],
+  ];
+  const left=210, right=W-60, y0=26, dy=34;
+  const X=v=>left+(right-left)*(v/0.55);
+  g.font="12px sans-serif";
+  data.forEach(([name,v,col],k)=>{
+    const yy=y0+k*dy;
+    g.fillStyle="#cdd3e0"; g.textAlign="right"; g.fillText(name,left-10,yy+4);
+    g.fillStyle=col; g.fillRect(left, yy-9, X(v)-left, 18);
+    g.fillStyle="#e8eaf0"; g.textAlign="left";
+    g.fillText(pct(v), X(v)+6, yy+4);
+  });
+  // truth reference line
+  g.strokeStyle="#9aa3b5"; g.setLineDash([4,4]);
+  g.beginPath(); g.moveTo(X(trueP), y0-16); g.lineTo(X(trueP), y0+data.length*dy-12);
+  g.stroke(); g.setLineDash([]);
+}
+
+/* ---------------- steps ---------------- */
+const L = { // legend fragments
+  score:`<span><span class="sw" style="background:${cmap(0.05)}"></span>score 0</span>
+         <span><span class="sw" style="background:${cmap(0.5)}"></span>0.5</span>
+         <span><span class="sw" style="background:${cmap(0.95)}"></span>score 1</span>`,
+  truth:`<span><span class="sw" style="background:#4caf50"></span>true cropland</span>
+         <span><span class="sw" style="background:#2b2f3a"></span>true non-cropland</span>`,
+  hard:`<span><span class="sw" style="background:#e8c468"></span>mapped cropland (s &ge; 0.5)</span>
+        <span><span class="sw" style="background:#39404f"></span>mapped non-cropland</span>`,
+  errors:`<span><span class="sw" style="background:#3f7d44"></span>correct crop</span>
+          <span><span class="sw" style="background:#e05c5c"></span>commission (mapped crop, isn't)</span>
+          <span><span class="sw" style="background:#2d6cdf"></span>omission (missed crop)</span>`,
+  samples:`<span><span class="sw" style="background:#7CFC00;border-radius:50%"></span>reference: cropland</span>
+           <span><span class="sw" style="background:#ff5252;border-radius:50%"></span>reference: not cropland</span>
+           <span style="color:#777">(white ring = drawn from crop stratum, dark ring = non-crop stratum)</span>`,
+  calib:`<span><span class="sw" style="background:${cmap(yb1)}"></span>g = ${f3(yb1)} (was the crop stratum)</span>
+         <span><span class="sw" style="background:${cmap(yb0)}"></span>g = ${f3(yb0)} (was the non-crop stratum)</span>`,
+};
+
+const steps=[
+{ tag:"Setup", title:"One problem, two communities",
+  mode:"score", samples:false, legend:L.score,
+  body:`
+  <p>We want the cropland fraction of this region — a ${G}&times;${G} grid of
+  ${M.toLocaleString()} pixels. A model has scored every pixel with a cropland
+  probability (the map at left), and we can afford to label
+  ${2*N_PER} reference points.</p>
+  <p>A <b>remote-sensing analyst</b> says: stratify on the map, sample,
+  build an error matrix, report the <span class="hl-strat">area-adjusted
+  estimate</span>.</p>
+  <p>A <b>machine-learning engineer</b> says: the scores are miscalibrated;
+  use the labels to <span class="hl-cal">calibrate</span> the model, then sum the
+  calibrated probabilities over the map.</p>
+  <p class="muted">These sound different. Step through to see they are the
+  same computation.</p>`},
+
+{ tag:"Step 1 of 9", title:"The hidden truth",
+  mode:"truth", samples:false, legend:L.truth,
+  body:`
+  <p>This is the actual cropland — fields with ragged edges. In reality nobody
+  sees this map; that is the whole problem. Because this demo is synthetic, we
+  know the answer we are trying to estimate:</p>
+  <div class="formula">true cropland fraction&nbsp; p = <span class="num">${pct(trueP)}</span></div>
+  <p class="muted">Every estimate in the following steps can be judged against
+  this number.</p>`},
+
+{ tag:"Step 2 of 9", title:"The model's probability map",
+  mode:"score", samples:false, legend:L.score,
+  body:`
+  <p>The model outputs a score s &isin; [0,1] per pixel. It broadly finds the
+  fields, but it is <b>miscalibrated</b> — too optimistic. If we trusted the
+  probabilities and summed them (&ldquo;soft pixel counting&rdquo;):</p>
+  <div class="formula">&Sigma; s<sub>i</sub> / M = <span class="num hl-bad">${pct(softP)}</span>
+  &nbsp;&nbsp;vs.&nbsp;&nbsp; truth <span class="num">${pct(trueP)}</span></div>
+  <p class="muted">No amount of map-making fixes this: the bias is baked into
+  the model. We need the reference labels.</p>`},
+
+{ tag:"Step 3 of 9", title:"Hard map &mdash; and why pixel counting fails",
+  mode:"errors", samples:false, legend:L.errors,
+  body:`
+  <p>Threshold at s &ge; 0.5 to get a hard map: ${M1.toLocaleString()} pixels
+  mapped cropland (share W<sub>1</sub> = <span class="num">${f3(W1)}</span>),
+  ${M0.toLocaleString()} mapped non-cropland
+  (W<sub>0</sub> = <span class="num">${f3(W0)}</span>).</p>
+  <p>The overlay shows the map's mistakes: <span class="hl-bad">commission</span>
+  (false cropland, mostly field edges) outweighs
+  <span style="color:#6f9ff0">omission</span> (missed cropland), so counting
+  mapped pixels is biased high:</p>
+  <div class="formula">pixel count = W<sub>1</sub> =
+  <span class="num hl-bad">${pct(W1)}</span>
+  &nbsp;&nbsp;vs.&nbsp;&nbsp; truth <span class="num">${pct(trueP)}</span></div>
+  <p class="muted">Commission and omission don't cancel. Both workflows exist
+  to fix exactly this.</p>`},
+
+{ tag:"Step 4 of 9", title:"One shared ingredient: a stratified sample",
+  mode:"strata", samples:true, legend:L.samples,
+  body:`
+  <p>Both workflows now do the same physical thing: treat the two map classes
+  as <b>strata</b> and draw a simple random sample of ${N_PER} pixels from
+  each, then determine the true label of each sampled pixel (e.g. from
+  high-res imagery).</p>
+  <p>Result of labeling:</p>
+  <ul>
+    <li>Crop stratum: <span class="num">${sum(S1,i=>y[i])} / ${N_PER}</span>
+        sampled pixels are really cropland &nbsp;&rarr;&nbsp;
+        ȳ<sub>1</sub> = <span class="num">${f3(yb1)}</span></li>
+    <li>Non-crop stratum: <span class="num">${sum(S0,i=>y[i])} / ${N_PER}</span>
+        are really cropland &nbsp;&rarr;&nbsp;
+        ȳ<sub>0</sub> = <span class="num">${f3(yb0)}</span></li>
+  </ul>
+  <p class="muted">From here the two communities describe what they do with
+  these ${2*N_PER} labels in completely different vocabularies&hellip;</p>`},
+
+{ tag:"Step 5 of 9", title:"Remote-sensing route: the error matrix",
+  mode:"strata", samples:true, legend:L.samples,
+  body:`
+  <p>The analyst tabulates the sample into an error matrix:</p>
+  <table class="mat">
+    <tr><th></th><th>ref. crop</th><th>ref. non-crop</th><th>ȳ<sub>h</sub></th><th>W<sub>h</sub></th></tr>
+    <tr><th>mapped crop</th><td>${sum(S1,i=>y[i])}</td><td>${N_PER-sum(S1,i=>y[i])}</td>
+        <td class="num">${f3(yb1)}</td><td class="num">${f3(W1)}</td></tr>
+    <tr><th>mapped non-crop</th><td>${sum(S0,i=>y[i])}</td><td>${N_PER-sum(S0,i=>y[i])}</td>
+        <td class="num">${f3(yb0)}</td><td class="num">${f3(W0)}</td></tr>
+  </table>
+  <p>ȳ<sub>1</sub> is the <b>user's accuracy</b> of the crop class;
+  ȳ<sub>0</sub> is the omission rate hiding in the non-crop class. The
+  stratified (&ldquo;area-adjusted&rdquo;, Olofsson et&nbsp;al.) estimate weights
+  each by the stratum's area share:</p>
+  <div class="formula">p&#770;<sub>strat</sub> = W<sub>1</sub>ȳ<sub>1</sub> + W<sub>0</sub>ȳ<sub>0</sub>
+   = ${f3(W1)}&times;${f3(yb1)} + ${f3(W0)}&times;${f3(yb0)} =
+   <span class="num hl-strat">${pct(pStrat)}</span></div>
+  <p class="muted">Truth is ${pct(trueP)} — the random sample corrected the
+  map's bias, with no assumption that the model is any good.</p>`},
+
+{ tag:"Step 6 of 9", title:"ML route: calibrate the model",
+  mode:"calib", samples:false, legend:L.calib,
+  body:`
+  <p>The engineer instead fits a <b>calibrator</b> g on the ${2*N_PER} labeled
+  points: the simplest is <b>histogram binning</b> with one bin per stratum
+  — replace every score in a bin by the observed crop fraction of that bin's
+  labeled points.</p>
+  ${vizCanvas(430,210)}
+  <p>That fraction is exactly ȳ<sub>h</sub> (it's also what minimizing Brier
+  score or log loss with one constant per bin would choose). The map at left
+  is the <b>calibrated map</b>: every mapped-crop pixel now carries
+  probability <span class="num">${f3(yb1)}</span>, every mapped-non-crop pixel
+  <span class="num">${f3(yb0)}</span>.</p>
+  <p class="muted">Notice what the calibrated values are: the error-matrix
+  rates from the previous step. <b>The error matrix is the calibration
+  map.</b></p>`,
+  after:drawCalibChart},
+
+{ tag:"Step 7 of 9", title:"ML route: sum the calibrated map",
+  mode:"calib", samples:false, legend:L.calib,
+  body:`
+  <p>The ML area estimate is the expected area under the calibrated map — just
+  sum g over all ${M.toLocaleString()} pixels:</p>
+  <div class="formula">
+   p&#770;<sub>cal</sub> = &Sigma; g(s<sub>i</sub>) / M
+   = (${M1.toLocaleString()}&times;${f3(yb1)} + ${M0.toLocaleString()}&times;${f3(yb0)}) / ${M.toLocaleString()}
+   = <span class="num hl-cal">${pct(pCal)}</span></div>
+  <p>Compare:</p>
+  <div class="formula">
+   p&#770;<sub>strat</sub> = <span class="num hl-strat">${pct(pStrat)}</span>
+   &nbsp;&nbsp;=&nbsp;&nbsp;
+   p&#770;<sub>cal</sub> = <span class="num hl-cal">${pct(pCal)}</span></div>
+  <p class="muted">Not approximately — identically, and for <i>every</i>
+  possible sample, not just this one.</p>`},
+
+{ tag:"Step 8 of 9", title:"Why: it's the same algebra",
+  mode:"calib", samples:false, legend:L.calib,
+  body:`
+  <p>The calibrated map is constant on each stratum, so summing it over the
+  region just counts pixels per stratum:</p>
+  <div class="formula">
+   <span class="hl-cal">&Sigma;<sub>i</sub> g(s<sub>i</sub>) / M</span>
+   &nbsp;=&nbsp; (M<sub>1</sub>ȳ<sub>1</sub> + M<sub>0</sub>ȳ<sub>0</sub>) / M
+   &nbsp;=&nbsp; <span class="hl-strat">W<sub>1</sub>ȳ<sub>1</sub> + W<sub>0</sub>ȳ<sub>0</sub></span></div>
+  <p>Both workflows compute the weighted average
+  <b>&Sigma;<sub>h</sub> W<sub>h</sub> ȳ<sub>h</sub></b>. They differ only in
+  bookkeeping order:</p>
+  <ul>
+   <li><span class="hl-strat">Remote sensing</span> groups by stratum first:
+       area share &times; error-matrix rate, then add.</li>
+   <li><span class="hl-cal">ML</span> stamps the rate onto each pixel first,
+       then adds over the map.</li>
+  </ul>
+  <p class="muted">Same labels, same weights, same number — one estimator
+  wearing two uniforms. It inherits the design-based guarantee: unbiased over
+  repeated sampling, regardless of model quality. The identity holds with
+  more strata too (score deciles, region &times; class, &hellip;) as long as
+  calibration bins = sampling strata.</p>`},
+
+{ tag:"Step 9 of 9", title:"When the equivalence breaks",
+  mode:"score", samples:true, legend:L.samples,
+  body:`
+  <p>The identity is specific to <b>bin-per-stratum histogram calibration with
+  no smoothing</b>. Other reasonable-sounding choices give different — and
+  biased — answers on this same data:</p>
+  ${vizCanvas(470,200)}
+  <p><b>Temperature scaling</b> fails structurally: with no intercept it can
+  reshape confidence but cannot shift the average probability to match the
+  labels, so the design correction never happens. The same applies to
+  unweighted parametric fits on a disproportionately allocated sample, and to
+  regularized/shrunk bin values.</p>
+  <p class="muted"><b>The universal repair:</b> for any calibrator g, add the
+  design-weighted residual term
+  &Sigma;<sub>sample</sub> w<sub>j</sub>(y<sub>j</sub> &minus; g(s<sub>j</sub>)) / M
+  (the &ldquo;difference estimator&rdquo;). It is zero precisely when g
+  already complies — as bin-per-stratum binning does — and restores the
+  design-based answer when it doesn't.</p>`,
+  after:drawBarChart},
+];
+
+/* ---------------- navigation ---------------- */
+let cur=0;
+const dots=document.getElementById("dots");
+steps.forEach((_,k)=>{
+  const d=document.createElement("span");
+  d.onclick=()=>go(k); dots.appendChild(d);
+});
+function go(k){
+  cur=clamp(k,0,steps.length-1);
+  const st=steps[cur];
+  document.getElementById("stepTag").textContent=st.tag;
+  document.getElementById("stepTitle").innerHTML=st.title;
+  document.getElementById("stepBody").innerHTML=st.body;
+  document.getElementById("legend").innerHTML=st.legend||"";
+  draw(st.mode, st.samples);
+  if(st.after) st.after();
+  [...dots.children].forEach((d,j)=>d.classList.toggle("on",j===cur));
+  document.getElementById("prev").disabled = cur===0;
+  document.getElementById("next").disabled = cur===steps.length-1;
+  document.getElementById("hint").textContent=`${cur+1}/${steps.length}`;
+}
+document.getElementById("prev").onclick=()=>go(cur-1);
+document.getElementById("next").onclick=()=>go(cur+1);
+window.addEventListener("keydown",e=>{
+  if(e.key==="ArrowRight"||e.key===" "){go(cur+1);e.preventDefault();}
+  if(e.key==="ArrowLeft"){go(cur-1);e.preventDefault();}
+  if(e.key==="Home")go(0);
+  if(e.key==="End")go(steps.length-1);
+});
+go(0);
+</script>
+</body>
+</html>
