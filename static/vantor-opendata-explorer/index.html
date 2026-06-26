@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Vantor Open Data Explorer</title>
+    <meta
+      name="description"
+      content="Browse the Vantor Open Data STAC catalog: events, scene footprints, and stream Cloud-Optimized GeoTIFFs directly in the browser."
+    />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%9B%B0%EF%B8%8F%3C/text%3E%3C/svg%3E" />
+    <script type="module" crossorigin src="./assets/index-h6FaeyqV.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-BrDp1Hyk.css">
+  </head>
+  <body>
+    <div id="app">
+      <aside id="sidebar">
+        <header id="side-header">
+          <button id="back-btn" class="back-btn" hidden title="Back (Esc)">‹</button>
+          <div class="title-wrap">
+            <h1 id="side-title">Vantor Open Data</h1>
+            <p id="side-sub" class="sub">STAC Explorer</p>
+          </div>
+        </header>
+        <div id="side-body"><!-- view-specific content injected here --></div>
+        <footer id="side-footer">
+          <span id="basemap-toggle-wrap">
+            <label class="row tiny">
+              <input type="checkbox" id="labels-toggle" checked />
+              Place labels
+            </label>
+          </span>
+          <a
+            href="https://vantor-opendata.s3.amazonaws.com/#events/"
+            target="_blank"
+            rel="noreferrer"
+            class="tiny muted"
+            >Source bucket ↗</a
+          >
+        </footer>
+      </aside>
+
+      <main id="map-wrap">
+        <div id="map" tabindex="0"></div>
+
+        <!-- COG streaming status (scene view) -->
+        <div id="status" class="status" hidden>
+          <span class="spinner" hidden></span>
+          <span id="status-text"></span>
+        </div>
+
+        <!-- Hover thumbnail (collection view) -->
+        <div id="thumb-overlay" class="thumb-overlay">
+          <img id="thumb-img" alt="scene thumbnail" />
+          <div id="thumb-cap" class="thumb-cap"></div>
+        </div>
+
+        <!-- Hint line, bottom-center -->
+        <div id="hint" class="hint" hidden></div>
+      </main>
+    </div>
+  </body>
+</html>
