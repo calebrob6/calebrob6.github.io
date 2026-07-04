@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Last Number You Can't Make — a proof walkthrough</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,650&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F4F7FB;
+    --card:#FFFFFF;
+    --ink:#14263F;
+    --muted:#55688A;
+    --grid:#D9E2EF;
+    --rep:#1D6FB8;          /* representable */
+    --rep-soft:#DCEAF8;
+    --gap:#E2703A;          /* non-representable */
+    --gap-soft:#FBE9DE;
+    --frob:#C6283C;         /* the Frobenius number */
+    --mark:#0E4E86;         /* multiples of b in staircase */
+    --radius:10px;
+    --maxw:880px;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;
+    background:var(--paper);
+    background-image:
+      linear-gradient(var(--grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size:32px 32px;
+    color:var(--ink);
+    font-family:'Source Serif 4', Georgia, serif;
+    font-size:17.5px;
+    line-height:1.65;
+  }
+  .sheet{
+    max-width:var(--maxw);
+    margin:0 auto;
+    padding:0 20px 96px;
+  }
+  header{padding-top:64px}
+  .eyebrow{
+    font-family:'IBM Plex Mono', ui-monospace, monospace;
+    font-size:12.5px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--muted);
+  }
+  h1{
+    font-family:'Fraunces', Georgia, serif;
+    font-weight:650;
+    font-size:clamp(34px, 6vw, 54px);
+    line-height:1.06;
+    margin:.35em 0 .3em;
+    letter-spacing:-.01em;
+  }
+  .dek{font-size:20px;color:var(--muted);max-width:64ch;margin:0 0 8px}
+  h2{
+    font-family:'Fraunces', Georgia, serif;
+    font-weight:650;
+    font-size:clamp(24px, 3.6vw, 32px);
+    line-height:1.15;
+    margin:2.4em 0 .5em;
+  }
+  h3{
+    font-family:'Fraunces', Georgia, serif;
+    font-weight:600;
+    font-size:20px;
+    margin:1.8em 0 .4em;
+  }
+  p{margin:.8em 0}
+  .m{font-style:italic}
+  .m sub, .m sup{font-style:normal;font-size:.72em}
+  .formula{
+    text-align:center;
+    font-size:19px;
+    margin:1em 0;
+    font-style:italic;
+  }
+  .formula .up{font-style:normal}
+  code, .mono{font-family:'IBM Plex Mono', ui-monospace, monospace;font-size:.86em}
+
+  .card{
+    background:var(--card);
+    border:1px solid var(--grid);
+    border-radius:var(--radius);
+    box-shadow:0 1px 2px rgba(20,38,63,.05), 0 8px 24px rgba(20,38,63,.05);
+    padding:20px 22px;
+    margin:22px 0;
+  }
+  .theorem{
+    border-left:4px solid var(--rep);
+  }
+  .theorem .label{
+    font-family:'IBM Plex Mono', ui-monospace, monospace;
+    font-size:12px;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--rep);
+    display:block;margin-bottom:6px;
+  }
+  .step{
+    border-left:4px solid var(--grid);
+    padding-left:18px;
+    margin:1.6em 0;
+  }
+  .step .step-tag{
+    font-family:'IBM Plex Mono', ui-monospace, monospace;
+    font-size:12px;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--muted);
+    display:block;margin-bottom:2px;
+  }
+  .qed{
+    display:inline-block;width:11px;height:11px;background:var(--ink);
+    margin-left:8px;vertical-align:baseline;
+  }
+  .aha{
+    background:linear-gradient(0deg, var(--rep-soft), var(--rep-soft));
+    border:1px solid #BFD8F0;
+    border-radius:var(--radius);
+    padding:14px 18px;
+    margin:1.2em 0;
+  }
+  .aha strong{color:var(--mark)}
+
+  /* controls */
+  .controls{
+    display:flex;flex-wrap:wrap;gap:18px 28px;align-items:flex-end;
+  }
+  .ctrl{min-width:180px;flex:1}
+  .ctrl label{
+    display:flex;justify-content:space-between;align-items:baseline;
+    font-family:'IBM Plex Mono', ui-monospace, monospace;
+    font-size:13px;color:var(--muted);margin-bottom:6px;
+  }
+  .ctrl label b{color:var(--ink);font-size:16px}
+  input[type=range]{
+    width:100%;accent-color:var(--rep);height:26px;
+  }
+  input[type=range]:focus-visible{outline:2px solid var(--rep);outline-offset:3px;border-radius:4px}
+  .chips{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}
+  .chip{
+    font-family:'IBM Plex Mono', ui-monospace, monospace;
+    font-size:12.5px;
+    background:var(--paper);
+    border:1px solid var(--grid);
+    border-radius:999px;
+    padding:5px 12px;color:var(--muted);
+  }
+  .chip b{color:var(--ink);font-weight:500}
+  .chip.bad b{color:var(--gap)}
+  .chip.frob b{color:var(--frob)}
+
+  .legend{
+    display:flex;flex-wrap:wrap;gap:14px 22px;
+    font-family:'IBM Plex Mono', ui-monospace, monospace;
+    font-size:12.5px;color:var(--muted);
+    margin:10px 0 2px;
+  }
+  .legend .sw{display:inline-block;width:11px;height:11px;border-radius:50%;margin-right:6px;vertical-align:-1px}
+  .legend .sq{border-radius:2px}
+
+  .chart-wrap{overflow-x:auto}
+  svg{display:block;width:100%;height:auto}
+  svg text{font-family:'IBM Plex Mono', ui-monospace, monospace}
+
+  .readout{
+    font-family:'IBM Plex Mono', ui-monospace, monospace;
+    font-size:13.5px;
+    color:var(--ink);
+    background:var(--paper);
+    border:1px dashed var(--grid);
+    border-radius:8px;
+    padding:8px 12px;
+    margin-top:12px;
+    min-height:38px;
+  }
+  .note{
+    font-size:15px;color:var(--muted);
+  }
+  .warn{
+    display:none;
+    background:var(--gap-soft);
+    border:1px solid #F0C6AE;
+    border-radius:8px;
+    padding:10px 14px;
+    margin-top:12px;
+    font-size:15px;
+  }
+  .warn.show{display:block}
+
+  .dot{cursor:pointer}
+  .dot:hover{stroke:var(--ink);stroke-width:2}
+
+  footer{
+    margin-top:72px;
+    padding-top:20px;
+    border-top:1px solid var(--grid);
+    color:var(--muted);
+    font-size:15px;
+  }
+  a{color:var(--rep)}
+  @media (prefers-reduced-motion: reduce){
+    *{transition:none!important;animation:none!important}
+    html{scroll-behavior:auto}
+  }
+  @media (max-width:560px){
+    body{font-size:16.5px}
+    .card{padding:16px 14px}
+  }
+</style>
+</head>
+<body>
+<div class="sheet">
+
+<header>
+  <h1>The last number you can't make</h1>
+  <p class="dek">
+    Pick two whole numbers <span class="m">a</span> and <span class="m">b</span> that share no
+    common factor bigger than 1. Using copies of <span class="m">a</span> and copies of
+    <span class="m">b</span> — as many of each as you like — which totals
+    <span class="m">c = x·a + y·b</span> can you build? We show two things: <strong>every</strong>
+    number bigger than <span class="m">ab</span> can be built, and the number
+    <span class="m">ab − a − b</span> never can.
+  </p>
+</header>
+
+<!-- ============ HERO: interactive number line ============ -->
+<h2>Play with it</h2>
+<div class="card">
+  <div class="controls">
+    <div class="ctrl">
+      <label for="slider-a"><span>value a</span><b id="val-a">4</b></label>
+      <input id="slider-a" type="range" min="2" max="15" value="4" aria-label="value a">
+    </div>
+    <div class="ctrl">
+      <label for="slider-b"><span>value b</span><b id="val-b">7</b></label>
+      <input id="slider-b" type="range" min="2" max="15" value="7" aria-label="value b">
+    </div>
+  </div>
+  <div class="chips">
+    <span class="chip">biggest shared factor: <b id="chip-gcd">1</b></span>
+    <span class="chip frob">biggest you can't build: ab−a−b = <b id="chip-frob">17</b></span>
+    <span class="chip">can't build in total: (a−1)(b−1)/2 = <b id="chip-count">9</b></span>
+  </div>
+  <div class="warn" id="coprime-warn">
+    <strong>a and b share a common factor — so the theorem no longer applies.</strong>
+    Every total <span class="m">x·a + y·b</span> is a multiple of that shared factor, so the
+    orange gaps now go on <em>forever</em>. There is no last gap. This is exactly why we need
+    <span class="m">a</span> and <span class="m">b</span> to share no common factor.
+  </div>
+  <div class="legend">
+    <span><span class="sw" style="background:var(--rep)"></span>can be built</span>
+    <span><span class="sw" style="background:var(--gap)"></span>can't be built</span>
+    <span><span class="sw" style="background:var(--frob)"></span>ab − a − b</span>
+  </div>
+  <div class="chart-wrap" id="numberline"></div>
+  <div class="readout" id="nl-readout">Hover or tap a dot to see how to build that number.</div>
+</div>
+
+<!-- ============ THE CLAIM ============ -->
+<h2>The claim, precisely</h2>
+<div class="card theorem">
+  <span class="label">Theorem</span>
+  <p style="margin-top:0">Let <span class="m">a</span> and <span class="m">b</span> be positive
+  whole numbers that share no common factor bigger than 1.</p>
+  <p><strong>Part 1.</strong> Every whole number <span class="m">c &gt; ab</span> can be built as
+  <span class="m">c = x·a + y·b</span>, using whole-number counts <span class="m">x, y ≥ 0</span>.</p>
+  <p style="margin-bottom:0"><strong>Part 2.</strong> The number <span class="m">ab − a − b</span>
+  cannot be built this way.</p>
+</div>
+<p>
+  Play with the sliders above and the picture is always the same: a scatter of orange numbers
+  you can't build, then a sharp cutoff, then solid blue (buildable) forever. The proof explains
+  both why the cutoff exists (Part 1) and exactly where it sits (Part 2).
+</p>
+
+<!-- ============ PART 1 ============ -->
+<h2>Part 1 — everything past <span class="m">ab</span> is reachable</h2>
+
+<div class="step">
+  <span class="step-tag">Step 1 · one solution always exists (but it may cheat)</span>
+  <p>
+    Here's a standard fact about two numbers that share no common factor: you can always combine
+    them to land on exactly <span class="m">1</span>, using whole-number multipliers
+    <span class="m">u</span> and <span class="m">v</span> (usually one of them is negative). Written out:
+  </p>
+  <div class="formula">u·a + v·b = 1.</div>
+  <p>
+    Now multiply both sides by <span class="m">c</span>. That scales the combination up from
+    <span class="m">1</span> to <span class="m">c</span>:
+  </p>
+  <div class="formula">x<sub>0</sub>·a + y<sub>0</sub>·b = c, <span class="up">&nbsp;where&nbsp;</span> x<sub>0</sub> = u·c &nbsp;and&nbsp; y<sub>0</sub> = v·c.</div>
+  <p>
+    So there is always <em>some</em> way to hit <span class="m">c</span> with whole numbers. The
+    catch: because <span class="m">u</span> or <span class="m">v</span> was negative,
+    <span class="m">x<sub>0</sub></span> or <span class="m">y<sub>0</sub></span> can come out
+    negative too — and a negative count doesn't correspond to actually building
+    <span class="m">c</span>. The whole job now is to turn this into a solution where
+    <em>both</em> counts are <span class="m">≥ 0</span>.
+  </p>
+</div>
+
+<div class="step">
+  <span class="step-tag">Step 2 · all the solutions form an evenly spaced ladder</span>
+  <p>
+    Say we have two solutions, <span class="m">x·a + y·b = c</span> and
+    <span class="m">x<sub>0</sub>·a + y<sub>0</sub>·b = c</span>. Subtract one from the other:
+  </p>
+  <div class="formula">(x − x<sub>0</sub>)·a = (y<sub>0</sub> − y)·b.</div>
+  <p>
+    The right side is a multiple of <span class="m">b</span>, so the left side is a multiple of
+    <span class="m">b</span> too. But <span class="m">a</span> shares no common factor with
+    <span class="m">b</span>, so <span class="m">a</span> can't supply any part of that multiple of
+    <span class="m">b</span> — it has to come entirely from <span class="m">(x − x<sub>0</sub>)</span>.
+    In other words, <span class="m">(x − x<sub>0</sub>)</span> is itself a multiple of
+    <span class="m">b</span>. Write it as <span class="m">t·b</span>; putting that back in gives
+    <span class="m">(y<sub>0</sub> − y) = t·a</span>. So every solution looks like
+  </p>
+  <div class="formula">x = x<sub>0</sub> + t·b, &nbsp;&nbsp; y = y<sub>0</sub> − t·a, &nbsp;&nbsp; for any whole number <span class="m">t</span>,</div>
+  <p>
+    and every choice of <span class="m">t</span> really is a solution. So the solutions form a
+    ladder: pick any one, then step <span class="m">t</span> up or down. Each step adds
+    <span class="m">b</span> to <span class="m">x</span> and subtracts <span class="m">a</span> from
+    <span class="m">y</span> — and the total never changes, since
+    <span class="m">(+b)·a + (−a)·b = 0</span>.
+  </p>
+</div>
+
+<div class="card">
+  <h3 style="margin-top:0">The ladder of solutions, drawn</h3>
+  <p class="note" style="margin-top:-4px">How to read this picture:</p>
+  <ul class="note" style="margin-top:2px">
+    <li>Each <strong>dot</strong> is one solution — a pair of counts <span class="m">(x, y)</span>
+      with <span class="m">x·a + y·b = c</span>. Its left–right position is <span class="m">x</span>,
+      its up–down position is <span class="m">y</span>.</li>
+    <li>From Step 2 the dots lie on a straight line, evenly spaced: each step to the right adds
+      <span class="m">b</span> to <span class="m">x</span> and drops <span class="m">a</span> from
+      <span class="m">y</span> (the orange arrow).</li>
+    <li>We only actually <strong>build</strong> <span class="m">c</span> when a dot sits in the
+      <span style="color:var(--rep)">blue shaded region</span>, where both counts are
+      <span class="m">≥ 0</span>. Dots outside it use a negative count — a cheat.</li>
+    <li>The dashed strip holds the choices with <span class="m">x</span> between <span class="m">0</span>
+      and <span class="m">b − 1</span>. Because the dots are exactly <span class="m">b</span> apart
+      left-to-right, <em>exactly one</em> dot lands inside it (circled).</li>
+  </ul>
+  <p class="note">
+    Now drag <span class="m">c</span>. While <span class="m">c</span> is small, the circled dot sits
+    <em>below</em> the shaded region — its <span class="m">y</span> is negative, so
+    <span class="m">c</span> can't be built. As <span class="m">c</span> grows past
+    <span class="m">ab</span>, the circled dot rises into the shaded region and
+    <span class="m">c</span> becomes buildable. That single moment <em>is</em> Part 1.
+  </p>
+  <div class="controls">
+    <div class="ctrl" style="max-width:420px">
+      <label for="slider-c"><span>target total c</span><b id="val-c">29</b></label>
+      <input id="slider-c" type="range" min="1" max="43" value="29" aria-label="target total c">
+    </div>
+  </div>
+  <div class="chart-wrap" id="solutionline"></div>
+  <div class="readout" id="sl-readout"></div>
+</div>
+
+<div class="step">
+  <span class="step-tag">Step 3 · pick the solution in the strip, then check its height</span>
+  <p>
+    Stepping along the ladder shifts <span class="m">x</span> by <span class="m">b</span> each time,
+    so exactly one rung lands in the strip
+  </p>
+  <div class="formula">0 ≤ x ≤ b − 1.</div>
+  <p>
+    Pick that one. It already has <span class="m">x ≥ 0</span>. We just need to check its
+    <span class="m">y</span> is also <span class="m">≥ 0</span>. Rearrange the equation to
+    <span class="m">y·b = c − x·a</span>. Since <span class="m">x</span> is at most
+    <span class="m">b − 1</span>, we subtract at most <span class="m">(b − 1)a</span>; and we're told
+    <span class="m">c &gt; ab</span>. Chaining those:
+  </p>
+  <div class="formula">y·b = c − x·a ≥ c − (b − 1)a &gt; ab − (b − 1)a = a &gt; 0.</div>
+  <p>
+    So <span class="m">y·b</span> is positive, and since <span class="m">b</span> is positive,
+    <span class="m">y</span> is positive too. Both counts are <span class="m">≥ 0</span>, so we have
+    genuinely built <span class="m">c = x·a + y·b</span>.<span class="qed" aria-label="end of proof"></span>
+  </p>
+</div>
+
+<div class="aha">
+  <strong>In one sentence:</strong> among all the solutions, take the one whose
+  <span class="m">x</span> is smallest but still <span class="m">≥ 0</span> (so under
+  <span class="m">b</span>). Then <span class="m">x·a</span> uses up less than
+  <span class="m">ab</span> of the total, and since <span class="m">c</span> is bigger than
+  <span class="m">ab</span>, there is a positive amount left over for <span class="m">y·b</span> —
+  so <span class="m">y</span> is positive too.
+</div>
+
+<!-- ============ PART 2 ============ -->
+<h2>Part 2 — why <span class="m">ab − a − b</span> is impossible</h2>
+
+<div class="step">
+  <span class="step-tag">Step 1 · suppose you could, then rearrange</span>
+  <p>
+    Suppose the opposite of what we want to prove: that you <em>can</em> build it, say
+    <span class="m">ab − a − b = x·a + y·b</span> with counts <span class="m">x, y ≥ 0</span>. Add
+    <span class="m">a</span> and <span class="m">b</span> to both sides and group the terms:
+  </p>
+  <div class="formula">ab = (x + 1)·a + (y + 1)·b.</div>
+  <p class="note">
+    This rearrangement is the whole trick. The two multipliers <span class="m">x + 1</span> and
+    <span class="m">y + 1</span> are now both at least <span class="m">1</span> (because
+    <span class="m">x, y ≥ 0</span>) — keep that in mind.
+  </p>
+</div>
+
+<div class="step">
+  <span class="step-tag">Step 2 · compare remainders, dividing first by a, then by b</span>
+  <p>
+    Look at both sides of <span class="m">ab = (x + 1)·a + (y + 1)·b</span> and ask for their
+    remainder after dividing by <span class="m">a</span>:
+  </p>
+  <ul>
+    <li>The left side <span class="m">ab</span> is <span class="m">a</span> times <span class="m">b</span>,
+      a multiple of <span class="m">a</span> — remainder <span class="m">0</span>.</li>
+    <li>The term <span class="m">(x + 1)·a</span> is also a multiple of <span class="m">a</span> —
+      remainder <span class="m">0</span>.</li>
+    <li>So the remaining term <span class="m">(y + 1)·b</span> must have remainder
+      <span class="m">0</span> as well — that is, <span class="m">a</span> divides
+      <span class="m">(y + 1)·b</span>.</li>
+  </ul>
+  <p>
+    But <span class="m">a</span> shares no common factor with <span class="m">b</span>, so the
+    factor of <span class="m">a</span> can't come from <span class="m">b</span> — it must come from
+    <span class="m">(y + 1)</span>. So <span class="m">a</span> divides <span class="m">(y + 1)</span>.
+    And <span class="m">y + 1</span> is at least <span class="m">1</span>, so it is a
+    <em>positive</em> multiple of <span class="m">a</span>, which forces
+    <span class="m">y + 1 ≥ a</span>.
+  </p>
+  <p>
+    Running the exact same argument, but dividing by <span class="m">b</span> instead, gives the
+    mirror result: <span class="m">x + 1 ≥ b</span>.
+  </p>
+</div>
+
+<div class="step">
+  <span class="step-tag">Step 3 · the two pieces are already too big</span>
+  <p>
+    Put those two facts — <span class="m">x + 1 ≥ b</span> and <span class="m">y + 1 ≥ a</span> —
+    back into <span class="m">ab = (x + 1)·a + (y + 1)·b</span>:
+  </p>
+  <div class="formula">ab = (x + 1)·a + (y + 1)·b ≥ b·a + a·b = 2ab.</div>
+  <p>
+    So <span class="m">ab ≥ 2ab</span>, which means <span class="m">ab ≤ 0</span> — impossible, since
+    <span class="m">a</span> and <span class="m">b</span> are positive. Our supposition was wrong,
+    so <span class="m">ab − a − b</span> can't be built.<span class="qed" aria-label="end of proof"></span>
+  </p>
+</div>
+
+<!-- ============ INTUITION ============ -->
+<h2>The picture behind it all</h2>
+<p>
+  Here is the same number line, folded into columns: each <strong>column collects the numbers
+  that leave the same remainder when divided by <span class="m">a</span></strong>. Moving up one
+  cell adds <span class="m">a</span>. So the moment a column contains <em>any</em> number you can
+  build, everything above it in that column can be built too — just add another
+  <span class="m">a</span>.
+</p>
+<p>
+  What is the <em>lowest</em> buildable number in each column — the "key" that unlocks it? The
+  multiples of <span class="m">b</span>: <span class="m">0, b, 2b, …, (a−1)b</span>. Because
+  <span class="m">a</span> and <span class="m">b</span> share no common factor, these
+  <span class="m">a</span> multiples all leave <em>different</em> remainders when divided by
+  <span class="m">a</span> — so they land in <span class="m">a</span> different columns, one key
+  per column.
+</p>
+
+<div class="card">
+  <div class="legend">
+    <span><span class="sw sq" style="background:var(--rep-soft);border:1px solid var(--rep)"></span>can be built</span>
+    <span><span class="sw sq" style="background:var(--gap-soft);border:1px solid var(--gap)"></span>gap</span>
+    <span><span class="sw sq" style="background:var(--mark)"></span>multiple of b (unlocks its column)</span>
+    <span><span class="sw sq" style="background:#fff;border:2px solid var(--frob)"></span>ab − a − b</span>
+  </div>
+  <div class="chart-wrap" id="staircase"></div>
+  <div class="readout" id="st-readout"></div>
+</div>
+
+<p>
+  Now both halves of the theorem are visible at once. The <strong>last column to unlock</strong>
+  is the one opened by the biggest key, <span class="m">(a − 1)·b = ab − b</span>. The cell one
+  step (one <span class="m">a</span>) below that key is
+</p>
+<div class="formula">(ab − b) − a = ab − a − b,</div>
+<p>
+  the highest number you can't build anywhere on the board — exactly the number Part 2 ruled out.
+  And every number above <span class="m">ab − b</span> sits above its column's key, so it can be
+  built; in particular everything past <span class="m">ab</span> can, which is Part 1 again, with
+  room to spare.
+</p>
+
+<div class="aha">
+  <strong>Why a and b must share no factor:</strong> set the sliders to something like
+  <span class="m">a = 6, b = 9</span> (both divisible by <span class="m">3</span>). Now the
+  multiples of <span class="m">b</span> keep landing in the same few columns and never reach the
+  rest — those columns stay orange forever, so there is no last gap at all.
+</div>
+
+<footer>
+  <p>
+    This is the two-number <strong>Frobenius problem</strong>, first proved by J. J. Sylvester in
+    1882. Two bonus facts the columns make believable: the largest number you can't build is
+    exactly <span class="m">ab − a − b</span>, and exactly <span class="m">(a−1)(b−1)/2</span>
+    numbers can't be built in total — precisely half of <span class="m">1, …, (a−1)(b−1)</span>.
+  </p>
+</footer>
+
+</div><!-- /sheet -->
+
+<script>
+(function(){
+  "use strict";
+
+  var state = { a: 4, b: 7, c: 29 };
+
+  function gcd(x, y){ while(y){ var t = x % y; x = y; y = t; } return x; }
+
+  /* rep table: rep[v] = {x,y} witness or null */
+  function repTable(N, a, b){
+    var t = new Array(N + 1).fill(null);
+    t[0] = { x: 0, y: 0 };
+    for (var v = 1; v <= N; v++){
+      if (v >= a && t[v - a]) t[v] = { x: t[v - a].x + 1, y: t[v - a].y };
+      else if (v >= b && t[v - b]) t[v] = { x: t[v - b].x, y: t[v - b].y + 1 };
+    }
+    return t;
+  }
+
+  function esc(s){ return String(s); }
+
+  /* ---------------- chips + warning ---------------- */
+  function renderChips(){
+    var a = state.a, b = state.b, g = gcd(a, b);
+    document.getElementById('val-a').textContent = a;
+    document.getElementById('val-b').textContent = b;
+    var gEl = document.getElementById('chip-gcd');
+    gEl.textContent = g;
+    gEl.parentElement.classList.toggle('bad', g !== 1);
+    document.getElementById('chip-frob').textContent  = (g === 1) ? (a*b - a - b) : '—';
+    document.getElementById('chip-count').textContent = (g === 1) ? ((a-1)*(b-1)/2) : '∞';
+    document.getElementById('coprime-warn').classList.toggle('show', g !== 1);
+  }
+
+  /* ---------------- 1) hero number line ---------------- */
+  function renderNumberLine(){
+    var a = state.a, b = state.b, g = gcd(a, b);
+    var N = a * b + Math.max(a, b);
+    var rep = repTable(N, a, b);
+    var frob = (g === 1) ? a*b - a - b : -1;
+
+    var perRow = 20;
+    var rows = Math.ceil((N + 1) / perRow);
+    var W = 960, padL = 64, padR = 18, padT = 26, padB = 14;
+    var cw = (W - padL - padR) / perRow;
+    var rh = 40;
+    var H = padT + rows * rh + padB;
+    var r = Math.min(9, cw * 0.32);
+
+    var s = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Number line showing which totals can and cannot be built">';
+    for (var v = 0; v <= N; v++){
+      var row = Math.floor(v / perRow), col = v % perRow;
+      var cx = padL + col * cw + cw / 2;
+      var cy = padT + row * rh + rh / 2;
+      if (col === 0){
+        s += '<text x="' + (padL - 12) + '" y="' + (cy + 4) + '" text-anchor="end" font-size="11" fill="var(--muted)">' + v + '</text>';
+      }
+      var ok = !!rep[v];
+      var fill = ok ? 'var(--rep)' : 'var(--gap)';
+      var extra = '';
+      if (v === frob){
+        fill = 'var(--frob)';
+        extra = '<circle cx="' + cx + '" cy="' + cy + '" r="' + (r + 4.5) + '" fill="none" stroke="var(--frob)" stroke-width="2"/>' +
+                '<text x="' + cx + '" y="' + (cy - r - 9) + '" text-anchor="middle" font-size="10.5" fill="var(--frob)">ab−a−b</text>';
+      }
+      s += extra;
+      s += '<circle class="dot" data-v="' + v + '" cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="' + fill + '">' +
+           '<title>' + v + (ok ? (' = ' + rep[v].x + '·' + a + ' + ' + rep[v].y + '·' + b) : ': can\u2019t be built') + '</title></circle>';
+    }
+    document.getElementById('numberline').innerHTML = s + '</svg>';
+  }
+
+  function nlReadout(v){
+    var a = state.a, b = state.b;
+    var rep = repTable(v, a, b);
+    var el = document.getElementById('nl-readout');
+    if (rep[v]) el.textContent = v + ' = ' + rep[v].x + '·' + a + ' + ' + rep[v].y + '·' + b + '   (x = ' + rep[v].x + ', y = ' + rep[v].y + ')';
+    else el.textContent = v + ' — no counts x, y ≥ 0 build ' + v + ' = x·' + a + ' + y·' + b + '. A gap.';
+  }
+
+  /* ---------------- 2) solution line ---------------- */
+  function renderSolutionLine(){
+    var a = state.a, b = state.b, c = state.c;
+
+    /* canonical solution with 0 <= x0 <= b-1, if one exists (gcd may not divide c) */
+    var x0 = -1;
+    for (var xx = 0; xx < b; xx++){
+      if ((c - xx * a) % b === 0){ x0 = xx; break; }
+    }
+    var W = 960, H = 430, pad = 46;
+    var xmin = -(b + 1), xmax = 2 * b + 2;
+    var ymax = Math.max(a + 2, Math.ceil(c / b) + 2);
+    var ymin = -(a + 2);
+    function SX(x){ return pad + (x - xmin) / (xmax - xmin) * (W - 2 * pad); }
+    function SY(y){ return H - pad - (y - ymin) / (ymax - ymin) * (H - 2 * pad); }
+
+    var s = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Integer solutions on the line x a plus y b equals c">';
+
+    /* nonnegative quadrant */
+    s += '<rect x="' + SX(0) + '" y="' + SY(ymax) + '" width="' + (SX(xmax) - SX(0)) + '" height="' + (SY(0) - SY(ymax)) + '" fill="var(--rep-soft)" opacity="0.55"/>';
+    /* window band 0 <= x <= b-1 */
+    s += '<rect x="' + SX(-0.35) + '" y="' + SY(ymax) + '" width="' + (SX(b - 1 + 0.35) - SX(-0.35)) + '" height="' + (SY(ymin) - SY(ymax)) + '" fill="none" stroke="var(--mark)" stroke-dasharray="6 5" stroke-width="1.4"/>';
+    s += '<text x="' + SX((b - 1) / 2) + '" y="' + (SY(ymax) + 16) + '" text-anchor="middle" font-size="11.5" fill="var(--mark)">strip: x from 0 to b−1</text>';
+
+    /* gridlines + axes */
+    var stepX = Math.max(1, Math.round((xmax - xmin) / 14));
+    var stepY = Math.max(1, Math.round((ymax - ymin) / 10));
+    for (var gx = Math.ceil(xmin); gx <= xmax; gx += stepX){
+      s += '<line x1="' + SX(gx) + '" y1="' + SY(ymin) + '" x2="' + SX(gx) + '" y2="' + SY(ymax) + '" stroke="var(--grid)" stroke-width="1"/>';
+      s += '<text x="' + SX(gx) + '" y="' + (SY(ymin) + 16) + '" text-anchor="middle" font-size="10.5" fill="var(--muted)">' + gx + '</text>';
+    }
+    for (var gy = Math.ceil(ymin); gy <= ymax; gy += stepY){
+      s += '<line x1="' + SX(xmin) + '" y1="' + SY(gy) + '" x2="' + SX(xmax) + '" y2="' + SY(gy) + '" stroke="var(--grid)" stroke-width="1"/>';
+      s += '<text x="' + (SX(xmin) - 8) + '" y="' + (SY(gy) + 4) + '" text-anchor="end" font-size="10.5" fill="var(--muted)">' + gy + '</text>';
+    }
+    s += '<line x1="' + SX(xmin) + '" y1="' + SY(0) + '" x2="' + SX(xmax) + '" y2="' + SY(0) + '" stroke="var(--muted)" stroke-width="1.4"/>';
+    s += '<line x1="' + SX(0) + '" y1="' + SY(ymin) + '" x2="' + SX(0) + '" y2="' + SY(ymax) + '" stroke="var(--muted)" stroke-width="1.4"/>';
+    s += '<text x="' + (SX(xmax) - 4) + '" y="' + (SY(0) - 8) + '" text-anchor="end" font-size="11.5" fill="var(--muted)" font-style="italic">x</text>';
+    s += '<text x="' + (SX(0) + 8) + '" y="' + (SY(ymax) + 14) + '" font-size="11.5" fill="var(--muted)" font-style="italic">y</text>';
+    /* descriptive axis titles */
+    var xMid = (SX(xmin) + SX(xmax)) / 2, yMid = (SY(ymin) + SY(ymax)) / 2;
+    s += '<text x="' + xMid + '" y="' + (SY(ymin) + 34) + '" text-anchor="middle" font-size="12.5" fill="var(--ink)">x  —  number of a\u2019s used  (horizontal)</text>';
+    s += '<text x="16" y="' + yMid + '" text-anchor="middle" font-size="12.5" fill="var(--ink)" transform="rotate(-90 16 ' + yMid + ')">y  —  number of b\u2019s used  (vertical)</text>';
+
+    var msg;
+    if (x0 < 0){
+      msg = 'c = ' + c + ' can\u2019t be reached at all here: ' + a + ' and ' + b + ' share the factor ' + gcd(a,b) + ', which doesn\u2019t divide ' + c + ', so no whole numbers x, y even make x·' + a + ' + y·' + b + ' = ' + c + '.';
+    } else {
+      var y0 = (c - x0 * a) / b;
+      /* the continuous line */
+      var yAtXmin = (c - xmin * a) / b, yAtXmax = (c - xmax * a) / b;
+      s += '<line x1="' + SX(xmin) + '" y1="' + SY(yAtXmin) + '" x2="' + SX(xmax) + '" y2="' + SY(yAtXmax) + '" stroke="var(--ink)" stroke-width="1.6" opacity="0.75"/>';
+      s += '<text x="' + (SX(xmax) - 6) + '" y="' + (SY(yAtXmax) - 8) + '" text-anchor="end" font-size="11.5" fill="var(--ink)" font-style="italic">xa + yb = c</text>';
+
+      /* integer solutions */
+      var sols = [], nn = [];
+      for (var t = -4; t <= 4; t++){
+        var X = x0 + t * b, Y = y0 - t * a;
+        if (X < xmin - 1 || X > xmax + 1) continue;
+        sols.push([X, Y]);
+        if (X >= 0 && Y >= 0) nn.push([X, Y]);
+      }
+      /* hop arrow between the canonical dot and the next */
+      var Xn = x0 + b, Yn = y0 - a;
+      if (Xn <= xmax){
+        s += '<defs><marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--gap)"/></marker></defs>';
+        s += '<line x1="' + SX(x0) + '" y1="' + SY(y0) + '" x2="' + SX(Xn) + '" y2="' + SY(Yn) + '" stroke="var(--gap)" stroke-width="2" marker-end="url(#arr)"/>';
+        s += '<text x="' + ((SX(x0) + SX(Xn)) / 2 + 8) + '" y="' + ((SY(y0) + SY(Yn)) / 2 - 6) + '" font-size="11.5" fill="var(--gap)">(+b, −a)</text>';
+      }
+      for (var i = 0; i < sols.length; i++){
+        var P = sols[i];
+        var inQ = (P[0] >= 0 && P[1] >= 0);
+        s += '<circle cx="' + SX(P[0]) + '" cy="' + SY(P[1]) + '" r="7" fill="' + (inQ ? 'var(--rep)' : '#98A7C0') + '" stroke="#fff" stroke-width="1.5"><title>(x, y) = (' + P[0] + ', ' + P[1] + ')</title></circle>';
+      }
+      /* highlight the canonical windowed dot */
+      s += '<circle cx="' + SX(x0) + '" cy="' + SY(y0) + '" r="11" fill="none" stroke="var(--mark)" stroke-width="2"/>';
+
+      if (nn.length){
+        var parts = nn.map(function(P){ return c + ' = ' + P[0] + '·' + a + ' + ' + P[1] + '·' + b; });
+        msg = '✓ you can build it — ' + parts.join('   |   ');
+        if (c > a * b) msg += '   (c > ab = ' + (a*b) + ', as Part 1 promises)';
+      } else {
+        msg = '✗ c = ' + c + ' can\u2019t be built — the circled dot sits below the shaded region (its y is negative).';
+        if (gcd(a,b) === 1 && c === a*b - a - b) msg += '   This is ab − a − b, the biggest number you can\u2019t build.';
+      }
+    }
+    document.getElementById('solutionline').innerHTML = s + '</svg>';
+    document.getElementById('sl-readout').textContent = msg;
+  }
+
+  /* ---------------- 3) staircase mod a ---------------- */
+  function renderStaircase(){
+    var a = state.a, b = state.b, g = gcd(a, b);
+    var rows = b + 1;                    /* values 0 .. a*(b+1)-1 */
+    var N = a * rows - 1;
+    var rep = repTable(N, a, b);
+    var frob = (g === 1) ? a*b - a - b : -1;
+
+    var W = 960, padL = 56, padR = 16, padT = 20, padB = 40;
+    var cw = Math.min(64, (W - padL - padR) / a);
+    var ch = Math.min(30, 380 / rows);
+    var H = padT + rows * ch + padB;
+    var gridW = cw * a;
+
+    var s = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Residue classes mod a, showing where multiples of b unlock each column">';
+
+    for (var v = 0; v <= N; v++){
+      var col = v % a;
+      var rowFromBottom = Math.floor(v / a);
+      var x = padL + col * cw + 2;
+      var y = padT + (rows - 1 - rowFromBottom) * ch + 2;
+      var w = cw - 4, h = ch - 4;
+      var ok = !!rep[v];
+      var isMult = (v % b === 0) && (v / b) < a;   /* keys: 0, b, ..., (a-1)b */
+      var fill, stroke, txtFill;
+      if (isMult){ fill = 'var(--mark)'; stroke = 'var(--mark)'; txtFill = '#fff'; }
+      else if (ok){ fill = 'var(--rep-soft)'; stroke = '#BFD8F0'; txtFill = 'var(--mark)'; }
+      else { fill = 'var(--gap-soft)'; stroke = '#F0C6AE'; txtFill = 'var(--gap)'; }
+      s += '<rect class="dot" data-v="' + v + '" x="' + x + '" y="' + y + '" width="' + w + '" height="' + h + '" rx="4" fill="' + fill + '" stroke="' + stroke + '" stroke-width="1">' +
+           '<title>' + v + (ok ? (' = ' + rep[v].x + '·' + a + ' + ' + rep[v].y + '·' + b) : ': gap') + '</title></rect>';
+      if (v === frob){
+        s += '<rect x="' + (x - 2) + '" y="' + (y - 2) + '" width="' + (w + 4) + '" height="' + (h + 4) + '" rx="6" fill="none" stroke="var(--frob)" stroke-width="2.5" pointer-events="none"/>';
+      }
+      if (cw >= 34 && ch >= 17){
+        s += '<text x="' + (x + w / 2) + '" y="' + (y + h / 2 + 3.5) + '" text-anchor="middle" font-size="' + Math.min(11, h * 0.55) + '" fill="' + txtFill + '" pointer-events="none">' + v + '</text>';
+      }
+    }
+    /* column labels + up-arrow legend */
+    for (var cix = 0; cix < a; cix++){
+      s += '<text x="' + (padL + cix * cw + cw / 2) + '" y="' + (padT + rows * ch + 18) + '" text-anchor="middle" font-size="11" fill="var(--muted)">≡' + cix + '</text>';
+    }
+    s += '<text x="' + (padL + gridW / 2) + '" y="' + (padT + rows * ch + 34) + '" text-anchor="middle" font-size="11" fill="var(--muted)">each column shares a remainder when divided by a — up one cell adds a</text>';
+    s += '<text x="' + (padL - 14) + '" y="' + (padT + rows * ch / 2) + '" text-anchor="middle" font-size="11" fill="var(--muted)" transform="rotate(-90 ' + (padL - 14) + ' ' + (padT + rows * ch / 2) + ')">value → increases upward</text>';
+
+    document.getElementById('staircase').innerHTML = s + '</svg>';
+    var ro = document.getElementById('st-readout');
+    if (g === 1){
+      ro.textContent = 'Biggest key: (a−1)·b = ' + ((a - 1) * b) + '. One a below it: ' + ((a - 1) * b - a) + ' = ab − a − b, the biggest number you can\u2019t build.';
+    } else {
+      ro.textContent = 'shared factor ' + g + ': the keys 0, b, 2b, … only ever land in columns whose remainder is a multiple of ' + g + '. The other columns never unlock.';
+    }
+  }
+
+  /* ---------------- wiring ---------------- */
+  function renderAll(){
+    renderChips();
+    renderNumberLine();
+    renderSolutionLine();
+    renderStaircase();
+  }
+
+  var sa = document.getElementById('slider-a');
+  var sb = document.getElementById('slider-b');
+  var sc = document.getElementById('slider-c');
+
+  function onAB(){
+    state.a = +sa.value;
+    state.b = +sb.value;
+    var cmax = state.a * state.b + state.a + state.b;
+    sc.max = cmax;
+    state.c = state.a * state.b + 1;        /* park c just past ab */
+    sc.value = state.c;
+    document.getElementById('val-c').textContent = state.c;
+    renderAll();
+  }
+  sa.addEventListener('input', onAB);
+  sb.addEventListener('input', onAB);
+  sc.addEventListener('input', function(){
+    state.c = +sc.value;
+    document.getElementById('val-c').textContent = state.c;
+    renderSolutionLine();
+  });
+
+  /* hover / tap readouts via delegation */
+  function hookReadout(containerId, handler){
+    var el = document.getElementById(containerId);
+    ['mouseover', 'click'].forEach(function(evt){
+      el.addEventListener(evt, function(e){
+        var t = e.target;
+        if (t && t.classList && t.classList.contains('dot')) handler(+t.getAttribute('data-v'));
+      });
+    });
+  }
+  hookReadout('numberline', nlReadout);
+  hookReadout('staircase', function(v){
+    var rep = repTable(v, state.a, state.b);
+    var el = document.getElementById('st-readout');
+    if (rep[v]) el.textContent = v + ' = ' + rep[v].x + '·' + state.a + ' + ' + rep[v].y + '·' + state.b + '  — and ' + (v + state.a) + ', ' + (v + 2 * state.a) + ', … above it follow by adding a.';
+    else el.textContent = v + ' is a gap: its column\u2019s key (the multiple of b in this column) sits higher up, so no amount of a\u2019s reaches ' + v + '.';
+  });
+
+  renderAll();
+})();
+</script>
+</body>
+</html>
