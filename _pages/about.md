@@ -7,9 +7,8 @@ redirect_from:
   - /about.html
 ---
 
-<a id="bio"></a>
-
 I am a Principal Research Scientist in the [Microsoft AI for Good Research Lab](https://www.microsoft.com/en-us/research/group/ai-for-good-research-lab/) where I co-lead the [Geospatial ML research group](https://www.microsoft.com/en-us/research/project/geospatial-machine-learning/) and focus on tackling large scale applied problems at the intersection of remote sensing and machine learning/computer vision. Generally, I'm interested in research topics that facilitate using remotely sensed data more effectively in conservation, sustainability, and damage response application. For example: self-supervised methods for training deep learning models with large amounts of unlabeled satellite imagery, human-in-the-loop methods for creating and validating modeled layers, and domain adaptation methods for developing models that can generalize over space and time. Similarly, I am also interested in creating open-source tools that facilitate using remotely sensed data in machine learning pipelines -- I am a creator/maintainer of the [torchgeo](https://github.com/microsoft/torchgeo) library and ["satellite imagery labeling tool"](https://github.com/microsoft/satellite-imagery-labeling-tool).
+{: #bio}
 
 I graduated from the Georgia Institute of Technology with a PhD in 2020 under the supervision of [Bistra Dilkina](https://viterbi.usc.edu/directory/faculty/Dilkina/Bistra) with a dissertation titled, ["Large scale machine learning for geospatial problems in computational sustainability"](https://repository.gatech.edu/entities/publication/af1a7913-e832-475e-a25b-d030dcb42bc5/full).
 
