@@ -24,11 +24,12 @@ author:
   avatar           : "face.jpg"
   name             : "Caleb Robinson"
   pronouns         : # example: "she/her"  
-  bio              : "Principal Research Scientist Manager at <a style='color: black;' href='https://www.microsoft.com/en-us/research/group/ai-for-good-research-lab/'>Microsoft's AI for Good Lab</a> - <a style='color: black;' href='https://www.microsoft.com/en-us/research/project/geospatial-machine-learning/'>Geospatial ML center</a>"
+  bio              : "Principal Research Scientist at <a style='color: black;' href='https://www.microsoft.com/en-us/research/group/ai-for-good-research-lab/'>Microsoft's AI for Good Lab</a> - <a style='color: black;' href='https://www.microsoft.com/en-us/research/project/geospatial-machine-learning/'>Geospatial ML center</a>"
   location         : "Seattle, Washington"
   employer         : 
   uri              : # URL
-  email            : "calebrob6@gmail.com" 
+  blog             : "https://geospatialml.com/"
+  email            : "calebrob6@gmail.com"
 
   # Academic websites
   arxiv            : # URL - Update with the correct link to your profile
@@ -56,7 +57,7 @@ author:
   keybase          : # Username
   instagram        : # Username
   lastfm           : # Username
-  linkedin         : # Username
+  linkedin         : "calebrob6"
   mastodon         : # URL
   medium           : # URL
   pinterest        : # Username
