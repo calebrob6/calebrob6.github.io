@@ -83,6 +83,13 @@ Interactive demos of some of our recent work — click through to try them:
 Our group builds tools that help responders map building damage from satellite and aerial imagery in the hours after a disaster. Explore the [damage assessment visualizer](https://visualizers.aiforgood.ai/damage-assessment/index.html), or see the open-source tooling behind it: [microsoft/building-damage-assessment](https://github.com/microsoft/building-damage-assessment) and [microsoft/haste](https://github.com/microsoft/haste).
 
 
+## Talks
+
+- **Keynote** at the [EarthVision Workshop at CVPR 2026](https://www.grss-ieee.org/events/earthvision-2026/) — *From Local to Global Maps from Satellite Imagery: ML Techniques and Applications* (June 2026, Denver, CO)
+- **Invited talk** at the NOAA Northeast Fisheries Science Center AI 101 Symposium (May 2026)
+- **Keynote** at the [CV4EO Workshop at WACV 2026](https://geoai.ornl.gov/cv4eo-wacv/) — *Applied GeoML: From Local to Global* (March 2026, Tucson, AZ)
+
+
 ## News
 
 **September 24th, 2024** -- New preprint describing the largest-to-date ML dataset of field boundary labels and satellite imagery! *Fields of The World: A Machine Learning Benchmark Dataset For Global Agricultural Field Boundary Segmentation* (Accepted to AAAI 2025 AI for Social Impact track) <br/> [Webpage](https://fieldsofthe.world/) / [ArXiv](https://arxiv.org/abs/2409.16252) / [AAAI Proceedings](https://ojs.aaai.org/index.php/AAAI/article/view/35034) / [Code](https://github.com/fieldsoftheworld/ftw-baselines)
