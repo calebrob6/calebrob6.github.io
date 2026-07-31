@@ -8,7 +8,7 @@ paperurl: 'https://arxiv.org/abs/2511.12104'
 citation: 'Tammy Glazer, Gilles Quentin Hacheme, Akram Zaytar, Luana Marotti, Amy Michaels, Girmaw Abebe Tadesse, Kevin White, Rahul Dodhia, Andrew Zolli, Inbal Becker-Reshef, Juan M Lavista Ferres, Caleb Robinson. &quot;TEMPO: Global Temporal Building Density and Height Estimation from Satellite Imagery.&quot; arXiv preprint arXiv:2511.12104, 2025.'
 excerpt: ''
 ---
-[Paper](https://arxiv.org/abs/2511.12104){:target="_blank"}
+[Paper](https://arxiv.org/abs/2511.12104){:target="_blank"} / [Code & Data](https://github.com/microsoft/buildings){:target="_blank"} / [Visualizer](https://visualizers.aiforgood.ai/buildings/index.html){:target="_blank"}
 
 
 Cite as: 

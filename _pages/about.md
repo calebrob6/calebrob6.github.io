@@ -11,6 +11,84 @@ I am a Principal Research Scientist in the [Microsoft AI for Good Research Lab](
 
 I graduated from the Georgia Institute of Technology with a PhD in 2020 under the supervision of [Bistra Dilkina](https://viterbi.usc.edu/directory/faculty/Dilkina/Bistra) with a dissertation titled, ["Large scale machine learning for geospatial problems in computational sustainability"](https://repository.gatech.edu/entities/publication/af1a7913-e832-475e-a25b-d030dcb42bc5/full).
 
+I am also an adjunct faculty member at Arizona State University, where I taught CSE 475: Foundations of Machine Learning with [Hannah Kerner](https://hannah-rae.github.io/).
+
+
+## Demos
+{: #demos}
+
+Interactive demos of some of our recent work — click through to try them:
+
+<div class="demo-grid">
+  <a class="demo-card" href="https://calebrob.com/throughput-bench/">
+    <img src="/assets/images/demos/throughput-bench.jpg" alt="Throughput Bench" />
+    <div class="demo-card__body">
+      <p class="demo-card__title">Throughput Bench</p>
+      <p class="demo-card__desc">How fast can a deep learning model map the planet? Benchmark results for geospatial models across GPUs, precisions, and batch sizes.</p>
+    </div>
+  </a>
+  <a class="demo-card" href="https://calebrob.com/deltabit/">
+    <img src="/assets/images/demos/deltabit.jpg" alt="DeltaBit" />
+    <div class="demo-card__body">
+      <p class="demo-card__title">DeltaBit</p>
+      <p class="demo-card__desc">Label, train, and predict per-pixel change detection in the browser over compressed AlphaEarth embedding-difference tiles.</p>
+    </div>
+  </a>
+  <a class="demo-card" href="/static/s2-paint/">
+    <img src="/assets/images/demos/s2-paint.jpg" alt="Sentinel-2 Paint" />
+    <div class="demo-card__body">
+      <p class="demo-card__title">Sentinel-2 Paint</p>
+      <p class="demo-card__desc">Recreates any photo as a mosaic of real Sentinel-2 satellite imagery patches.</p>
+    </div>
+  </a>
+</div>
+
+
+## Software
+
+<div class="demo-grid">
+  <a class="demo-card" href="https://github.com/microsoft/torchgeo">
+    <img src="/assets/images/demos/software-torchgeo.png" alt="TorchGeo logo" />
+    <div class="demo-card__body">
+      <p class="demo-card__title">TorchGeo</p>
+      <p class="demo-card__desc">PyTorch datasets, samplers, transforms, and pre-trained models for geospatial data. I am a co-creator and maintainer.</p>
+    </div>
+  </a>
+  <a class="demo-card" href="https://github.com/torchgeo/torchgeo-bench">
+    <img src="/assets/images/demos/software-torchgeo-bench.png" alt="TorchGeo logo sitting on a wooden bench" />
+    <div class="demo-card__body">
+      <p class="demo-card__title">torchgeo-bench</p>
+      <p class="demo-card__desc">Lightweight benchmarking of frozen geospatial foundation models on the GeoBench suites, with KNN and linear-probe metrics.</p>
+    </div>
+  </a>
+  <a class="demo-card" href="https://github.com/microsoft/satellite-imagery-labeling-tool">
+    <img src="/assets/images/demos/software-labeling-tool.jpg" alt="Satellite Imagery Labeling Tool screenshot" />
+    <div class="demo-card__body">
+      <p class="demo-card__title">Satellite Imagery Labeling Tool</p>
+      <p class="demo-card__desc">Lightweight web interface for creating and sharing vector annotations over satellite and aerial imagery scenes.</p>
+    </div>
+  </a>
+  <a class="demo-card" href="https://github.com/calebrob6/vsrecent">
+    <img src="/assets/images/demos/software-vsrecent.jpg" alt="VS Recent launcher screenshot" />
+    <div class="demo-card__body">
+      <p class="demo-card__title">vsrecent</p>
+      <p class="demo-card__desc">Tiny Windows launcher for VS Code's "Open Recent" projects.</p>
+    </div>
+  </a>
+</div>
+
+
+## Disaster response
+
+Our group builds tools that help responders map building damage from satellite and aerial imagery in the hours after a disaster. Explore the [damage assessment visualizer](https://visualizers.aiforgood.ai/damage-assessment/index.html), or see the open-source tooling behind it: [microsoft/building-damage-assessment](https://github.com/microsoft/building-damage-assessment) and [microsoft/haste](https://github.com/microsoft/haste).
+
+
+## Talks
+
+- **Keynote** at the [EarthVision Workshop at CVPR 2026](https://www.grss-ieee.org/events/earthvision-2026/) — *From Local to Global Maps from Satellite Imagery: ML Techniques and Applications* (June 2026, Denver, CO)
+- **Invited talk** at the NOAA Northeast Fisheries Science Center AI 101 Symposium (May 2026)
+- **Keynote** at the [CV4EO Workshop at WACV 2026](https://geoai.ornl.gov/cv4eo-wacv/) — *Applied GeoML: From Local to Global* (March 2026, Tucson, AZ)
+
 
 ## News
 

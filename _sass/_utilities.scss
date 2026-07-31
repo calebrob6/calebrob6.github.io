@@ -386,7 +386,8 @@ body:hover .visually-hidden button {
     @include clearfix();
     position: -webkit-sticky;
     position: sticky;
-    top: 2em;
+    /* clear the fixed masthead so the author avatar isn't clipped */
+    top: calc(#{$masthead-height} + 1em);
 
     > * {
       display: block;
