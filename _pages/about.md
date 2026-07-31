@@ -65,6 +65,7 @@ Interactive demos of some of our recent work — click through to try them:
     <div class="demo-card__body">
       <p class="demo-card__title">Throughput Bench</p>
       <p class="demo-card__desc">How fast can a deep learning model map the planet? Benchmark results for geospatial models across GPUs, precisions, and batch sizes.</p>
+      <p class="demo-card__stats"><i class="fas fa-star" aria-hidden="true"></i> 14 &nbsp; <i class="fas fa-users" aria-hidden="true"></i> 1 contributor</p>
     </div>
   </a>
   <a class="demo-card" href="https://calebrob.com/deltabit/">
@@ -72,6 +73,7 @@ Interactive demos of some of our recent work — click through to try them:
     <div class="demo-card__body">
       <p class="demo-card__title">DeltaBit</p>
       <p class="demo-card__desc">Label, train, and predict per-pixel change detection in the browser over compressed AlphaEarth embedding-difference tiles.</p>
+      <p class="demo-card__stats"><i class="fas fa-star" aria-hidden="true"></i> 2 &nbsp; <i class="fas fa-users" aria-hidden="true"></i> 2 contributors</p>
     </div>
   </a>
   <a class="demo-card" href="https://calebrob.com/sentinel2-paint/">
@@ -79,6 +81,7 @@ Interactive demos of some of our recent work — click through to try them:
     <div class="demo-card__body">
       <p class="demo-card__title">Sentinel-2 Paint</p>
       <p class="demo-card__desc">Recreates any photo as a mosaic of real Sentinel-2 satellite imagery patches.</p>
+      <p class="demo-card__stats"><i class="fas fa-star" aria-hidden="true"></i> 6 &nbsp; <i class="fas fa-users" aria-hidden="true"></i> 1 contributor</p>
     </div>
   </a>
 </div>
@@ -92,6 +95,7 @@ Interactive demos of some of our recent work — click through to try them:
     <div class="demo-card__body">
       <p class="demo-card__title">TorchGeo</p>
       <p class="demo-card__desc">PyTorch datasets, samplers, transforms, and pre-trained models for geospatial data. I am a co-creator and maintainer.</p>
+      <p class="demo-card__stats"><i class="fas fa-star" aria-hidden="true"></i> 4.1k &nbsp; <i class="fas fa-users" aria-hidden="true"></i> 128 contributors</p>
     </div>
   </a>
   <a class="demo-card" href="https://github.com/torchgeo/torchgeo-bench">
@@ -99,6 +103,7 @@ Interactive demos of some of our recent work — click through to try them:
     <div class="demo-card__body">
       <p class="demo-card__title">torchgeo-bench</p>
       <p class="demo-card__desc">Lightweight benchmarking of frozen geospatial foundation models on the GeoBench suites, with KNN and linear-probe metrics.</p>
+      <p class="demo-card__stats"><i class="fas fa-star" aria-hidden="true"></i> 24 &nbsp; <i class="fas fa-users" aria-hidden="true"></i> 5 contributors</p>
     </div>
   </a>
   <a class="demo-card" href="https://github.com/microsoft/satellite-imagery-labeling-tool">
@@ -106,6 +111,7 @@ Interactive demos of some of our recent work — click through to try them:
     <div class="demo-card__body">
       <p class="demo-card__title">Satellite Imagery Labeling Tool</p>
       <p class="demo-card__desc">Lightweight web interface for creating and sharing vector annotations over satellite and aerial imagery scenes.</p>
+      <p class="demo-card__stats"><i class="fas fa-star" aria-hidden="true"></i> 294 &nbsp; <i class="fas fa-users" aria-hidden="true"></i> 7 contributors</p>
     </div>
   </a>
   <a class="demo-card" href="https://github.com/calebrob6/vsrecent">
@@ -113,6 +119,7 @@ Interactive demos of some of our recent work — click through to try them:
     <div class="demo-card__body">
       <p class="demo-card__title">vsrecent</p>
       <p class="demo-card__desc">Tiny Windows launcher for VS Code's "Open Recent" projects.</p>
+      <p class="demo-card__stats"><i class="fas fa-star" aria-hidden="true"></i> 0 &nbsp; <i class="fas fa-users" aria-hidden="true"></i> 1 contributor</p>
     </div>
   </a>
 </div>

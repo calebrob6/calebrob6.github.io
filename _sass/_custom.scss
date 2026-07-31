@@ -148,6 +148,28 @@
   margin: 0;
 }
 
+.demo-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.demo-card__body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.demo-card__stats {
+  margin: auto 0 0;
+  padding-top: 0.6em;
+  font-size: 0.72em;
+  color: mix(#fff, $text-color, 30%);
+
+  .fas {
+    font-size: 0.9em;
+  }
+}
+
 .demo-card__links {
   margin: 0.5em 0 0;
   font-size: 0.78em;
