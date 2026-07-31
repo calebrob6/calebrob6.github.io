@@ -5,7 +5,7 @@ permalink: /publication/2026-01-01-Survey-Protocol-Cards-for-Crop-Maps
 date: 2026-01-01
 venue: 'IEEE Geoscience and Remote Sensing Letters'
 paperurl: 'https://doi.org/10.1109/LGRS.2026.3708987'
-citation: 'Akram Zaytar, Girmaw A. Tadesse, Caleb Robinson, Shabarinath S. Nair, Gerald Blasch, Jeroen Degerickx, Mitelo Subakanya, Juan Carlos Laso Bayas, Gilles Q. Hacheme, Inbal Becker-Reshef, Rahul Dodhia, Juan Lavista Ferres. &quot;Survey Protocol Cards for Crop Maps.&quot; IEEE Geoscience and Remote Sensing Letters, 2026.'
+citation: 'Akram Zaytar, Girmaw Abebe Tadesse, Caleb Robinson, Shabarinath S. Nair, Gerald Blasch, Jeroen Degerickx, Mitelo Subakanya, Juan Carlos Laso Bayas, Gilles Quentin Hacheme, Inbal Becker-Reshef, Rahul Dodhia, Juan M Lavista Ferres. &quot;Survey Protocol Cards for Crop Maps.&quot; IEEE Geoscience and Remote Sensing Letters, 2026.'
 excerpt: ''
 ---
 [Paper](https://doi.org/10.1109/LGRS.2026.3708987){:target="_blank"}
@@ -14,7 +14,7 @@ excerpt: ''
 Cite as: 
 ```bibtex
 @article{zaytar2026survey,
-    author = "Zaytar, Akram and Tadesse, Girmaw A. and Robinson, Caleb and Nair, Shabarinath S. and Blasch, Gerald and Degerickx, Jeroen and Subakanya, Mitelo and Laso Bayas, Juan Carlos and Hacheme, Gilles Q. and Becker-Reshef, Inbal and Dodhia, Rahul and Lavista Ferres, Juan",
+    author = "Zaytar, Akram and Tadesse, Girmaw Abebe and Robinson, Caleb and Nair, Shabarinath S. and Blasch, Gerald and Degerickx, Jeroen and Subakanya, Mitelo and Laso Bayas, Juan Carlos and Hacheme, Gilles Quentin and Becker-Reshef, Inbal and Dodhia, Rahul and Ferres, Juan M Lavista",
     title = "Survey Protocol Cards for Crop Maps",
     journal = "IEEE Geoscience and Remote Sensing Letters",
     volume = "23",
