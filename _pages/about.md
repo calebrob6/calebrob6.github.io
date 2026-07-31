@@ -82,14 +82,6 @@ Interactive demos of some of our recent work — click through to try them:
 
 <div class="demo-grid">
   <div class="demo-card">
-    <a href="https://visualizers.aiforgood.ai/damage-assessment/index.html"><img src="/assets/images/demos/project-damage-assessment.jpg" alt="Building damage assessment example" /></a>
-    <div class="demo-card__body">
-      <p class="demo-card__title">Building Damage Assessment</p>
-      <p class="demo-card__desc">Rapid post-disaster mapping of building damage from satellite and aerial imagery, used by responders in the hours after an event.</p>
-      <p class="demo-card__links"><a href="https://visualizers.aiforgood.ai/damage-assessment/index.html">Visualizer</a> / <a href="https://arxiv.org/abs/2607.11838">Paper</a> / <a href="https://github.com/microsoft/building-damage-assessment">GitHub</a></p>
-    </div>
-  </div>
-  <div class="demo-card">
     <a href="https://www.globalrenewableswatch.org/"><img src="/assets/images/demos/project-grw.jpg" alt="Global Renewables Watch map" /></a>
     <div class="demo-card__body">
       <p class="demo-card__title">Global Renewables Watch</p>
@@ -100,8 +92,8 @@ Interactive demos of some of our recent work — click through to try them:
   <div class="demo-card">
     <a href="https://visualizers.aiforgood.ai/buildings/index.html"><img src="/assets/images/demos/project-buildings.jpg" alt="Global building density map" /></a>
     <div class="demo-card__body">
-      <p class="demo-card__title">Building Density and Height</p>
-      <p class="demo-card__desc">TEMPO: global temporal building density and height estimation from satellite imagery.</p>
+      <p class="demo-card__title">TEMPO: Building Density and Height</p>
+      <p class="demo-card__desc">Global temporal building density and height estimation from satellite imagery.</p>
       <p class="demo-card__links"><a href="https://visualizers.aiforgood.ai/buildings/index.html">Visualizer</a> / <a href="https://arxiv.org/abs/2511.12104">Paper</a> / <a href="https://github.com/microsoft/buildings">GitHub</a></p>
     </div>
   </div>
@@ -110,15 +102,15 @@ Interactive demos of some of our recent work — click through to try them:
     <div class="demo-card__body">
       <p class="demo-card__title">Field Boundary Delineation</p>
       <p class="demo-card__desc">Fields of The World: benchmark datasets, models, and global 10m maps for agricultural field boundary segmentation.</p>
-      <p class="demo-card__links"><a href="https://fieldsofthe.world/">Visualizer</a> / <a href="https://arxiv.org/abs/2409.16252">Paper</a> / <a href="https://github.com/fieldsoftheworld/ftw-baselines">GitHub</a></p>
+      <p class="demo-card__links"><a href="https://fieldsofthe.world/ftw-inference-app/">App</a> / <a href="https://fieldsofthe.world/">Website</a> / <a href="https://github.com/fieldsoftheworld/ftw-baselines">GitHub</a> / Papers: <a href="https://arxiv.org/abs/2605.11055">1</a> <a href="https://arxiv.org/abs/2603.27101">2</a> <a href="https://arxiv.org/abs/2409.16252">3</a> <a href="https://arxiv.org/abs/2607.04449">4</a></p>
     </div>
   </div>
   <div class="demo-card">
-    <a href="https://github.com/microsoft/landcover"><img src="/assets/images/demos/project-landcover.jpg" alt="Land cover mapping web application" /></a>
+    <a href="https://visualizers.aiforgood.ai/damage-assessment/index.html"><img src="/assets/images/demos/project-damage-assessment.jpg" alt="Building damage assessment example" /></a>
     <div class="demo-card__body">
-      <p class="demo-card__title">Land Cover Mapping</p>
-      <p class="demo-card__desc">High-resolution land cover mapping with human-in-the-loop model fine-tuning.</p>
-      <p class="demo-card__links"><a href="https://openaccess.thecvf.com/content_CVPR_2019/html/Robinson_Large_Scale_High-Resolution_Land_Cover_Mapping_With_Multi-Resolution_Data_CVPR_2019_paper.html">Paper</a> / <a href="https://github.com/microsoft/landcover">GitHub</a></p>
+      <p class="demo-card__title">Building Damage Assessment</p>
+      <p class="demo-card__desc">Rapid post-disaster mapping of building damage from satellite and aerial imagery, used by responders in the hours after an event.</p>
+      <p class="demo-card__links"><a href="https://visualizers.aiforgood.ai/damage-assessment/index.html">Visualizer</a> / <a href="https://arxiv.org/abs/2607.11838">Paper</a> / <a href="https://github.com/microsoft/building-damage-assessment/">GitHub</a> / <a href="https://github.com/microsoft/haste/">HASTE</a></p>
     </div>
   </div>
 </div>
