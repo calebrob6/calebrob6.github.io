@@ -44,6 +44,9 @@ Interactive demos of some of our recent work — click through to try them:
 </div>
 
 
+I also enjoy making tiny tools in the spirit of Scott Hanselman's [Tiny Tool Town](https://www.tinytooltown.com/) — most recently [vsrecent](https://github.com/calebrob6/vsrecent), a tiny Windows launcher for VS Code's "Open Recent" projects.
+
+
 ## Disaster response
 
 Our group builds tools that help responders map building damage from satellite and aerial imagery in the hours after a disaster. Explore the [damage assessment visualizer](https://visualizers.aiforgood.ai/damage-assessment/index.html), or see the open-source tooling behind it: [microsoft/building-damage-assessment](https://github.com/microsoft/building-damage-assessment) and [microsoft/haste](https://github.com/microsoft/haste).
