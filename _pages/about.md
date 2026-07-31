@@ -34,7 +34,7 @@ Interactive demos of some of our recent work — click through to try them:
       <p class="demo-card__desc">Label, train, and predict per-pixel change detection in the browser over compressed AlphaEarth embedding-difference tiles.</p>
     </div>
   </a>
-  <a class="demo-card" href="/static/s2-paint/">
+  <a class="demo-card" href="https://calebrob.com/sentinel2-paint/">
     <img src="/assets/images/demos/s2-paint.jpg" alt="Sentinel-2 Paint" />
     <div class="demo-card__body">
       <p class="demo-card__title">Sentinel-2 Paint</p>
@@ -78,9 +78,40 @@ Interactive demos of some of our recent work — click through to try them:
 </div>
 
 
-## Disaster response
+## Projects
 
-Our group builds tools that help responders map building damage from satellite and aerial imagery in the hours after a disaster. Explore the [damage assessment visualizer](https://visualizers.aiforgood.ai/damage-assessment/index.html), or see the open-source tooling behind it: [microsoft/building-damage-assessment](https://github.com/microsoft/building-damage-assessment) and [microsoft/haste](https://github.com/microsoft/haste).
+<div class="demo-grid">
+  <a class="demo-card" href="https://visualizers.aiforgood.ai/damage-assessment/index.html">
+    <img src="/assets/images/demos/project-damage-assessment.jpg" alt="Building damage assessment example" />
+    <div class="demo-card__body">
+      <p class="demo-card__title">Building Damage Assessment</p>
+      <p class="demo-card__desc">Rapid post-disaster mapping of building damage from satellite and aerial imagery, used by responders in the hours after an event.</p>
+    </div>
+  </a>
+  <a class="demo-card" href="https://www.globalrenewableswatch.org/">
+    <img src="/assets/images/demos/project-grw.jpg" alt="Global Renewables Watch map" />
+    <div class="demo-card__body">
+      <p class="demo-card__title">Global Renewables Watch</p>
+      <p class="demo-card__desc">A temporal dataset of global solar and wind energy installations derived from satellite imagery, with Planet and The Nature Conservancy.</p>
+    </div>
+  </a>
+  <a class="demo-card" href="https://visualizers.aiforgood.ai/buildings/index.html">
+    <img src="/assets/images/demos/project-buildings.jpg" alt="Global building density map" />
+    <div class="demo-card__body">
+      <p class="demo-card__title">Building Density and Height</p>
+      <p class="demo-card__desc">TEMPO: global temporal building density and height estimation from satellite imagery.</p>
+    </div>
+  </a>
+  <a class="demo-card" href="https://github.com/microsoft/landcover">
+    <img src="/assets/images/demos/project-landcover.jpg" alt="Land cover mapping web application" />
+    <div class="demo-card__body">
+      <p class="demo-card__title">Land Cover Mapping</p>
+      <p class="demo-card__desc">High-resolution land cover mapping with human-in-the-loop model fine-tuning.</p>
+    </div>
+  </a>
+</div>
+
+The tooling behind these projects is open source: [microsoft/building-damage-assessment](https://github.com/microsoft/building-damage-assessment), [microsoft/haste](https://github.com/microsoft/haste), [microsoft/buildings](https://github.com/microsoft/buildings), and [microsoft/landcover](https://github.com/microsoft/landcover).
 
 
 ## Talks
