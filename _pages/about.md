@@ -44,7 +44,28 @@ Interactive demos of some of our recent work — click through to try them:
 </div>
 
 
-I also enjoy making tiny tools in the spirit of Scott Hanselman's [Tiny Tool Town](https://www.tinytooltown.com/) — most recently [vsrecent](https://github.com/calebrob6/vsrecent), a tiny Windows launcher for VS Code's "Open Recent" projects.
+## Software
+
+<div class="demo-grid">
+  <a class="demo-card" href="https://github.com/microsoft/torchgeo">
+    <div class="demo-card__body">
+      <p class="demo-card__title">TorchGeo</p>
+      <p class="demo-card__desc">PyTorch datasets, samplers, transforms, and pre-trained models for geospatial data. I am a co-creator and maintainer.</p>
+    </div>
+  </a>
+  <a class="demo-card" href="https://github.com/torchgeo/torchgeo-bench">
+    <div class="demo-card__body">
+      <p class="demo-card__title">torchgeo-bench</p>
+      <p class="demo-card__desc">Lightweight benchmarking of frozen geospatial foundation models on the GeoBench suites, with KNN and linear-probe metrics.</p>
+    </div>
+  </a>
+  <a class="demo-card" href="https://github.com/calebrob6/vsrecent">
+    <div class="demo-card__body">
+      <p class="demo-card__title">vsrecent</p>
+      <p class="demo-card__desc">Tiny Windows launcher for VS Code's "Open Recent" projects.</p>
+    </div>
+  </a>
+</div>
 
 
 ## Disaster response
