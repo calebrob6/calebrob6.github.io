@@ -3,21 +3,24 @@ title: "Survey Protocol Cards for Crop Maps"
 collection: publications
 permalink: /publication/2026-01-01-Survey-Protocol-Cards-for-Crop-Maps
 date: 2026-01-01
-venue: 'ICLR 2026 Workshop on Machine Learning for Remote Sensing (ML4RS)'
-paperurl: 'https://openreview.net/forum?id=Fqms9xeRpD'
-citation: 'Akram Zaytar, Girmaw Abebe Tadesse, Caleb Robinson, Gilles Quentin Hacheme, Inbal Becker-Reshef, Rahul Dodhia, Juan M Lavista Ferres. &quot;Survey Protocol Cards for Crop Maps.&quot; ICLR 2026 Workshop on Machine Learning for Remote Sensing (ML4RS), 2026.'
+venue: 'IEEE Geoscience and Remote Sensing Letters'
+paperurl: 'https://doi.org/10.1109/LGRS.2026.3708987'
+citation: 'Akram Zaytar, Girmaw A. Tadesse, Caleb Robinson, Shabarinath S. Nair, Gerald Blasch, Jeroen Degerickx, Mitelo Subakanya, Juan Carlos Laso Bayas, Gilles Q. Hacheme, Inbal Becker-Reshef, Rahul Dodhia, Juan Lavista Ferres. &quot;Survey Protocol Cards for Crop Maps.&quot; IEEE Geoscience and Remote Sensing Letters, 2026.'
 excerpt: ''
 ---
-[Paper](https://openreview.net/forum?id=Fqms9xeRpD){:target="_blank"}
+[Paper](https://doi.org/10.1109/LGRS.2026.3708987){:target="_blank"}
 
 
 Cite as: 
 ```bibtex
-@inproceedings{zaytar2026survey,
-    author = "Zaytar, Akram and Tadesse, Girmaw Abebe and Robinson, Caleb and Hacheme, Gilles Quentin and Becker-Reshef, Inbal and Dodhia, Rahul and Ferres, Juan M Lavista",
+@article{zaytar2026survey,
+    author = "Zaytar, Akram and Tadesse, Girmaw A. and Robinson, Caleb and Nair, Shabarinath S. and Blasch, Gerald and Degerickx, Jeroen and Subakanya, Mitelo and Laso Bayas, Juan Carlos and Hacheme, Gilles Q. and Becker-Reshef, Inbal and Dodhia, Rahul and Lavista Ferres, Juan",
     title = "Survey Protocol Cards for Crop Maps",
-    booktitle = "ICLR 2026 Workshop on Machine Learning for Remote Sensing (ML4RS)",
+    journal = "IEEE Geoscience and Remote Sensing Letters",
+    volume = "23",
+    pages = "2504404",
     year = "2026",
-    url = "https://openreview.net/forum?id=Fqms9xeRpD"
+    doi = "10.1109/LGRS.2026.3708987",
+    url = "https://doi.org/10.1109/LGRS.2026.3708987"
 }
 ```

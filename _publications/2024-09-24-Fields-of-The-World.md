@@ -26,7 +26,10 @@ Cite as:
 @inproceedings{kerner2024fields,
   title={Fields of The World: A Machine Learning Benchmark Dataset For Global Agricultural Field Boundary Segmentation},
   author={Kerner, Hannah and Chaudhari, Snehal and Ghosh, Aninda and Robinson, Caleb and Ahmad, Adeel and Choi, Eddie and Jacobs, Nathan and Holmes, Chris and Mohr, Matthias and Dodhia, Rahul and Ferres, Juan M Lavista and Marcus, Jennifer},
-  booktitle={AAAI Conference on Artificial Intelligence (AAAI)},
+  booktitle={Proceedings of the AAAI Conference on Artificial Intelligence (AAAI)},
+  volume={39},
+  number={27},
+  pages={28151--28159},
   year={2025}
 }
 ```
