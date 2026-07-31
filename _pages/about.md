@@ -123,6 +123,7 @@ Interactive demos of some of our recent work — click through to try them:
 - **Keynote** at the [EarthVision Workshop at CVPR 2026](https://www.grss-ieee.org/events/earthvision-2026/) — *From Local to Global Maps from Satellite Imagery: ML Techniques and Applications* (June 2026, Denver, CO)
 - **Invited talk** at the NOAA Northeast Fisheries Science Center AI 101 Symposium (May 2026)
 - **Keynote** at the [CV4EO Workshop at WACV 2026](https://geoai.ornl.gov/cv4eo-wacv/) — *Applied GeoML: From Local to Global* (March 2026, Tucson, AZ)
+- **Invited talk** at the [ITU AI for Good webinar](https://aiforgood.itu.int/event/mapping-connectivity-for-saving-lives-the-early-warning-connectivity-map-ewcm/) — *Mapping Connectivity for Saving Lives: The Early Warning Connectivity Map (EWCM)* (January 2026, online)
 
 
 ## News
