@@ -102,6 +102,13 @@ Interactive demos of some of our recent work — click through to try them:
       <p class="demo-card__desc">TEMPO: global temporal building density and height estimation from satellite imagery.</p>
     </div>
   </a>
+  <a class="demo-card" href="https://fieldsofthe.world/">
+    <img src="/assets/images/demos/project-fieldboundaries.jpg" alt="Fields of The World training samples" />
+    <div class="demo-card__body">
+      <p class="demo-card__title">Field Boundary Delineation</p>
+      <p class="demo-card__desc">Fields of The World: benchmark datasets, models, and global 10m maps for agricultural field boundary segmentation.</p>
+    </div>
+  </a>
   <a class="demo-card" href="https://github.com/microsoft/landcover">
     <img src="/assets/images/demos/project-landcover.jpg" alt="Land cover mapping web application" />
     <div class="demo-card__body">
@@ -111,7 +118,7 @@ Interactive demos of some of our recent work — click through to try them:
   </a>
 </div>
 
-The tooling behind these projects is open source: [microsoft/building-damage-assessment](https://github.com/microsoft/building-damage-assessment), [microsoft/haste](https://github.com/microsoft/haste), [microsoft/buildings](https://github.com/microsoft/buildings), and [microsoft/landcover](https://github.com/microsoft/landcover).
+The tooling behind these projects is open source: [microsoft/building-damage-assessment](https://github.com/microsoft/building-damage-assessment), [microsoft/haste](https://github.com/microsoft/haste), [microsoft/buildings](https://github.com/microsoft/buildings), [fieldsoftheworld/ftw-baselines](https://github.com/fieldsoftheworld/ftw-baselines), and [microsoft/landcover](https://github.com/microsoft/landcover).
 
 
 ## Talks
