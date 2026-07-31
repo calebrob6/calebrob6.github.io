@@ -5,7 +5,7 @@ permalink: /publication/2024-01-01-Bootstrapping-Rare-Object-Detection-in-High-R
 date: 2024-01-01
 venue: 'arXiv preprint arXiv:2403.02736'
 paperurl: 'https://arxiv.org/abs/2403.02736'
-citation: 'Akram Zaytar, Caleb Robinson, Gilles Hacheme, Girmaw Tadesse, Rahul Dodhia, Juan Ferres, Lacey Hughey, Jared Stabach, Irene Amoke. &quot;Bootstrapping Rare Object Detection in High-Resolution Satellite Imagery.&quot; arXiv preprint arXiv:2403.02736, 2024.'
+citation: 'Akram Zaytar, Caleb Robinson, Gilles Quentin Hacheme, Girmaw Abebe Tadesse, Rahul Dodhia, Juan M Lavista Ferres, Lacey Hughey, Jared Stabach, Irene Amoke. &quot;Bootstrapping Rare Object Detection in High-Resolution Satellite Imagery.&quot; arXiv preprint arXiv:2403.02736, 2024.'
 excerpt: ''
 ---
 [Paper](https://arxiv.org/abs/2403.02736){:target="_blank"}

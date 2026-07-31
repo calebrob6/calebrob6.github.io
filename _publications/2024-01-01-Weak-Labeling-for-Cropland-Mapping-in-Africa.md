@@ -5,7 +5,7 @@ permalink: /publication/2024-01-01-Weak-Labeling-for-Cropland-Mapping-in-Africa
 date: 2024-01-01
 venue: 'arXiv preprint arXiv:2401.07014'
 paperurl: 'https://arxiv.org/abs/2401.07014'
-citation: 'Gilles Hacheme, Akram Zaytar, Girmaw Tadesse, Caleb Robinson, Rahul Dodhia, Juan Ferres, Stephen Wood. &quot;Weak Labeling for Cropland Mapping in Africa.&quot; arXiv preprint arXiv:2401.07014, 2024.'
+citation: 'Gilles Quentin Hacheme, Akram Zaytar, Girmaw Abebe Tadesse, Caleb Robinson, Rahul Dodhia, Juan M Lavista Ferres, Stephen Wood. &quot;Weak Labeling for Cropland Mapping in Africa.&quot; arXiv preprint arXiv:2401.07014, 2024.'
 excerpt: 'We propose a simple method for extracting stronger labels from weak cropland labels and an unsupervised segmentation of satellite imagery. We show, in a scenario in Kenya where we only have 33 human-annotated labels, that adding strong labels mined by our method increases the F1 score for the cropland category from
 0.53 (without mining) to 0.84.
 <br/><br/>
