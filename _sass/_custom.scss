@@ -140,3 +140,24 @@
   color: mix(#fff, $text-color, 15%);
   margin: 0;
 }
+
+.demo-card__links {
+  margin: 0.5em 0 0;
+  font-size: 0.78em;
+  font-weight: 600;
+
+  a {
+    color: $accent-color;
+    text-decoration: none;
+
+    &:hover {
+      color: $accent-color-dark;
+      text-decoration: underline;
+    }
+  }
+}
+
+/* card images inside links keep the card's flush edges */
+.demo-card > a {
+  display: block;
+}

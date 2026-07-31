@@ -81,44 +81,47 @@ Interactive demos of some of our recent work — click through to try them:
 ## Projects
 
 <div class="demo-grid">
-  <a class="demo-card" href="https://visualizers.aiforgood.ai/damage-assessment/index.html">
-    <img src="/assets/images/demos/project-damage-assessment.jpg" alt="Building damage assessment example" />
+  <div class="demo-card">
+    <a href="https://visualizers.aiforgood.ai/damage-assessment/index.html"><img src="/assets/images/demos/project-damage-assessment.jpg" alt="Building damage assessment example" /></a>
     <div class="demo-card__body">
       <p class="demo-card__title">Building Damage Assessment</p>
       <p class="demo-card__desc">Rapid post-disaster mapping of building damage from satellite and aerial imagery, used by responders in the hours after an event.</p>
+      <p class="demo-card__links"><a href="https://visualizers.aiforgood.ai/damage-assessment/index.html">Visualizer</a> / <a href="https://arxiv.org/abs/2607.11838">Paper</a> / <a href="https://github.com/microsoft/building-damage-assessment">GitHub</a></p>
     </div>
-  </a>
-  <a class="demo-card" href="https://www.globalrenewableswatch.org/">
-    <img src="/assets/images/demos/project-grw.jpg" alt="Global Renewables Watch map" />
+  </div>
+  <div class="demo-card">
+    <a href="https://www.globalrenewableswatch.org/"><img src="/assets/images/demos/project-grw.jpg" alt="Global Renewables Watch map" /></a>
     <div class="demo-card__body">
       <p class="demo-card__title">Global Renewables Watch</p>
       <p class="demo-card__desc">A temporal dataset of global solar and wind energy installations derived from satellite imagery, with Planet and The Nature Conservancy.</p>
+      <p class="demo-card__links"><a href="https://www.globalrenewableswatch.org/">Visualizer</a> / <a href="https://arxiv.org/abs/2503.14860">Paper</a> / <a href="https://github.com/microsoft/global-renewables-watch">GitHub</a></p>
     </div>
-  </a>
-  <a class="demo-card" href="https://visualizers.aiforgood.ai/buildings/index.html">
-    <img src="/assets/images/demos/project-buildings.jpg" alt="Global building density map" />
+  </div>
+  <div class="demo-card">
+    <a href="https://visualizers.aiforgood.ai/buildings/index.html"><img src="/assets/images/demos/project-buildings.jpg" alt="Global building density map" /></a>
     <div class="demo-card__body">
       <p class="demo-card__title">Building Density and Height</p>
       <p class="demo-card__desc">TEMPO: global temporal building density and height estimation from satellite imagery.</p>
+      <p class="demo-card__links"><a href="https://visualizers.aiforgood.ai/buildings/index.html">Visualizer</a> / <a href="https://arxiv.org/abs/2511.12104">Paper</a> / <a href="https://github.com/microsoft/buildings">GitHub</a></p>
     </div>
-  </a>
-  <a class="demo-card" href="https://fieldsofthe.world/">
-    <img src="/assets/images/demos/project-fieldboundaries.jpg" alt="Fields of The World training samples" />
+  </div>
+  <div class="demo-card">
+    <a href="https://fieldsofthe.world/"><img src="/assets/images/demos/project-fieldboundaries.jpg" alt="Fields of The World training samples" /></a>
     <div class="demo-card__body">
       <p class="demo-card__title">Field Boundary Delineation</p>
       <p class="demo-card__desc">Fields of The World: benchmark datasets, models, and global 10m maps for agricultural field boundary segmentation.</p>
+      <p class="demo-card__links"><a href="https://fieldsofthe.world/">Visualizer</a> / <a href="https://arxiv.org/abs/2409.16252">Paper</a> / <a href="https://github.com/fieldsoftheworld/ftw-baselines">GitHub</a></p>
     </div>
-  </a>
-  <a class="demo-card" href="https://github.com/microsoft/landcover">
-    <img src="/assets/images/demos/project-landcover.jpg" alt="Land cover mapping web application" />
+  </div>
+  <div class="demo-card">
+    <a href="https://github.com/microsoft/landcover"><img src="/assets/images/demos/project-landcover.jpg" alt="Land cover mapping web application" /></a>
     <div class="demo-card__body">
       <p class="demo-card__title">Land Cover Mapping</p>
       <p class="demo-card__desc">High-resolution land cover mapping with human-in-the-loop model fine-tuning.</p>
+      <p class="demo-card__links"><a href="https://openaccess.thecvf.com/content_CVPR_2019/html/Robinson_Large_Scale_High-Resolution_Land_Cover_Mapping_With_Multi-Resolution_Data_CVPR_2019_paper.html">Paper</a> / <a href="https://github.com/microsoft/landcover">GitHub</a></p>
     </div>
-  </a>
+  </div>
 </div>
-
-The tooling behind these projects is open source: [microsoft/building-damage-assessment](https://github.com/microsoft/building-damage-assessment), [microsoft/haste](https://github.com/microsoft/haste), [microsoft/buildings](https://github.com/microsoft/buildings), [fieldsoftheworld/ftw-baselines](https://github.com/fieldsoftheworld/ftw-baselines), and [microsoft/landcover](https://github.com/microsoft/landcover).
 
 
 ## Talks
