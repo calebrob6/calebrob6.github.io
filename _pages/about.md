@@ -48,24 +48,28 @@ Interactive demos of some of our recent work — click through to try them:
 
 <div class="demo-grid">
   <a class="demo-card" href="https://github.com/microsoft/torchgeo">
+    <img src="/assets/images/demos/software-torchgeo.png" alt="TorchGeo logo" />
     <div class="demo-card__body">
       <p class="demo-card__title"><i class="fas fa-fw fa-globe"></i> TorchGeo</p>
       <p class="demo-card__desc">PyTorch datasets, samplers, transforms, and pre-trained models for geospatial data. I am a co-creator and maintainer.</p>
     </div>
   </a>
   <a class="demo-card" href="https://github.com/torchgeo/torchgeo-bench">
+    <img src="/assets/images/demos/software-torchgeo-bench.png" alt="TorchGeo logo sitting on a wooden bench" />
     <div class="demo-card__body">
       <p class="demo-card__title"><i class="fas fa-fw fa-gauge-high"></i> torchgeo-bench</p>
       <p class="demo-card__desc">Lightweight benchmarking of frozen geospatial foundation models on the GeoBench suites, with KNN and linear-probe metrics.</p>
     </div>
   </a>
   <a class="demo-card" href="https://github.com/microsoft/satellite-imagery-labeling-tool">
+    <img src="/assets/images/demos/software-labeling-tool.jpg" alt="Satellite Imagery Labeling Tool screenshot" />
     <div class="demo-card__body">
       <p class="demo-card__title"><i class="fas fa-fw fa-draw-polygon"></i> Satellite Imagery Labeling Tool</p>
       <p class="demo-card__desc">Lightweight web interface for creating and sharing vector annotations over satellite and aerial imagery scenes.</p>
     </div>
   </a>
   <a class="demo-card" href="https://github.com/calebrob6/vsrecent">
+    <img src="/assets/images/demos/software-vsrecent.jpg" alt="VS Recent launcher screenshot" />
     <div class="demo-card__body">
       <p class="demo-card__title"><i class="fas fa-fw fa-clock-rotate-left"></i> vsrecent</p>
       <p class="demo-card__desc">Tiny Windows launcher for VS Code's "Open Recent" projects.</p>
