@@ -1,10 +1,16 @@
 # main links links
 main:
-  - title: "Publications"
-    url: /publications/
+  - title: "Projects"
+    url: /#projects
 
   - title: "Demos"
     url: /#demos
+
+  - title: "Software"
+    url: /#software
+
+  - title: "Publications"
+    url: /publications/
 
   - title: "Visualizers"
     url: /visualizers/
