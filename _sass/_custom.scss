@@ -60,6 +60,13 @@
 
 /* --- content ------------------------------------------------------------- */
 
+/* reclaim the 2/12 right gutter reserved for the (unused) right sidebar */
+.page {
+  @include breakpoint($large) {
+    padding-right: 0;
+  }
+}
+
 .page__title {
   letter-spacing: -0.01em;
 }
