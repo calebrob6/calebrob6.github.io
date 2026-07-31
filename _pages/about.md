@@ -11,6 +11,43 @@ I am a Principal Research Scientist in the [Microsoft AI for Good Research Lab](
 
 I graduated from the Georgia Institute of Technology with a PhD in 2020 under the supervision of [Bistra Dilkina](https://viterbi.usc.edu/directory/faculty/Dilkina/Bistra) with a dissertation titled, ["Large scale machine learning for geospatial problems in computational sustainability"](https://repository.gatech.edu/entities/publication/af1a7913-e832-475e-a25b-d030dcb42bc5/full).
 
+I am also an adjunct faculty member at Arizona State University, where I taught CSE 475: Foundations of Machine Learning with [Hannah Kerner](https://hannah-rae.github.io/).
+
+
+## Demos
+{: #demos}
+
+Interactive demos of some of our recent work — click through to try them:
+
+<div class="demo-grid">
+  <a class="demo-card" href="https://calebrob.com/throughput-bench/">
+    <img src="/assets/images/demos/throughput-bench.jpg" alt="Throughput Bench" />
+    <div class="demo-card__body">
+      <p class="demo-card__title">Throughput Bench</p>
+      <p class="demo-card__desc">How fast can a deep learning model map the planet? Benchmark results for geospatial models across GPUs, precisions, and batch sizes.</p>
+    </div>
+  </a>
+  <a class="demo-card" href="https://calebrob.com/deltabit/">
+    <img src="/assets/images/demos/deltabit.jpg" alt="DeltaBit" />
+    <div class="demo-card__body">
+      <p class="demo-card__title">DeltaBit</p>
+      <p class="demo-card__desc">Label, train, and predict per-pixel change detection in the browser over compressed AlphaEarth embedding-difference tiles.</p>
+    </div>
+  </a>
+  <a class="demo-card" href="/static/s2-paint/">
+    <img src="/assets/images/demos/s2-paint.jpg" alt="Sentinel-2 Paint" />
+    <div class="demo-card__body">
+      <p class="demo-card__title">Sentinel-2 Paint</p>
+      <p class="demo-card__desc">Recreates any photo as a mosaic of real Sentinel-2 satellite imagery patches.</p>
+    </div>
+  </a>
+</div>
+
+
+## Disaster response
+
+Our group builds tools that help responders map building damage from satellite and aerial imagery in the hours after a disaster. Explore the [damage assessment visualizer](https://visualizers.aiforgood.ai/damage-assessment/index.html), or see the open-source tooling behind it: [microsoft/building-damage-assessment](https://github.com/microsoft/building-damage-assessment) and [microsoft/haste](https://github.com/microsoft/haste).
+
 
 ## News
 
