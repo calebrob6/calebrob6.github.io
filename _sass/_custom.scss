@@ -103,7 +103,8 @@
 }
 
 .demo-card {
-  display: block;
+  display: flex;
+  flex-direction: column;
   border: 1px solid mix(#fff, $gray, 78%);
   border-radius: 8px;
   overflow: hidden;
@@ -121,6 +122,10 @@
     }
   }
 
+  > a {
+    display: block;
+  }
+
   img {
     width: 100%;
     aspect-ratio: 16 / 10;
@@ -128,65 +133,57 @@
     display: block;
     border-bottom: 1px solid mix(#fff, $gray, 85%);
   }
-}
 
-.demo-card__body {
-  padding: 0.7em 0.9em 0.9em;
-}
+  .demo-card__body {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    padding: 0.7em 0.9em 0.8em;
 
-.demo-card__title {
-  font-family: $serif-heading;
-  font-size: 1.05em;
-  font-weight: 700;
-  margin: 0 0 0.25em;
-}
-
-.demo-card__desc {
-  font-size: 0.8em;
-  line-height: 1.45;
-  color: mix(#fff, $text-color, 15%);
-  margin: 0;
-}
-
-.demo-card {
-  display: flex;
-  flex-direction: column;
-}
-
-.demo-card__body {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-}
-
-.demo-card__stats {
-  margin: auto 0 0;
-  padding-top: 0.6em;
-  font-size: 0.72em;
-  color: mix(#fff, $text-color, 30%);
-
-  .fas {
-    font-size: 0.9em;
-  }
-}
-
-.demo-card__links {
-  margin: 0.5em 0 0;
-  font-size: 0.78em;
-  font-weight: 600;
-
-  a {
-    color: $accent-color;
-    text-decoration: none;
-
-    &:hover {
-      color: $accent-color-dark;
-      text-decoration: underline;
+    p {
+      margin: 0;
     }
   }
-}
 
-/* card images inside links keep the card's flush edges */
-.demo-card > a {
-  display: block;
+  .demo-card__title {
+    font-family: $serif-heading;
+    font-size: 1.05em;
+    font-weight: 700;
+    margin: 0 0 0.25em;
+  }
+
+  .demo-card__desc {
+    font-size: 0.8em;
+    line-height: 1.45;
+    color: mix(#fff, $text-color, 15%);
+  }
+
+  .demo-card__links {
+    margin-top: auto;
+    padding-top: 0.6em;
+    font-size: 0.78em;
+    font-weight: 600;
+
+    a {
+      color: $accent-color;
+      text-decoration: none;
+
+      &:hover {
+        color: $accent-color-dark;
+        text-decoration: underline;
+      }
+    }
+  }
+
+  .demo-card__stats {
+    margin-top: auto;
+    padding-top: 0.8em;
+    font-size: 0.62em;
+    letter-spacing: 0.02em;
+    color: mix(#fff, $text-color, 35%);
+
+    .fas {
+      font-size: 0.9em;
+    }
+  }
 }
