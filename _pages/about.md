@@ -102,7 +102,7 @@ Interactive demos of some of our recent work — click through to try them:
     <div class="demo-card__body">
       <p class="demo-card__title">Field Boundary Delineation</p>
       <p class="demo-card__desc">Fields of The World: benchmark datasets, models, and global 10m maps for agricultural field boundary segmentation.</p>
-      <p class="demo-card__links"><a href="https://fieldsofthe.world/ftw-inference-app/">App</a> / <a href="https://fieldsofthe.world/">Website</a> / <a href="https://github.com/fieldsoftheworld/ftw-baselines">GitHub</a> / Papers: <a href="https://arxiv.org/abs/2605.11055">Global Map</a> · <a href="https://arxiv.org/abs/2603.27101">PRUE</a> · <a href="https://arxiv.org/abs/2409.16252">FTW</a> · <a href="https://arxiv.org/abs/2607.04449">FTP</a></p>
+      <p class="demo-card__links"><a href="https://fieldsofthe.world/ftw-inference-app/">Visualizer</a> / <a href="https://fieldsofthe.world/">Website</a> / <a href="https://github.com/fieldsoftheworld/ftw-baselines">GitHub</a> / Papers: <a href="https://arxiv.org/abs/2605.11055">Global Map</a> · <a href="https://arxiv.org/abs/2603.27101">PRUE</a> · <a href="https://arxiv.org/abs/2409.16252">FTW</a> · <a href="https://arxiv.org/abs/2607.04449">FTP</a></p>
     </div>
   </div>
   <div class="demo-card">
