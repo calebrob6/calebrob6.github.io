@@ -12,6 +12,8 @@ builds automatically on push to `master` and serves at https://calebrob.com.
   ```bash
   for r in microsoft/torchgeo torchgeo/torchgeo-bench \
            microsoft/satellite-imagery-labeling-tool calebrob6/vsrecent \
+           calebrob6/dynamic_world_pytorch calebrob6/s2-superres \
+           calebrob6/maplibre-gl_components \
            calebrob6/throughput-bench calebrob6/deltabit calebrob6/sentinel2-paint; do
     s=$(gh api "repos/$r" --jq .stargazers_count)
     c=$(gh api -i "repos/$r/contributors?per_page=1" | grep -i "^link:" \

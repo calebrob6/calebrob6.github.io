@@ -113,6 +113,30 @@ Interactive demos of some of our recent work — click through to try them:
       <p class="demo-card__stats"><i class="fas fa-star" aria-hidden="true"></i> 294 &nbsp; <i class="fas fa-users" aria-hidden="true"></i> 7 contributors</p>
     </div>
   </a>
+  <a class="demo-card" href="https://github.com/calebrob6/dynamic_world_pytorch">
+    <img src="/assets/images/demos/software-dynamic-world.jpg" alt="Sentinel-2 imagery next to Dynamic World land cover predictions" />
+    <div class="demo-card__body">
+      <p class="demo-card__title">dynamic_world_pytorch</p>
+      <p class="demo-card__desc">PyTorch port of Google's Dynamic World 10m land cover model — a bit-exact match to the official TensorFlow weights.</p>
+      <p class="demo-card__stats"><i class="fas fa-star" aria-hidden="true"></i> 14 &nbsp; <i class="fas fa-users" aria-hidden="true"></i> 1 contributor</p>
+    </div>
+  </a>
+  <a class="demo-card" href="https://github.com/calebrob6/s2-superres">
+    <img src="/assets/images/demos/software-s2-superres.jpg" alt="Sentinel-2 super-resolution comparison" />
+    <div class="demo-card__body">
+      <p class="demo-card__title">s2-superres</p>
+      <p class="demo-card__desc">Multi-temporal Sentinel-2 super-resolution by optimization.</p>
+      <p class="demo-card__stats"><i class="fas fa-star" aria-hidden="true"></i> 13 &nbsp; <i class="fas fa-users" aria-hidden="true"></i> 1 contributor</p>
+    </div>
+  </a>
+  <a class="demo-card" href="https://github.com/calebrob6/maplibre-gl_components">
+    <img src="/assets/images/demos/software-maplibre.jpg" alt="Map swipe comparison illustration" />
+    <div class="demo-card__body">
+      <p class="demo-card__title">maplibre-gl_components</p>
+      <p class="demo-card__desc">Single-file MapLibre GL JS plugins: swipe map comparisons and Cloud Optimized GeoTIFF rendering, no build step or tile server.</p>
+      <p class="demo-card__stats"><i class="fas fa-star" aria-hidden="true"></i> 0 &nbsp; <i class="fas fa-users" aria-hidden="true"></i> 1 contributor</p>
+    </div>
+  </a>
   <a class="demo-card" href="https://github.com/calebrob6/vsrecent">
     <img src="/assets/images/demos/software-vsrecent.jpg" alt="VS Recent launcher screenshot" />
     <div class="demo-card__body">
