@@ -58,6 +58,13 @@
   text-decoration: none;
 }
 
+.author__last-updated {
+  margin: 0.9em 0 0;
+  font-size: 0.68em;
+  color: mix(#fff, $text-color, 45%);
+  font-family: $sans-serif;
+}
+
 /* --- content ------------------------------------------------------------- */
 
 /* reclaim the 2/12 right gutter reserved for the (unused) right sidebar */
