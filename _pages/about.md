@@ -116,7 +116,7 @@ Interactive demos of some of our recent work — click through to try them:
   <a class="demo-card" href="https://github.com/calebrob6/dynamic_world_pytorch">
     <img src="/assets/images/demos/software-dynamic-world.jpg" alt="Sentinel-2 imagery next to Dynamic World land cover predictions" />
     <div class="demo-card__body">
-      <p class="demo-card__title">dynamic_world_pytorch</p>
+      <p class="demo-card__title">Dynamic World in PyTorch</p>
       <p class="demo-card__desc">PyTorch port of Google's Dynamic World 10m land cover model — a bit-exact match to the official TensorFlow weights.</p>
       <p class="demo-card__stats"><i class="fas fa-star" aria-hidden="true"></i> 14 &nbsp; <i class="fas fa-users" aria-hidden="true"></i> 1 contributor</p>
     </div>
@@ -132,7 +132,7 @@ Interactive demos of some of our recent work — click through to try them:
   <a class="demo-card" href="https://github.com/calebrob6/maplibre-gl_components">
     <img src="/assets/images/demos/software-maplibre.jpg" alt="Map swipe comparison illustration" />
     <div class="demo-card__body">
-      <p class="demo-card__title">maplibre-gl_components</p>
+      <p class="demo-card__title">MapLibre GL Components</p>
       <p class="demo-card__desc">Single-file MapLibre GL JS plugins: swipe map comparisons and Cloud Optimized GeoTIFF rendering, no build step or tile server.</p>
       <p class="demo-card__stats"><i class="fas fa-star" aria-hidden="true"></i> 0 &nbsp; <i class="fas fa-users" aria-hidden="true"></i> 1 contributor</p>
     </div>
