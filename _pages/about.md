@@ -59,6 +59,14 @@ I am also an adjunct faculty member at Arizona State University, where I taught 
 Interactive demos of some of our recent work — click through to try them:
 
 <div class="demo-grid">
+  <a class="demo-card" href="https://calebrob.com/spokane-fire-visualizer/">
+    <img src="/assets/images/demos/spokane-fire-visualizer.jpg" alt="Spokane evacuation video beside a synchronized satellite map" />
+    <div class="demo-card__body">
+      <p class="demo-card__title">Spokane Fire Visualizer</p>
+      <p class="demo-card__desc">A 44-second wildfire evacuation video synchronized with post-fire Vantor imagery, highlighting an aerial retardant drop and 17 burned homes.</p>
+      <p class="demo-card__stats"><i class="fas fa-star" aria-hidden="true"></i> 0 &nbsp; <i class="fas fa-users" aria-hidden="true"></i> 1 contributor</p>
+    </div>
+  </a>
   <a class="demo-card" href="https://calebrob.com/throughput-bench/">
     <img src="/assets/images/demos/throughput-bench.jpg" alt="Throughput Bench" />
     <div class="demo-card__body">
